@@ -2,6 +2,8 @@
 
 [![Build Status](https://secure.travis-ci.org/graphhopper/graphhopper.png?branch=master)](http://travis-ci.org/graphhopper/graphhopper)
 
+[![CircleCI](https://circleci.com/gh/sidewalklabs/graphhopper.svg?style=svg)](https://circleci.com/gh/sidewalklabs/graphhopper)
+
 GraphHopper is a fast and memory efficient Java routing engine released under Apache License 2.0.
 Per default it uses OpenStreetMap and GTFS data but can import other data sources.
 
