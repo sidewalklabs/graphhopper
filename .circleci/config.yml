@@ -31,6 +31,4 @@ workflows:
   version: 2
   build-and-publish:
     jobs:
-      - publish-docker:
-          requires:
-            - build
+      - publish-docker
