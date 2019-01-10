@@ -9,5 +9,8 @@ server:
     port: 8998
     # for security reasons bind (localhost does not work with k8s svcs)
     bindHost: 0.0.0.0
+    acceptorThreads: 1
+    selectorThreads: 2
+    acceptQueueSize: 25
   requestLog:
       appenders: []
