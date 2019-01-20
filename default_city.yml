@@ -4,8 +4,8 @@ graphhopper:
   r5.link_speed_file: transit_data/graphhopper/r5_predicted_tt.csv
 
 server:
-  minThreads: 1
-  maxThreads: 2
+  minThreads: 4
+  maxThreads: 8
   applicationConnectors:
   - type: http
     port: 8998
