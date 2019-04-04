@@ -21,18 +21,23 @@ package com.graphhopper.reader.gtfs;
 import com.conveyal.gtfs.GTFSFeed;
 import com.conveyal.gtfs.model.Fare;
 import com.conveyal.gtfs.model.FareRule;
+import com.google.transit.realtime.GtfsRealtime;
 import com.graphhopper.gtfs.fare.FixedFareAttributeLoader;
 import com.graphhopper.storage.Directory;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.GraphExtension;
-import org.mapdb.*;
+import org.mapdb.Bind;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.HTreeMap;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.Serializable;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.nio.file.Files;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 import java.util.zip.ZipFile;
 
 public class GtfsStorage implements GraphExtension, GtfsStorageI {
@@ -95,7 +100,7 @@ public class GtfsStorage implements GraphExtension, GtfsStorageI {
 	private Map<Integer, byte[]> tripDescriptors;
 	private Map<Integer, Integer> stopSequences;
 
-	private Map<Integer, String> routes;
+	private Map<Integer, PlatformDescriptor> routes;
 
 	private Map<String, Fare> fares;
 	private Map<String, int[]> boardEdgesForTrip;
@@ -103,7 +108,7 @@ public class GtfsStorage implements GraphExtension, GtfsStorageI {
 
 	private Map<String, Integer> stationNodes;
 
-	enum EdgeType {
+	public enum EdgeType {
 		HIGHWAY, ENTER_TIME_EXPANDED_NETWORK, LEAVE_TIME_EXPANDED_NETWORK, ENTER_PT, EXIT_PT, HOP, DWELL, BOARD, ALIGHT, OVERNIGHT, TRANSFER, WAIT, WAIT_ARRIVAL
     }
 
@@ -149,13 +154,9 @@ public class GtfsStorage implements GraphExtension, GtfsStorageI {
 		this.data = DBMaker.newFileDB(new File(dir.getLocation() + "/transit_schedule")).transactionDisable().mmapFileEnable().readOnly().make();
 		init();
 		for (String gtfsFeedId : this.gtfsFeedIds) {
-			try {
-				GTFSFeed feed = new GTFSFeed(dir.getLocation() + "/" + gtfsFeedId);
-				this.gtfsFeeds.put(gtfsFeedId, feed);
-				this.transfers.put(gtfsFeedId, new Transfers(feed));
-			} catch (IOException | ExecutionException e) {
-				throw new RuntimeException(e);
-			}
+			GTFSFeed feed = new GTFSFeed(new File(dir.getLocation() + "/" + gtfsFeedId));
+			this.gtfsFeeds.put(gtfsFeedId, feed);
+			this.transfers.put(gtfsFeedId, new Transfers(feed));
 		}
 		return true;
 	}
@@ -193,12 +194,14 @@ public class GtfsStorage implements GraphExtension, GtfsStorageI {
 	}
 
 	void loadGtfsFromFile(String id, ZipFile zip) {
+		File file = new File(dir.getLocation() + "/" + id);
 		try {
-			GTFSFeed feed = new GTFSFeed(dir.getLocation() + "/" + id);
-			feed.loadFromFile(zip);
+			Files.deleteIfExists(file.toPath());
+			GTFSFeed feed = new GTFSFeed(file);
+			feed.loadFromFileAndLogErrors(zip);
 			fixFares(feed, zip);
 			this.gtfsFeeds.put(id, feed);
-		} catch (Exception e) {
+		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 		this.gtfsFeedIds.add(id);
@@ -276,7 +279,7 @@ public class GtfsStorage implements GraphExtension, GtfsStorageI {
 	}
 
     @Override
-    public Map<Integer, String> getRoutes() {
+    public Map<Integer, PlatformDescriptor> getRoutes() {
         return routes;
     }
 
@@ -299,8 +302,12 @@ public class GtfsStorage implements GraphExtension, GtfsStorageI {
 		return stationNodes;
 	}
 
-	static String tripKey(String tripId, String startTime) {
-		return tripId+startTime;
+	static String tripKey(GtfsRealtime.TripDescriptor tripDescriptor, boolean isFrequencyBased) {
+		if (isFrequencyBased) {
+			return tripDescriptor.getTripId()+tripDescriptor.getStartTime();
+		} else {
+			return tripDescriptor.getTripId();
+		}
 	}
 
 }

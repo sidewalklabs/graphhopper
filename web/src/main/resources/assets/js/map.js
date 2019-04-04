@@ -8,6 +8,7 @@ var menuStart;
 var menuIntermediate;
 var menuEnd;
 var elevationControl = null;
+var fullscreenControl = null;
 
 // Items added in every contextmenu.
 var defaultContextmenuItems;
@@ -15,32 +16,35 @@ var defaultContextmenuItems;
 // called if window changes or before map is created
 function adjustMapSize() {
     var mapDiv = $("#map");
-    var width = $(window).width() - 280;
-    if (width < 400) {
-        width = 400;
-        mapDiv.attr("style", "position: relative; float: right;");
-    } else {
-        mapDiv.attr("style", "position: absolute; right: 0;");
+
+    // ensure that map does never exceed current window width so that no scrollbars are triggered leading to a smaller total width
+    mapDiv.width(100);
+    if(fullscreenControl) {
+        fullscreenControl.updateClass();
+        if(fullscreenControl.isFullscreen()) {
+            mapDiv.height( $(window).height() ).width( $(window).width() );
+            $("#input").hide();
+            map.invalidateSize();
+            return;
+         }
     }
+
     var height = $(window).height();
-    if (height < 500)
-        height = 500;
+    height = height < 100? 100 : height;
 
-    mapDiv.width(width).height(height);
-    $("#input").height(height);
+    // to avoid height==0 for input_header etc ensure that it is not hidden
+    $("#input").show();
 
-    // console.log("adjustMapSize " + height + "x" + width);
-
-    // reduce info size depending on how heigh the input_header is and reserve space for footer
-    var instructionInfoMaxHeight = height - 60 -
-            $("#input_header").height() - $("#footer").height() - $(".route_description").height();
+    // reduce info size depending on how the height of the input_header is and reserve space for footer
+    var instructionInfoMaxHeight = height - 60 - $("#input_header").height() - $("#footer").height();
     var tabHeight = $("#route_result_tabs li").height();
-    if (!isNaN(tabHeight))
-        instructionInfoMaxHeight -= tabHeight;
+    instructionInfoMaxHeight -= isNaN(tabHeight)? 0 : tabHeight;
+    var routeDescHeight = $(".route_description").height();
+    instructionInfoMaxHeight -= isNaN(routeDescHeight)? 0 : routeDescHeight;
     $(".instructions_info").css("max-height", instructionInfoMaxHeight);
-
-    // reduce info size depending on how high the input_header is and reserve space for footer
-    // $("#info").css("height", height - $("#input_header").height() - 100);
+    var width = $(window).width() - $("#input").width() - 10;
+    mapDiv.width(width).height(height);
+    // somehow this does not work: map.invalidateSize();
 }
 
 function initMap(bounds, setStartCoord, setIntermediateCoord, setEndCoord, selectLayer, useMiles) {
@@ -106,9 +110,30 @@ function initMap(bounds, setStartCoord, setIntermediateCoord, setEndCoord, selec
         zoomOutTitle: translate.tr('zoom_out')
     }).addTo(map);
 
-    new L.Control.loading({
-        zoomControl: zoomControl
-    }).addTo(map);
+    var full = false;
+    L.Control.Fullscreen = L.Control.extend({
+        isFullscreen: function() {
+            return full;
+        },
+        updateClass: function() {
+            var container = this.getContainer();
+            L.DomUtil.setClass(container, full ? 'fullscreen-reverse-btn' : 'fullscreen-btn');
+            L.DomUtil.addClass(container, 'leaflet-control');
+        },
+        onAdd: function (map) {
+            var container = L.DomUtil.create('div', 'fullscreen-btn');
+            container.title = "Fullscreen Mode";
+            container.onmousedown = function(event) {
+                full = !full;
+                adjustMapSize();
+            };
+
+            return container;
+        }
+    });
+    fullscreenControl = new L.Control.Fullscreen({ position: 'topleft'}).addTo(map);
+
+    new L.Control.loading().addTo(map);
 
     L.control.layers(tileLayers.getAvailableTileLayers()/*, overlays*/).addTo(map);
 
@@ -179,6 +204,7 @@ function initMap(bounds, setStartCoord, setIntermediateCoord, setEndCoord, selec
             }]),
         contextmenuInheritItems: false
     };
+
 }
 
 function focus(coord, zoom, index) {
@@ -237,39 +263,98 @@ module.exports.focus = focus;
 module.exports.initMap = initMap;
 module.exports.adjustMapSize = adjustMapSize;
 
-module.exports.addElevation = function (geoJsonFeature, useMiles) {
+module.exports.addElevation = function (geoJsonFeature, useMiles, details) {
+    // TODO no option to switch to miles yet
+    var options = {
+       width: 600,
+       height: 280,
+       margins: {
+           top: 10,
+           right: 30,
+           bottom: 55,
+           left: 50
+       },
+       position: "bottomright"
+    }
+
+    var GHFeatureCollection = [];
+
+    for (var detailKey in details) {
+        GHFeatureCollection.push(sliceFeatureCollection(details[detailKey], detailKey, geoJsonFeature))
+    }
+
+    if(GHFeatureCollection.length === 0) {
+        // No Path Details => Show only elevation
+        geoJsonFeature.properties.attributeType = "elevation";
+        var elevationCollection = {
+            "type": "FeatureCollection",
+            "features": [geoJsonFeature],
+            "properties": {
+                "Creator": "GraphHopper",
+                "records": 1,
+                "summary": "Elevation"
+            }
+        };
+        GHFeatureCollection.push(elevationCollection);
+        // Use a fixed color for elevation
+        options.mappings = { Elevation: {'elevation': {text: 'Elevation [m]', color: '#27ce49'}}};
+    }
+
     if (elevationControl === null) {
-        elevationControl = L.control.elevation({
-            position: "bottomright",
-            theme: "white-theme", //default: lime-theme
-            width: 450,
-            height: 125,
-            margins: {
-                top: 10,
-                right: 20,
-                bottom: 30,
-                left: 60
-            },
-            useHeightIndicator: true, //if false a marker is drawn at map position
-            interpolation: "linear", //see https://github.com/mbostock/d3/wiki/SVG-Shapes#wiki-area_interpolate
-            hoverNumber: {
-                decimalsX: 2, //decimals on distance (in km or mi)
-                decimalsY: 0, //decimals on height (in m or ft)
-                formatter: undefined //custom formatter function may be injected
-            },
-            xTicks: undefined, //number of ticks in x axis, calculated by default according to width
-            yTicks: undefined, //number of ticks on y axis, calculated by default according to height
-            collapsed: false    //collapsed mode, show chart on click or mouseover
-        });
+        elevationControl = L.control.heightgraph(options);
         elevationControl.addTo(map);
     }
-    elevationControl.options.imperial = useMiles;
-    elevationControl.addData(geoJsonFeature);
+
+    elevationControl.addData(GHFeatureCollection);
 };
 
+function sliceFeatureCollection(detail, detailKey, geoJsonFeature){
+
+    var feature = {
+      "type": "FeatureCollection",
+      "features": [],
+      "properties": {
+          "Creator": "GraphHopper",
+          "summary": detailKey,
+          "records": detail.length
+      }
+    };
+
+    var points = geoJsonFeature.geometry.coordinates;
+    for (var i = 0; i < detail.length; i++) {
+        var detailObj = detail[i];
+        var from = detailObj[0];
+        // It's important to +1
+        // Array.slice is exclusive the to element and the feature needs to include the to coordinate
+        var to = detailObj[1] + 1;
+        var value = detailObj[2] || "Undefined";
+
+        var tmpPoints = points.slice(from,to)
+
+        feature.features.push({
+          "type": "Feature",
+          "geometry": {
+              "type": "LineString",
+              "coordinates": tmpPoints
+          },
+          "properties": {
+              "attributeType": value
+          }
+        });
+    }
+
+    return feature;
+}
+
 module.exports.clearElevation = function () {
-    if (elevationControl)
-        elevationControl.clear();
+    if (elevationControl){
+        if(elevationControl._markedSegments){
+            map.removeLayer(elevationControl._markedSegments);
+        }
+        // TODO this part is not really nice to remove and readd it to the map everytime
+        elevationControl.remove();
+        elevationControl = null;
+    }
 };
 
 module.exports.getMap = function () {
@@ -313,6 +398,7 @@ module.exports.createMarker = function (index, coord, setToEnd, setToStart, dele
     return L.marker([coord.lat, coord.lng], {
         icon: ((toFrom === FROM) ? iconFrom : ((toFrom === TO) ? iconTo : new L.NumberedDivIcon({number: index}))),
         draggable: true,
+        autoPan: true,
         contextmenu: true,
         contextmenuItems: defaultContextmenuItems.concat([{
                 text: translate.tr("marker") + ' ' + ((toFrom === FROM) ?
