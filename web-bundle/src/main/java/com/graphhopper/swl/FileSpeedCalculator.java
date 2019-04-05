@@ -19,7 +19,6 @@
 package com.graphhopper.swl;
 
 import com.csvreader.CsvReader;
-import com.graphhopper.GHRequest;
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.util.EdgeIteratorState;
 import org.slf4j.LoggerFactory;
@@ -60,7 +59,7 @@ public class FileSpeedCalculator implements SpeedCalculator {
     }
 
     @Override
-    public double getSpeed(EdgeIteratorState edgeState, boolean reverse, int currentTimeSeconds, String streetMode, GHRequest req, FlagEncoder encoder) {
+    public double getSpeed(EdgeIteratorState edgeState, boolean reverse, int currentTimeSeconds, String streetMode, FlagEncoder encoder) {
         if (linkTravelTimes != null && streetMode.equals("car")) {
             short[] speeds = linkTravelTimes.get(R5EdgeIds.getR5EdgeId(edgeState));
             if (speeds != null) {
@@ -69,7 +68,7 @@ public class FileSpeedCalculator implements SpeedCalculator {
                 return speedms;
             }
         }
-        return delegateTravelTimeCalculator.getSpeed(edgeState, reverse, currentTimeSeconds, streetMode, req, encoder);
+        return delegateTravelTimeCalculator.getSpeed(edgeState, reverse, currentTimeSeconds, streetMode, encoder);
     }
 
     private static Map<Integer, short[]> readTravelTimes(File file) {

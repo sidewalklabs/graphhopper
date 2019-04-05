@@ -18,11 +18,10 @@
 
 package com.graphhopper.swl;
 
-import com.graphhopper.GHRequest;
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.util.EdgeIteratorState;
 
 public interface SpeedCalculator {
-    double getSpeed(EdgeIteratorState edgeState, boolean reverse, int durationSeconds, String streetMode, GHRequest req, FlagEncoder encoder);
+    double getSpeed(EdgeIteratorState edgeState, boolean reverse, int durationSeconds, String streetMode, FlagEncoder encoder);
 
 }

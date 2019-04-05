@@ -18,14 +18,13 @@
 
 package com.graphhopper.swl;
 
-import com.graphhopper.GHRequest;
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.util.EdgeIteratorState;
 
 public class DefaultSpeedCalculator implements SpeedCalculator {
 
     @Override
-    public double getSpeed(EdgeIteratorState edgeState, boolean reverse, int durationSeconds, String streetMode, GHRequest req, FlagEncoder encoder) {
+    public double getSpeed(EdgeIteratorState edgeState, boolean reverse, int durationSeconds, String streetMode, FlagEncoder encoder) {
 
         double decimal = encoder.getAverageSpeedEnc().getDecimal(reverse, edgeState.getFlags());
 

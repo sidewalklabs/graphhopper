@@ -62,7 +62,7 @@ public class TDCarWeighting implements TDWeightingI {
 
     @Override
     public double calcTDWeight(EdgeIteratorState edge, boolean reverse, int prevOrNextEdgeId, long linkEnterTime) {
-        double speed = speedCalculator.getSpeed(edge, reverse, (int) (linkEnterTime / 1000), "car", null, encoder);
+        double speed = speedCalculator.getSpeed(edge, reverse, (int) (linkEnterTime / 1000), "car", encoder);
         if (speed == 0)
             return Double.POSITIVE_INFINITY;
 
@@ -78,7 +78,7 @@ public class TDCarWeighting implements TDWeightingI {
 
     @Override
     public long calcTDMillis(EdgeIteratorState edge, boolean reverse, int prevOrNextEdgeId, long linkEnterTime) {
-        double speed = speedCalculator.getSpeed(edge, reverse, (int) (linkEnterTime / 1000), "car", null, encoder);
+        double speed = speedCalculator.getSpeed(edge, reverse, (int) (linkEnterTime / 1000), "car", encoder);
         if (Double.isInfinite(speed) || Double.isNaN(speed) || speed < 0)
             throw new IllegalStateException("Invalid speed stored in edge! " + speed);
         if (speed == 0)
