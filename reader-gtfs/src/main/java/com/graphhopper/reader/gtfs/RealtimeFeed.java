@@ -211,9 +211,9 @@ public class RealtimeFeed {
             public EdgeIteratorState edge(int a, int b, double distance, boolean bothDirections) {
                 int edge = firstEdge++;
                 final VirtualEdgeIteratorState newEdge = new VirtualEdgeIteratorState(-1,
-                        edge, a, b, distance,0, "", new PointList());
+                        edge, a, b, distance, new byte[0], 0, "", new PointList());
                 final VirtualEdgeIteratorState reverseNewEdge = new VirtualEdgeIteratorState(-1,
-                        edge, b, a, distance,0, "", new PointList());
+                        edge, b, a, distance, new byte[0], 0, "", new PointList());
 
                 newEdge.setReverseEdge(reverseNewEdge);
                 reverseNewEdge.setReverseEdge(newEdge);

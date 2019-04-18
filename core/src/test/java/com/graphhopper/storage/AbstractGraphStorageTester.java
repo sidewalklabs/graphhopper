@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import javax.xml.bind.DatatypeConverter;
 
 import static com.graphhopper.util.GHUtility.count;
 import static org.junit.Assert.*;
@@ -281,12 +282,15 @@ public abstract class AbstractGraphStorageTester {
     @Test
     public void testCopyProperties() {
         graph = createGHStorage();
-        EdgeIteratorState edge = graph.edge(1, 3, 10, false).setName("testing").setWayGeometry(Helper.createPointList(1, 2));
+        String hexId = "3A713CD2B79EF7000EB13E5CAB455f78";
+        byte[] stableId = DatatypeConverter.parseHexBinary(hexId);
+        EdgeIteratorState edge = graph.edge(1, 3, 10, false).setStableId(stableId).setName("testing").setWayGeometry(Helper.createPointList(1, 2));
 
         EdgeIteratorState newEdge = graph.edge(1, 3, 10, false);
         edge.copyPropertiesTo(newEdge);
         assertEquals(edge.getName(), newEdge.getName());
         assertEquals(edge.getDistance(), newEdge.getDistance(), 1e-7);
+        assertArrayEquals(edge.getStableId(), newEdge.getStableId());
         assertEquals(edge.getFlags(), newEdge.getFlags());
         assertEquals(edge.fetchWayGeometry(0), newEdge.fetchWayGeometry(0));
     }
@@ -960,6 +964,35 @@ public abstract class AbstractGraphStorageTester {
 
         assertEquals("named street1", graph.getEdgeIteratorState(iter1.getEdge(), iter1.getAdjNode()).getName());
         assertEquals("named street2", graph.getEdgeIteratorState(iter2.getEdge(), iter2.getAdjNode()).getName());
+    }
+
+    @Test
+    public void testStableId() {
+        Directory dir = new RAMDirectory();
+        String hexId = "3A713CD2B79EF7000EB13E5CAB455f78";
+        List<FlagEncoder> list = new ArrayList<FlagEncoder>();
+        list.add(new TmpCarFlagEncoder(29, 0.001, 0) {
+            @Override
+            public String toString() {
+                return "car2";
+            }
+        });
+        list.add(new TmpCarFlagEncoder(29, 0.001, 0));
+        EncodingManager manager = new EncodingManager(list, 8);
+        graph = new GraphHopperStorage(dir, manager, false, new GraphExtension.NoOpExtension()).create(defaultSize);
+        byte[] expStableId = DatatypeConverter.parseHexBinary(hexId);
+        EdgeIteratorState edge = graph.edge(0, 1);
+        edge.setStableId(expStableId);
+        assertEquals(16, edge.getStableId().length);
+        graph.close();
+
+        graph = new GraphHopperStorage(dir, manager, false, new GraphExtension.NoOpExtension()).create(defaultSize);
+
+        edge = graph.edge(0, 1);
+        edge.setStableId(expStableId);
+        EdgeIteratorState edgeIter = GHUtility.getEdge(graph, 1, 0);
+        byte[] stableId = edgeIter.getStableId();
+        assertArrayEquals(expStableId, stableId);
     }
 
     @Test

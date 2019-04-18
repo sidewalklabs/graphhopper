@@ -23,22 +23,22 @@ import com.graphhopper.util.details.AbstractPathDetailsBuilder;
 
 public class R5EdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
     private final OriginalDirectionFlagEncoder originalDirectionFlagEncoder;
-    private int edgeId;
+    private String edgeId;
 
     public R5EdgeIdPathDetailsBuilder(OriginalDirectionFlagEncoder originalDirectionFlagEncoder) {
         super("r5_edge_id");
         this.originalDirectionFlagEncoder = originalDirectionFlagEncoder;
-        edgeId = -1;
+        edgeId = "";
     }
 
     @Override
     public boolean isEdgeDifferentToLastEdge(EdgeIteratorState edge) {
-        int newEdgeId = R5EdgeIds.getR5EdgeId(originalDirectionFlagEncoder, edge);
-        if (newEdgeId != edgeId) {
-            edgeId = newEdgeId;
-            return true;
+        String newEdgeId = R5EdgeIds.getR5EdgeId(originalDirectionFlagEncoder, edge);
+        if (newEdgeId.equals(edgeId)) {
+            return false;
         }
-        return false;
+        edgeId = newEdgeId;
+        return true;
     }
 
     @Override

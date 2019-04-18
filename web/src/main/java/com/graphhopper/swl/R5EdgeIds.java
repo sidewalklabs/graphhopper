@@ -22,16 +22,19 @@ import com.graphhopper.routing.VirtualEdgeIteratorState;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GHUtility;
 
+import javax.xml.bind.DatatypeConverter;
+
 public class R5EdgeIds {
 
-    static int getR5EdgeId(OriginalDirectionFlagEncoder originalDirectionFlagEncoder, EdgeIteratorState edge) {
-        final int ghEdgeKey;
+    static String getR5EdgeId(OriginalDirectionFlagEncoder originalDirectionFlagEncoder, EdgeIteratorState edge) {
+        final String ghEdgeKey;
         if (edge instanceof VirtualEdgeIteratorState) {
-            ghEdgeKey = GHUtility.getEdgeFromEdgeKey(((VirtualEdgeIteratorState) edge).getOriginalTraversalKey());
+            ghEdgeKey = String.valueOf(GHUtility.getEdgeFromEdgeKey(((VirtualEdgeIteratorState) edge).getOriginalTraversalKey()));
         } else {
-            ghEdgeKey = edge.getEdge();
+            // Convert byte array to hex
+            ghEdgeKey = DatatypeConverter.printHexBinary(edge.getStableId());
         }
-        return ghEdgeKey * 2 + (originalDirectionFlagEncoder.isOriginalDirection(edge.getFlags()) ? 0 : 1);
+        return ghEdgeKey;
     }
 
 }

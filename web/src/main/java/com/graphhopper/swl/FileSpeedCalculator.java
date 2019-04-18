@@ -39,7 +39,7 @@ public class FileSpeedCalculator implements SpeedCalculator {
     private final OriginalDirectionFlagEncoder encoder;
     private final SpeedCalculator delegateTravelTimeCalculator;
 
-    private Map<Integer, short[]> linkTravelTimes;
+    private Map<String, short[]> linkTravelTimes;
 
     /**
      *  The class behaves differently, depending on the value of the parameter.
@@ -73,14 +73,16 @@ public class FileSpeedCalculator implements SpeedCalculator {
         return delegateTravelTimeCalculator.getSpeed(edgeState, reverse, currentTimeSeconds, streetMode, req);
     }
 
-    private static Map<Integer, short[]> readTravelTimes(File file) {
-        Map<Integer, short[]> res = new HashMap<>();
+    private static Map<String, short[]> readTravelTimes(File file) {
+        Map<String, short[]> res = new HashMap<>();
         LOG.warn("Processing {}", file.toString());
         try (InputStream is = new FileInputStream(file)) {
             CsvReader reader = new CsvReader(is, ',', Charset.forName("UTF-8"));
             reader.readHeaders();
             while (reader.readRecord()) {
-                int edgeId = Integer.parseInt(reader.get("edgeId"));
+                String edgeId = reader.get("stableEdgeId");
+                // stableEdgeId needs to be in bytes
+
                 int[] speeds = IntStream.range(0, 24).mapToObj(Integer::toString).flatMap(hour -> {
                     try {
                         return Stream.of(Short.parseShort(reader.get(hour + "h_1")),
