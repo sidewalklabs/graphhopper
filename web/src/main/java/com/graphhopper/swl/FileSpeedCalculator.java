@@ -81,8 +81,6 @@ public class FileSpeedCalculator implements SpeedCalculator {
             reader.readHeaders();
             while (reader.readRecord()) {
                 String edgeId = reader.get("stableEdgeId");
-                // stableEdgeId needs to be in bytes
-
                 int[] speeds = IntStream.range(0, 24).mapToObj(Integer::toString).flatMap(hour -> {
                     try {
                         return Stream.of(Short.parseShort(reader.get(hour + "h_1")),
