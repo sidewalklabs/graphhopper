@@ -1,7 +1,6 @@
 /*
  *  Licensed to GraphHopper GmbH under one or more contributor
  *  license agreements. See the NOTICE file distributed with this work for 
- * 
  *  additional information regarding copyright ownership.
  *  GraphHopper GmbH licenses this file to you under the Apache License, 
  *  Version 2.0 (the "License"); you may not use this file except in 
@@ -80,8 +79,8 @@ abstract class EdgeAccess {
     }
 
     final void setStableId(long edgePointer, byte[] stableId) {
-        if (stableId.length > STABLE_ID_SIZE)
-            throw new IllegalArgumentException("stable ID cannot be more than 16 bytes: " + DatatypeConverter.printHexBinary(stableId));
+        if (stableId.length > STABLE_ID_SIZE || stableId.length < STABLE_ID_SIZE)
+            throw new IllegalArgumentException("stable ID must be 16 bytes: " + DatatypeConverter.printHexBinary(stableId));
 
         edges.setInt(edgePointer + E_STABLE_ID, bitUtil.toInt(stableId, 0));
         edges.setInt(edgePointer + E_STABLE_ID + 4, bitUtil.toInt(stableId, 4));
@@ -90,7 +89,7 @@ abstract class EdgeAccess {
     }
 
     /**
-     * returns stable id (byte array)
+     * Returns edge's stable id (MD5 hash as byte array)
      */
     final byte[] getStableId(long pointer) {
         int idPt1 = edges.getInt(pointer + E_STABLE_ID);
