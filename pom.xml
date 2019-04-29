@@ -203,6 +203,13 @@
                 </configuration>
             </plugin>
         </plugins>
+        <extensions>
+            <extension>
+                <groupId>com.gkatzioura.maven.cloud</groupId>
+                <artifactId>google-storage-wagon</artifactId>
+                <version>1.7</version>
+            </extension>
+        </extensions>
     </build>
 
     <distributionManagement>
@@ -295,7 +302,24 @@
                 <module>android/app</module>
             </modules>
         </profile>
-
+        <profile>
+            <id>replica-repo</id>
+            <activation>
+                <property>
+                    <name>useReplicaRepo</name>
+                </property>
+            </activation>
+            <distributionManagement>
+                <snapshotRepository>
+                    <id>gh-replica-gcs-snapshot</id>
+                    <url>gs://model-maven-repo/snapshot</url>
+                </snapshotRepository>
+                <repository>
+                    <id>gh-replica-gcs-release</id>
+                    <url>gs://model-maven-repo/release</url>
+                </repository>
+            </distributionManagement>
+        </profile>
     </profiles>
 
 </project>
