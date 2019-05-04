@@ -133,6 +133,16 @@ public class WrapperGraph implements Graph {
             }
 
             @Override
+            public byte[] getStableId() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public EdgeIteratorState setStableId(byte[] stableId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public long getFlags() {
                 throw new UnsupportedOperationException();
             }

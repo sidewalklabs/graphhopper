@@ -22,17 +22,23 @@ import com.graphhopper.util.BitUtil;
 import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.EdgeIteratorState;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import javax.xml.bind.DatatypeConverter;
+
 /**
  * @author Peter Karich
  */
 abstract class EdgeAccess {
     static final int NO_NODE = -1;
+    // Size in bytes
+    static final int STABLE_ID_SIZE = 16;
     // distance of around +-1000 000 meter are ok
     private static final double INT_DIST_FACTOR = 1000d;
     static double MAX_DIST = (Integer.MAX_VALUE - 1) / INT_DIST_FACTOR;
     final DataAccess edges;
     private final BitUtil bitUtil;
-    int E_NODEA, E_NODEB, E_LINKA, E_LINKB, E_DIST, E_FLAGS;
+    int E_NODEA, E_NODEB, E_LINKA, E_LINKB, E_DIST, E_STABLE_ID, E_FLAGS;
     private boolean flagsSizeIsLong;
 
     EdgeAccess(DataAccess edges, BitUtil bitUtil) {
@@ -40,13 +46,14 @@ abstract class EdgeAccess {
         this.bitUtil = bitUtil;
     }
 
-    final void init(int E_NODEA, int E_NODEB, int E_LINKA, int E_LINKB, int E_DIST, int E_FLAGS, boolean flagsSizeIsLong) {
+    final void init(int E_NODEA, int E_NODEB, int E_LINKA, int E_LINKB, int E_DIST, int E_STABLE_ID, int E_FLAGS, boolean flagsSizeIsLong) {
         this.E_NODEA = E_NODEA;
         this.E_NODEB = E_NODEB;
         this.E_LINKA = E_LINKA;
         this.E_LINKB = E_LINKB;
         this.E_DIST = E_DIST;
         this.E_FLAGS = E_FLAGS;
+        this.E_STABLE_ID = E_STABLE_ID;
         this.flagsSizeIsLong = flagsSizeIsLong;
     }
 
@@ -70,6 +77,30 @@ abstract class EdgeAccess {
 
     final void setDist(long edgePointer, double distance) {
         edges.setInt(edgePointer + E_DIST, distToInt(distance));
+    }
+
+    final void setStableId(long edgePointer, byte[] stableId) {
+        if (stableId.length > STABLE_ID_SIZE || stableId.length < STABLE_ID_SIZE)
+            throw new IllegalArgumentException("stable ID must be 16 bytes: " + DatatypeConverter.printHexBinary(stableId));
+
+        edges.setInt(edgePointer + E_STABLE_ID, bitUtil.toInt(stableId, 0));
+        edges.setInt(edgePointer + E_STABLE_ID + 4, bitUtil.toInt(stableId, 4));
+        edges.setInt(edgePointer + E_STABLE_ID + 8, bitUtil.toInt(stableId, 8));
+        edges.setInt(edgePointer + E_STABLE_ID + 12, bitUtil.toInt(stableId, 12));
+    }
+
+    /**
+     * Returns edge's stable id (MD5 hash as byte array)
+     */
+    final byte[] getStableId(long pointer) {
+        int idPt1 = edges.getInt(pointer + E_STABLE_ID);
+        int idPt2 = edges.getInt(pointer + E_STABLE_ID + 4);
+        int idPt3 = edges.getInt(pointer + E_STABLE_ID + 8);
+        int idPt4 = edges.getInt(pointer + E_STABLE_ID + 12);
+        int[] edgeInts = new int[] {idPt1, idPt2, idPt3, idPt4};
+        byte[] stableId = bitUtil.fromInts(edgeInts);
+
+        return stableId;
     }
 
     /**
