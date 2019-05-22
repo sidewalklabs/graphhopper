@@ -112,12 +112,6 @@ public abstract class BitUtil {
         fromInt(bytes, value, 0);
     }
 
-    public final byte[] fromInts(int[] values) {
-        byte[] bytes = new byte[4 * values.length];
-        fromInts(bytes, values);
-        return bytes;
-    }
-
     public final byte[] fromShort(short value) {
         byte[] bytes = new byte[4];
         fromShort(bytes, value, 0);
@@ -131,8 +125,6 @@ public abstract class BitUtil {
     public abstract void fromShort(byte[] bytes, short value, int offset);
 
     public abstract void fromInt(byte[] bytes, int value, int offset);
-
-    public abstract void fromInts(byte[] bytes, int[] values);
 
     public final long toLong(byte[] b) {
         return toLong(b, 0);

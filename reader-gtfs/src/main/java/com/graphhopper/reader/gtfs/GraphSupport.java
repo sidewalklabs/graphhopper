@@ -140,17 +140,6 @@ class GraphSupport {
                     }
 
                     @Override
-                    public byte[] getStableId() {
-                        return edge.getStableId();
-                    }
-
-                    @Override
-                    public EdgeIteratorState setStableId(byte[] stableId) {
-                        edge.setStableId(stableId);
-                        return this;
-                    }
-
-                    @Override
                     public long getFlags() {
                         return edge.getFlags();
                     }

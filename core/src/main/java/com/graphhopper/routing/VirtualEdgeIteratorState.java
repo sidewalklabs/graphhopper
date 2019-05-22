@@ -36,20 +36,18 @@ public class VirtualEdgeIteratorState implements EdgeIteratorState, CHEdgeIterat
     private final int adjNode;
     private final int originalTraversalKey;
     private double distance;
-    private byte[] stableId;
     private long flags;
     private String name;
     // indication if edges are dispreferred as start/stop edge 
     private boolean unfavored;
     private EdgeIteratorState reverseEdge;
 
-    public VirtualEdgeIteratorState(int originalTraversalKey, int edgeId, int baseNode, int adjNode, double distance, byte[] stableId, long flags, String name, PointList pointList) {
+    public VirtualEdgeIteratorState(int originalTraversalKey, int edgeId, int baseNode, int adjNode, double distance, long flags, String name, PointList pointList) {
         this.originalTraversalKey = originalTraversalKey;
         this.edgeId = edgeId;
         this.baseNode = baseNode;
         this.adjNode = adjNode;
         this.distance = distance;
-        this.stableId = stableId;
         this.flags = flags;
         this.name = name;
         this.pointList = pointList;
@@ -113,17 +111,6 @@ public class VirtualEdgeIteratorState implements EdgeIteratorState, CHEdgeIterat
     @Override
     public EdgeIteratorState setDistance(double dist) {
         this.distance = dist;
-        return this;
-    }
-
-    @Override
-    public byte[] getStableId() {
-        return stableId;
-    }
-
-    @Override
-    public EdgeIteratorState setStableId(byte[] stableId) {
-        this.stableId = stableId;
         return this;
     }
 

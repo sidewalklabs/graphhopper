@@ -36,10 +36,6 @@ public interface EdgeIteratorState {
      */
     int getEdge();
 
-    byte[] getStableId();
-
-    EdgeIteratorState setStableId(byte[] stableId);
-
     /**
      * Returns the node used to instantiate the EdgeIterator. Example: "EdgeIterator iter =
      * graph.getEdges(baseNode)". Often only used for convenience reasons. Do not confuse this with

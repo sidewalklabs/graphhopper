@@ -228,7 +228,6 @@ class BaseGraph implements Graph {
                 nextEdgeEntryIndex(4),
                 nextEdgeEntryIndex(4),
                 nextEdgeEntryIndex(4),
-                nextEdgeEntryIndex(16),
                 nextEdgeEntryIndex(encodingManager.getBytesForFlags()),
                 flagsSizeIsLong);
 
@@ -441,7 +440,6 @@ class BaseGraph implements Graph {
     EdgeIteratorState copyProperties(CommonEdgeIterator from, EdgeIteratorState to) {
         to.setDistance(from.getDistance()).
                 setName(from.getName()).
-                setStableId(from.getStableId()).
                 setFlags(from.getDirectFlags()).
                 setWayGeometry(from.fetchWayGeometry(0));
 
@@ -1097,19 +1095,8 @@ class BaseGraph implements Graph {
         }
 
         @Override
-        public final byte[] getStableId() {
-            return edgeAccess.getStableId(edgePointer);
-        }
-
-        @Override
         public final EdgeIteratorState setDistance(double dist) {
             edgeAccess.setDist(edgePointer, dist);
-            return this;
-        }
-
-        @Override
-        public final EdgeIteratorState setStableId(byte[] stableId) {
-            edgeAccess.setStableId(edgePointer, stableId);
             return this;
         }
 

@@ -53,16 +53,6 @@ public class BitUtilBig extends BitUtil {
     }
 
     @Override
-    public final void fromInts(byte[] bytes, int[] values) {
-        int offset = 0;
-        
-        for(int i=values.length - 1; i >= 0; i--){
-            fromInt(bytes, values[i], offset);
-            offset += 4;
-        }
-    }
-
-    @Override
     public final long toLong(int int0, int int1) {
         return ((long) int0 << 32) | (int1 & 0xFFFFFFFFL);
     }

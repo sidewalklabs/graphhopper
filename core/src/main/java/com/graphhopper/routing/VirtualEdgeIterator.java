@@ -100,16 +100,6 @@ class VirtualEdgeIterator implements EdgeIterator, CHEdgeIteratorState {
     }
 
     @Override
-    public byte[] getStableId() {
-        return edges.get(current).getStableId();
-    }
-
-    @Override
-    public EdgeIteratorState setStableId(byte[] stableId) {
-        return edges.get(current).setStableId(stableId);
-    }
-
-    @Override
     public long getFlags() {
         return edges.get(current).getFlags();
     }
