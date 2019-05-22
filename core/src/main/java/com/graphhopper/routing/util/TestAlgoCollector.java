@@ -1,14 +1,14 @@
 /*
  *  Licensed to GraphHopper GmbH under one or more contributor
- *  license agreements. See the NOTICE file distributed with this work for 
+ *  license agreements. See the NOTICE file distributed with this work for
  *  additional information regarding copyright ownership.
- * 
- *  GraphHopper GmbH licenses this file to you under the Apache License, 
- *  Version 2.0 (the "License"); you may not use this file except in 
+ *
+ *  GraphHopper GmbH licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except in
  *  compliance with the License. You may obtain a copy of the License at
- * 
+ *
  *       http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -36,7 +36,7 @@ import java.util.Locale;
  * @author Peter Karich
  */
 public class TestAlgoCollector {
-    public final List<String> errors = new ArrayList<String>();
+    public final List<String> errors = new ArrayList<>();
     private final String name;
     private final DistanceCalc distCalc = Helper.DIST_EARTH;
     private final TranslationMap trMap = new TranslationMap().doImport();
@@ -45,7 +45,7 @@ public class TestAlgoCollector {
         this.name = name;
     }
 
-    public TestAlgoCollector assertDistance(AlgoHelperEntry algoEntry, List<QueryResult> queryList,
+    public TestAlgoCollector assertDistance(EncodingManager encodingManager, AlgoHelperEntry algoEntry, List<QueryResult> queryList,
                                             OneRun oneRun) {
         List<Path> altPaths = new ArrayList<>();
         QueryGraph queryGraph = new QueryGraph(algoEntry.getForQueryGraph());
@@ -78,7 +78,7 @@ public class TestAlgoCollector {
                 setSimplifyResponse(false).
                 setEnableInstructions(true);
         PathWrapper rsp = new PathWrapper();
-        pathMerger.doWork(rsp, altPaths, trMap.getWithFallBack(Locale.US));
+        pathMerger.doWork(rsp, altPaths, encodingManager, trMap.getWithFallBack(Locale.US));
 
         if (rsp.hasErrors()) {
             errors.add("response for " + algoEntry + " contains errors. Expected distance: " + oneRun.getDistance()
@@ -97,7 +97,7 @@ public class TestAlgoCollector {
         if (Math.abs(rsp.getDistance() - oneRun.getDistance()) > 2) {
             errors.add(algoEntry + " returns path not matching the expected distance of " + oneRun.getDistance()
                     + "\t Returned was " + rsp.getDistance() + "\t (expected points " + oneRun.getLocs()
-                    + ", was " + pointList.getSize() + ") " + queryList);
+                    + ", was " + pointList.getSize() + ") " + "\t (weight " + rsp.getRouteWeight() + ") " + queryList);
         }
 
         // There are real world instances where A-B-C is identical to A-C (in meter precision).
@@ -194,7 +194,7 @@ public class TestAlgoCollector {
     }
 
     public static class OneRun {
-        private final List<AssumptionPerPath> assumptions = new ArrayList<AssumptionPerPath>();
+        private final List<AssumptionPerPath> assumptions = new ArrayList<>();
 
         public OneRun() {
         }
@@ -234,7 +234,7 @@ public class TestAlgoCollector {
         }
 
         public List<QueryResult> getList(LocationIndex idx, EdgeFilter edgeFilter) {
-            List<QueryResult> qr = new ArrayList<QueryResult>();
+            List<QueryResult> qr = new ArrayList<>();
             for (AssumptionPerPath p : assumptions) {
                 qr.add(idx.findClosest(p.lat, p.lon, edgeFilter));
             }

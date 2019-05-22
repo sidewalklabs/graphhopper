@@ -1,14 +1,14 @@
 /*
  *  Licensed to GraphHopper GmbH under one or more contributor
- *  license agreements. See the NOTICE file distributed with this work for 
+ *  license agreements. See the NOTICE file distributed with this work for
  *  additional information regarding copyright ownership.
- * 
- *  GraphHopper GmbH licenses this file to you under the Apache License, 
- *  Version 2.0 (the "License"); you may not use this file except in 
+ *
+ *  GraphHopper GmbH licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except in
  *  compliance with the License. You may obtain a copy of the License at
- * 
+ *
  *       http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,12 +20,13 @@ package com.graphhopper.routing;
 import com.carrotsearch.hppc.IntObjectMap;
 import com.graphhopper.coll.GHIntObjectHashMap;
 import com.graphhopper.routing.util.TraversalMode;
-import com.graphhopper.routing.weighting.TDWeightingI;
+import com.graphhopper.routing.weighting.TDWeighting;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.SPTEntry;
 import com.graphhopper.util.EdgeExplorer;
 import com.graphhopper.util.EdgeIterator;
+import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.Parameters;
 
 import java.util.PriorityQueue;
@@ -51,16 +52,16 @@ public class Dijkstra extends AbstractRoutingAlgorithm {
     }
 
     protected void initCollections(int size) {
-        fromHeap = new PriorityQueue<SPTEntry>(size);
-        fromMap = new GHIntObjectHashMap<SPTEntry>(size);
+        fromHeap = new PriorityQueue<>(size);
+        fromMap = new GHIntObjectHashMap<>(size);
     }
 
     @Override
     public Path calcPath(int from, int to) {
-        if (weighting instanceof TDWeightingI) throw new RuntimeException();
+        if (weighting instanceof TDWeighting) throw new RuntimeException();
         checkAlreadyRun();
         this.to = to;
-        currEdge = createSPTEntry(from, 0);
+        currEdge = new SPTEntry(from, 0);
         currEdge.time = 0;
         if (!traversalMode.isEdgeBased()) {
             fromMap.put(from, currEdge);
@@ -71,10 +72,10 @@ public class Dijkstra extends AbstractRoutingAlgorithm {
 
     @Override
     public Path calcTDPath(int from, int to, long at) {
-        if (!(weighting instanceof TDWeightingI)) throw new RuntimeException();
+        if (!(weighting instanceof TDWeighting)) throw new RuntimeException();
         checkAlreadyRun();
         this.to = to;
-        currEdge = createSPTEntry(from, 0);
+        currEdge = new SPTEntry(from, 0);
         currEdge.time = at;
         if (!traversalMode.isEdgeBased()) {
             fromMap.put(from, currEdge);
@@ -98,8 +99,8 @@ public class Dijkstra extends AbstractRoutingAlgorithm {
 
                 int traversalId = traversalMode.createTraversalId(iter, false);
                 double tmpWeight;
-                if (weighting instanceof TDWeightingI) {
-                    tmpWeight = ((TDWeightingI) weighting).calcTDWeight(iter, false, currEdge.edge, currEdge.time) + currEdge.weight;
+                if (weighting instanceof TDWeighting) {
+                    tmpWeight = ((TDWeighting) weighting).calcTDWeight(iter, false, currEdge.edge, currEdge.time) + currEdge.weight;
                 } else {
                     tmpWeight = weighting.calcWeight(iter, false, currEdge.edge) + currEdge.weight;
                 }
@@ -110,8 +111,8 @@ public class Dijkstra extends AbstractRoutingAlgorithm {
                 if (nEdge == null) {
                     nEdge = new SPTEntry(iter.getEdge(), iter.getAdjNode(), tmpWeight);
                     nEdge.parent = currEdge;
-                    if (weighting instanceof TDWeightingI) {
-                        nEdge.time = ((TDWeightingI) weighting).calcTDMillis(iter, false, currEdge.edge, currEdge.time) + currEdge.time;
+                    if (weighting instanceof TDWeighting) {
+                        nEdge.time = ((TDWeighting) weighting).calcTDMillis(iter, false, currEdge.edge, currEdge.time) + currEdge.time;
                     }
                     fromMap.put(traversalId, nEdge);
                     fromHeap.add(nEdge);
@@ -120,8 +121,8 @@ public class Dijkstra extends AbstractRoutingAlgorithm {
                     nEdge.edge = iter.getEdge();
                     nEdge.weight = tmpWeight;
                     nEdge.parent = currEdge;
-                    if (weighting instanceof TDWeightingI) {
-                        nEdge.time = ((TDWeightingI) weighting).calcTDMillis(iter, false, currEdge.edge, currEdge.time) + currEdge.time;
+                    if (weighting instanceof TDWeighting) {
+                        nEdge.time = ((TDWeighting) weighting).calcTDMillis(iter, false, currEdge.edge, currEdge.time) + currEdge.time;
                     }
                     fromHeap.add(nEdge);
                 } else
@@ -156,6 +157,9 @@ public class Dijkstra extends AbstractRoutingAlgorithm {
     @Override
     public int getVisitedNodes() {
         return visitedNodes;
+    }
+
+    protected void updateBestPath(EdgeIteratorState edgeState, SPTEntry bestSPTEntry, int traversalId) {
     }
 
     @Override

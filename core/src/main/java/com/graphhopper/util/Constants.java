@@ -1,14 +1,14 @@
 /*
  *  Licensed to GraphHopper GmbH under one or more contributor
- *  license agreements. See the NOTICE file distributed with this work for 
+ *  license agreements. See the NOTICE file distributed with this work for
  *  additional information regarding copyright ownership.
- * 
- *  GraphHopper GmbH licenses this file to you under the Apache License, 
- *  Version 2.0 (the "License"); you may not use this file except in 
+ *
+ *  GraphHopper GmbH licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except in
  *  compliance with the License. You may obtain a copy of the License at
- * 
+ *
  *       http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -78,6 +78,7 @@ public class Constants {
      */
     public static final String VERSION;
     public static final String BUILD_DATE;
+    public static final String GIT_INFO;
     public static final boolean SNAPSHOT;
 
     static {
@@ -124,6 +125,18 @@ public class Constants {
         } catch (Exception ex) {
         }
         BUILD_DATE = buildDate;
+
+        String gitInfo = "";
+        try {
+            List<String> gitInfos = readFile(new InputStreamReader(GraphHopper.class.getResourceAsStream("gitinfo"), UTF_CS));
+            if (gitInfos.size() == 5) {
+                gitInfo = gitInfos.get(1) + "|" + gitInfos.get(2) + "|dirty=" + gitInfos.get(3) + "|" + gitInfos.get(4);
+            } else {
+                System.err.println("GraphHopper Initialization WARNING: unexpected git info: " + gitInfos.toString());
+            }
+        } catch (Exception ex) {
+        }
+        GIT_INFO = gitInfo;
     }
 
     public static String getVersions() {
