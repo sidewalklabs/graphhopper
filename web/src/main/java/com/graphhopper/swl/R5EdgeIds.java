@@ -32,7 +32,7 @@ public class R5EdgeIds {
             ghEdgeKey = String.valueOf(GHUtility.getEdgeFromEdgeKey(((VirtualEdgeIteratorState) edge).getOriginalTraversalKey()));
         } else {
             // Convert byte array to hex
-            ghEdgeKey = DatatypeConverter.printHexBinary(edge.getStableId());
+            ghEdgeKey = DatatypeConverter.printHexBinary(edge.getStableId()).toLowerCase();
         }
         return ghEdgeKey;
     }
