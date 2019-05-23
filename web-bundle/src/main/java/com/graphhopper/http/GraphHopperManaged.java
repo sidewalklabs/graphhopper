@@ -23,13 +23,16 @@ import com.graphhopper.GraphHopper;
 import com.graphhopper.json.geo.JsonFeatureCollection;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.lm.LandmarkStorage;
+import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
 import com.graphhopper.routing.util.FlagEncoder;
+import com.graphhopper.routing.util.FlagEncoderFactory;
 import com.graphhopper.routing.util.HintsMap;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.swl.*;
 import com.graphhopper.util.CmdArgs;
+import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
 import com.graphhopper.util.shapes.BBox;
 import io.dropwizard.lifecycle.Managed;
@@ -49,6 +52,7 @@ public class GraphHopperManaged implements Managed {
     private final GraphHopper graphHopper;
 
     public GraphHopperManaged(CmdArgs configuration, ObjectMapper objectMapper) {
+        CustomCarFlagEncoder customCarFlagEncoder = new CustomCarFlagEncoder();
         String linkSpeedFile = configuration.get("r5.link_speed_file", null);
         final SpeedCalculator speedCalculator;
         if (linkSpeedFile != null) {
@@ -84,8 +88,18 @@ public class GraphHopperManaged implements Managed {
                 throw new RuntimeException(e);
             }
         }
+        graphHopper.setFlagEncoderFactory(new FlagEncoderFactory() {
+            private FlagEncoderFactory delegate = new DefaultFlagEncoderFactory();
+            @Override
+            public FlagEncoder createFlagEncoder(String name, PMap configuration) {
+                if (name.equals("car")) {
+                    return customCarFlagEncoder;
+                }
+                return delegate.createFlagEncoder(name, configuration);
+            }
+        });
         graphHopper.init(configuration);
-        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey());
+        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey(customCarFlagEncoder));
     }
 
     @Override

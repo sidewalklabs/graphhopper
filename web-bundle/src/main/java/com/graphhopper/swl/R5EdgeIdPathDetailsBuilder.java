@@ -18,14 +18,19 @@
 
 package com.graphhopper.swl;
 
+import com.graphhopper.routing.VirtualEdgeIteratorState;
+import com.graphhopper.routing.profiles.SimpleIntEncodedValue;
 import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.GHUtility;
 import com.graphhopper.util.details.AbstractPathDetailsBuilder;
 
+import javax.xml.bind.DatatypeConverter;
+
 public class R5EdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
-    private final OriginalDirectionFlagEncoder originalDirectionFlagEncoder;
+    private final CustomCarFlagEncoder originalDirectionFlagEncoder;
     private String edgeId;
 
-    public R5EdgeIdPathDetailsBuilder(OriginalDirectionFlagEncoder originalDirectionFlagEncoder) {
+    public R5EdgeIdPathDetailsBuilder(CustomCarFlagEncoder originalDirectionFlagEncoder) {
         super("r5_edge_id");
         this.originalDirectionFlagEncoder = originalDirectionFlagEncoder;
         edgeId = "";
@@ -33,12 +38,20 @@ public class R5EdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
 
     @Override
     public boolean isEdgeDifferentToLastEdge(EdgeIteratorState edge) {
-        String newEdgeId = R5EdgeIds.getR5EdgeId(originalDirectionFlagEncoder, edge);
+        String newEdgeId = getR5EdgeId(edge);
         if (newEdgeId.equals(edgeId)) {
             return false;
         }
         edgeId = newEdgeId;
         return true;
+    }
+
+    private String getR5EdgeId(EdgeIteratorState edge) {
+        if (edge instanceof VirtualEdgeIteratorState) {
+            return String.valueOf(GHUtility.getEdgeFromEdgeKey(((VirtualEdgeIteratorState) edge).getOriginalEdgeKey()));
+        } else {
+            return originalDirectionFlagEncoder.getStableId(edge);
+        }
     }
 
     @Override

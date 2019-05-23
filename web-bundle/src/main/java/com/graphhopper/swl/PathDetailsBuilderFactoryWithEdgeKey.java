@@ -29,6 +29,12 @@ import static com.graphhopper.util.Parameters.DETAILS.*;
 
 public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFactory {
 
+    private final CustomCarFlagEncoder customCarFlagEncoder;
+
+    public PathDetailsBuilderFactoryWithEdgeKey(CustomCarFlagEncoder customCarFlagEncoder) {
+        this.customCarFlagEncoder = customCarFlagEncoder;
+    }
+
     @Override
     public List<PathDetailsBuilder> createPathDetailsBuilders(List<String> requestedPathDetails, FlagEncoder encoder, Weighting weighting) {
         // request-scoped
@@ -47,6 +53,10 @@ public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFact
 
         if (requestedPathDetails.contains("edge_key")) {
             builders.add(new EdgeKeyDetails());
+        }
+
+        if (requestedPathDetails.contains("r5_edge_id")) {
+            builders.add(new R5EdgeIdPathDetailsBuilder(customCarFlagEncoder));
         }
 
         if (requestedPathDetails.size() != builders.size()) {
