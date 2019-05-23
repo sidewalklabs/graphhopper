@@ -92,6 +92,11 @@ public class FastestCarTDWeighting implements TDWeighting {
     }
 
     @Override
+    public long getInitialTime() {
+        return 0;
+    }
+
+    @Override
     public FlagEncoder getFlagEncoder() {
         return encoder;
     }
