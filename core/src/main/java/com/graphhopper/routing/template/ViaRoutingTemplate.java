@@ -119,6 +119,7 @@ public class ViaRoutingTemplate extends AbstractRoutingTemplate implements Routi
                 if (departure_time == -1) {
                     throw new RuntimeException("Must specify departure_time in request.");
                 }
+                ((TDWeighting) algoOpts.getWeighting()).setInitialTime(departure_time * 1000);
                 tmpPathList = ((AbstractRoutingAlgorithm) algo).calcTDPaths(fromQResult.getClosestNode(), toQResult.getClosestNode(), departure_time * 1000);
             } else {
                 tmpPathList = algo.calcPaths(fromQResult.getClosestNode(), toQResult.getClosestNode());
