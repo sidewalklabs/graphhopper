@@ -1,14 +1,14 @@
 /*
  *  Licensed to GraphHopper GmbH under one or more contributor
- *  license agreements. See the NOTICE file distributed with this work for 
+ *  license agreements. See the NOTICE file distributed with this work for
  *  additional information regarding copyright ownership.
- * 
- *  GraphHopper GmbH licenses this file to you under the Apache License, 
- *  Version 2.0 (the "License"); you may not use this file except in 
+ *
+ *  GraphHopper GmbH licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except in
  *  compliance with the License. You may obtain a copy of the License at
- * 
+ *
  *       http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,8 +19,8 @@ package com.graphhopper.storage.index;
 
 import com.carrotsearch.hppc.IntSet;
 import com.graphhopper.coll.GHIntHashSet;
+import com.graphhopper.routing.ch.PrepareEncoder;
 import com.graphhopper.routing.util.EncodingManager;
-import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.routing.weighting.FastestWeighting;
 import com.graphhopper.storage.*;
 import com.graphhopper.util.CHEdgeIteratorState;
@@ -82,16 +82,18 @@ public class LocationIndexTreeCHTest extends LocationIndexTreeTest {
 
         // create shortcuts
         ghStorage.freeze();
-        FlagEncoder car = encodingManager.getEncoder("car");
-        long flags = car.setProperties(60, true, true);
+        int flags = PrepareEncoder.getScDirMask();
         CHEdgeIteratorState iter5 = lg.shortcut(0, 2);
-        iter5.setDistance(20).setFlags(flags);
+        iter5.setFlagsAndWeight(flags, 0);
+        iter5.setDistance(20);
         iter5.setSkippedEdges(iter1.getEdge(), iter2.getEdge());
         CHEdgeIteratorState iter6 = lg.shortcut(2, 4);
-        iter6.setDistance(28).setFlags(flags);
+        iter6.setFlagsAndWeight(flags, 0);
+        iter6.setDistance(28);
         iter6.setSkippedEdges(iter3.getEdge(), iter4.getEdge());
         CHEdgeIteratorState tmp = lg.shortcut(0, 4);
-        tmp.setDistance(40).setFlags(flags);
+        tmp.setFlagsAndWeight(flags, 0);
+        tmp.setDistance(40);
         tmp.setSkippedEdges(iter5.getEdge(), iter6.getEdge());
 
         LocationIndex index = createIndex(ghStorage, -1);
@@ -154,7 +156,7 @@ public class LocationIndexTreeCHTest extends LocationIndexTreeTest {
         index.findNetworkEntries(0.51, 0.2, set, 0);
         index.findNetworkEntries(0.51, 0.2, set, 1);
         IntSet expectedSet = new GHIntHashSet();
-        expectedSet.add(0);
+        expectedSet.add(1);
         expectedSet.add(2);
         assertEquals(expectedSet, set);
 

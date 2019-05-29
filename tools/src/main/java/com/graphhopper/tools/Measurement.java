@@ -1,14 +1,14 @@
 /*
  *  Licensed to GraphHopper GmbH under one or more contributor
- *  license agreements. See the NOTICE file distributed with this work for 
+ *  license agreements. See the NOTICE file distributed with this work for
  *  additional information regarding copyright ownership.
- * 
- *  GraphHopper GmbH licenses this file to you under the Apache License, 
- *  Version 2.0 (the "License"); you may not use this file except in 
+ *
+ *  GraphHopper GmbH licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except in
  *  compliance with the License. You may obtain a copy of the License at
- * 
+ *
  *       http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -40,6 +40,7 @@ import com.graphhopper.util.shapes.BBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -56,12 +57,15 @@ import static com.graphhopper.util.Parameters.Algorithms.DIJKSTRA_BI;
  */
 public class Measurement {
     private static final Logger logger = LoggerFactory.getLogger(Measurement.class);
-    private final Map<String, String> properties = new TreeMap<String, String>();
+    private final Map<String, String> properties = new TreeMap<>();
     private long seed;
     private int maxNode;
 
     public static void main(String[] strs) {
-        new Measurement().start(CmdArgs.read(strs));
+        CmdArgs cmdArgs = CmdArgs.read(strs);
+        int repeats = cmdArgs.getInt("measurement.repeats", 1);
+        for (int i = 0; i < repeats; ++i)
+            new Measurement().start(cmdArgs);
     }
 
     // creates properties file in the format key=value
@@ -69,11 +73,16 @@ public class Measurement {
     void start(CmdArgs args) {
         String graphLocation = args.get("graph.location", "");
         String propLocation = args.get("measurement.location", "");
-        if (isEmpty(propLocation))
-            propLocation = "measurement" + new SimpleDateFormat("yyyy-MM-dd_HH_mm_ss").format(new Date()) + ".properties";
+        boolean cleanGraph = args.getBool("measurement.clean", false);
+        String summaryLocation = args.get("measurement.summaryfile", "");
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd_HH_mm_ss").format(new Date());
+        put("measurement.timestamp", timeStamp);
+        if (isEmpty(propLocation)) {
+            propLocation = "measurement" + timeStamp + ".properties";
+        }
 
         seed = args.getLong("measurement.seed", 123);
-        String gitCommit = args.get("measurement.gitinfo", "");
+        put("measurement.gitinfo", args.get("measurement.gitinfo", ""));
         int count = args.getInt("measurement.count", 5000);
 
         GraphHopper hopper = new GraphHopperOSM() {
@@ -81,13 +90,26 @@ public class Measurement {
             protected void prepareCH() {
                 StopWatch sw = new StopWatch().start();
                 super.prepareCH();
-                put(Parameters.CH.PREPARE + "time", sw.stop().getTime());
-                int edges = getGraphHopperStorage().getAllEdges().length();
-                if (getCHFactoryDecorator().hasWeightings()) {
-                    Weighting weighting = getCHFactoryDecorator().getWeightings().get(0);
-                    int edgesAndShortcuts = getGraphHopperStorage().getGraph(CHGraph.class, weighting).getAllEdges().length();
-                    put(Parameters.CH.PREPARE + "shortcuts", edgesAndShortcuts - edges);
+                // note that we measure the total time of all (possibly edge&node) CH preparations
+                put(Parameters.CH.PREPARE + "time", sw.stop().getMillis());
+                int edges = getGraphHopperStorage().getEdges();
+                if (!getCHFactoryDecorator().getNodeBasedWeightings().isEmpty()) {
+                    Weighting weighting = getCHFactoryDecorator().getNodeBasedWeightings().get(0);
+                    int edgesAndShortcuts = getGraphHopperStorage().getGraph(CHGraph.class, weighting).getEdges();
+                    put(Parameters.CH.PREPARE + "node.shortcuts", edgesAndShortcuts - edges);
                 }
+                if (!getCHFactoryDecorator().getEdgeBasedWeightings().isEmpty()) {
+                    Weighting weighting = getCHFactoryDecorator().getEdgeBasedWeightings().get(0);
+                    int edgesAndShortcuts = getGraphHopperStorage().getGraph(CHGraph.class, weighting).getEdges();
+                    put(Parameters.CH.PREPARE + "edge.shortcuts", edgesAndShortcuts - edges);
+                }
+            }
+
+            @Override
+            protected void loadOrPrepareLM() {
+                StopWatch sw = new StopWatch().start();
+                super.loadOrPrepareLM();
+                put(Landmark.PREPARE + "time", sw.stop().getMillis());
             }
 
             @Override
@@ -101,14 +123,21 @@ public class Measurement {
 
         hopper.init(args).
                 forDesktop();
+        if (cleanGraph) {
+            hopper.clean();
+        }
 
         hopper.getCHFactoryDecorator().setDisablingAllowed(true);
         hopper.getLMFactoryDecorator().setDisablingAllowed(true);
         hopper.importOrLoad();
 
         GraphHopperStorage g = hopper.getGraphHopperStorage();
-        String vehicleStr = args.get("graph.flag_encoders", "car");
-        FlagEncoder encoder = hopper.getEncodingManager().getEncoder(vehicleStr);
+        EncodingManager encodingManager = hopper.getEncodingManager();
+        if (encodingManager.fetchEdgeEncoders().size() != 1) {
+            throw new IllegalArgumentException("There has to be exactly one encoder for each measurement");
+        }
+        FlagEncoder encoder = encodingManager.fetchEdgeEncoders().get(0);
+        String vehicleStr = encoder.toString();
 
         StopWatch sw = new StopWatch().start();
         try {
@@ -118,14 +147,14 @@ public class Measurement {
             GHBitSet allowedEdges = printGraphDetails(g, vehicleStr);
             printMiscUnitPerfTests(g, isCH, encoder, count * 100, allowedEdges);
             printLocationIndexQuery(g, hopper.getLocationIndex(), count);
-            printTimeOfRouteQuery(hopper, isCH, isLM, count / 20, "routing", vehicleStr, true, -1, true);
+            printTimeOfRouteQuery(hopper, isCH, isLM, count / 20, "routing", vehicleStr, true, -1, true, false);
 
             if (hopper.getLMFactoryDecorator().isEnabled()) {
                 System.gc();
                 isLM = true;
                 int activeLMCount = 12;
                 for (; activeLMCount > 3; activeLMCount -= 4) {
-                    printTimeOfRouteQuery(hopper, isCH, isLM, count / 4, "routingLM" + activeLMCount, vehicleStr, true, activeLMCount, true);
+                    printTimeOfRouteQuery(hopper, isCH, isLM, count / 4, "routingLM" + activeLMCount, vehicleStr, true, activeLMCount, true, false);
                 }
 
                 // compareRouting(hopper, vehicleStr, count / 5);
@@ -139,37 +168,41 @@ public class Measurement {
                     System.gc();
                     // try just one constellation, often ~4-6 is best
                     int lmCount = 5;
-                    printTimeOfRouteQuery(hopper, isCH, isLM, count, "routingCHLM" + lmCount, vehicleStr, true, lmCount, true);
+                    printTimeOfRouteQuery(hopper, isCH, isLM, count, "routingCHLM" + lmCount, vehicleStr, true, lmCount, true, false);
                 }
 
                 isLM = false;
                 System.gc();
-                Weighting weighting = hopper.getCHFactoryDecorator().getWeightings().get(0);
-                CHGraph lg = g.getGraph(CHGraph.class, weighting);
-                fillAllowedEdges(lg.getAllEdges(), allowedEdges);
-                printMiscUnitPerfTests(lg, isCH, encoder, count * 100, allowedEdges);
-                printTimeOfRouteQuery(hopper, isCH, isLM, count, "routingCH", vehicleStr, true, -1, true);
-                printTimeOfRouteQuery(hopper, isCH, isLM, count, "routingCH_no_sod", vehicleStr, true, -1, false);
-                printTimeOfRouteQuery(hopper, isCH, isLM, count, "routingCH_no_instr", vehicleStr, false, -1, true);
+                if (!hopper.getCHFactoryDecorator().getNodeBasedWeightings().isEmpty()) {
+                    Weighting weighting = hopper.getCHFactoryDecorator().getNodeBasedWeightings().get(0);
+                    CHGraph lg = g.getGraph(CHGraph.class, weighting);
+                    fillAllowedEdges(lg.getAllEdges(), allowedEdges);
+                    printMiscUnitPerfTests(lg, isCH, encoder, count * 100, allowedEdges);
+                    printTimeOfRouteQuery(hopper, isCH, isLM, count, "routingCH", vehicleStr, true, -1, true, false);
+                    printTimeOfRouteQuery(hopper, isCH, isLM, count, "routingCH_no_sod", vehicleStr, true, -1, false, false);
+                    printTimeOfRouteQuery(hopper, isCH, isLM, count, "routingCH_no_instr", vehicleStr, false, -1, true, false);
+                }
+                if (!hopper.getCHFactoryDecorator().getEdgeBasedWeightings().isEmpty()) {
+                    printTimeOfRouteQuery(hopper, isCH, isLM, count, "routingCH_edge", vehicleStr, true, -1, false, true);
+                    printTimeOfRouteQuery(hopper, isCH, isLM, count, "routingCH_edge_no_instr", vehicleStr, false, -1, false, true);
+                }
             }
-            logger.info("store into " + propLocation);
         } catch (Exception ex) {
             logger.error("Problem while measuring " + graphLocation, ex);
             put("error", ex.toString());
         } finally {
-            put("measurement.gitinfo", gitCommit);
+            put("gh.gitinfo", Constants.GIT_INFO);
             put("measurement.count", count);
             put("measurement.seed", seed);
-            put("measurement.time", sw.stop().getTime());
+            put("measurement.time", sw.stop().getMillis());
             System.gc();
             put("measurement.totalMB", getTotalMB());
             put("measurement.usedMB", getUsedMB());
-            try {
-                store(new FileWriter(propLocation), "measurement finish, "
-                        + new Date().toString() + ", " + Constants.BUILD_DATE);
-            } catch (IOException ex) {
-                logger.error("Problem while storing properties " + graphLocation + ", " + propLocation, ex);
+
+            if (!summaryLocation.trim().isEmpty()) {
+                writeSummary(summaryLocation, propLocation);
             }
+            storeProperties(graphLocation, propLocation);
         }
     }
 
@@ -250,7 +283,7 @@ public class Measurement {
             print("unit_testsCH.get_weight", miniPerf);
         }
 
-        EdgeFilter outFilter = new DefaultEdgeFilter(encoder, false, true);
+        EdgeFilter outFilter = DefaultEdgeFilter.outEdges(encoder);
         final EdgeExplorer outExplorer = graph.createEdgeExplorer(outFilter);
         MiniPerfTest miniPerf = new MiniPerfTest() {
             @Override
@@ -378,7 +411,7 @@ public class Measurement {
 
     private void printTimeOfRouteQuery(final GraphHopper hopper, final boolean ch, final boolean lm,
                                        int count, String prefix, final String vehicle,
-                                       final boolean withInstructions, final int activeLandmarks, final boolean sod) {
+                                       final boolean withInstructions, final int activeLandmarks, final boolean sod, final boolean edgeBased) {
         final Graph g = hopper.getGraphHopperStorage();
         final AtomicLong maxDistance = new AtomicLong(0);
         final AtomicLong minDistance = new AtomicLong(Long.MAX_VALUE);
@@ -410,6 +443,7 @@ public class Measurement {
 
                 req.getHints().put(CH.DISABLE, !ch).
                         put("stall_on_demand", sod).
+                        put(Parameters.Routing.EDGE_BASED, edgeBased).
                         put(Landmark.DISABLE, !lm).
                         put(Landmark.ACTIVE_COUNT, activeLandmarks).
                         put("instructions", withInstructions);
@@ -468,7 +502,7 @@ public class Measurement {
         count -= failedCount.get();
 
         // if using non-bidirectional algorithm make sure you exclude CH routing
-        String algoStr = ch ? Algorithms.DIJKSTRA_BI : Algorithms.ASTAR_BI;
+        String algoStr = (ch && !edgeBased) ? Algorithms.DIJKSTRA_BI : Algorithms.ASTAR_BI;
         if (ch && !sod) {
             algoStr += "_no_sod";
         }
@@ -500,14 +534,106 @@ public class Measurement {
         properties.put(key, "" + val);
     }
 
-    private void store(FileWriter fileWriter, String comment) throws IOException {
-        fileWriter.append("#" + comment + "\n");
-        for (Entry<String, String> e : properties.entrySet()) {
-            fileWriter.append(e.getKey());
-            fileWriter.append("=");
-            fileWriter.append(e.getValue());
-            fileWriter.append("\n");
+    private void storeProperties(String graphLocation, String propLocation) {
+        logger.info("storing measurement properties in " + propLocation);
+        try (FileWriter fileWriter = new FileWriter(propLocation)) {
+            String comment = "measurement finish, " + new Date().toString() + ", " + Constants.BUILD_DATE;
+            fileWriter.append("#" + comment + "\n");
+            for (Entry<String, String> e : properties.entrySet()) {
+                fileWriter.append(e.getKey());
+                fileWriter.append("=");
+                fileWriter.append(e.getValue());
+                fileWriter.append("\n");
+            }
+            fileWriter.flush();
+        } catch (IOException e) {
+            logger.error("Problem while storing properties " + graphLocation + ", " + propLocation, e);
         }
-        fileWriter.flush();
+    }
+
+    /**
+     * Writes a selection of measurement results to a single line in
+     * a file. Each run of the measurement class will append a new line.
+     */
+    private void writeSummary(String summaryLocation, String propLocation) {
+        logger.info("writing summary to " + summaryLocation);
+        // choose properties that should be in summary here
+        String[] properties = {
+                "graph.nodes",
+                "graph.edges",
+                "graph.import_time",
+                CH.PREPARE + "time",
+                CH.PREPARE + "node.shortcuts",
+                CH.PREPARE + "edge.shortcuts",
+                Landmark.PREPARE + "time",
+                "routing.distance_mean",
+                "routing.mean",
+                "routing.visited_nodes_mean",
+                "routingCH.distance_mean",
+                "routingCH.mean",
+                "routingCH.visited_nodes_mean",
+                "routingCH_no_instr.mean",
+                "routingCH_edge.distance_mean",
+                "routingCH_edge.mean",
+                "routingCH_edge.visited_nodes_mean",
+                "routingCH_edge_no_instr.mean",
+                "routingLM8.distance_mean",
+                "routingLM8.mean",
+                "routingLM8.visited_nodes_mean",
+                "measurement.seed",
+                "measurement.gitinfo",
+                "measurement.timestamp"
+        };
+        File f = new File(summaryLocation);
+        boolean writeHeader = !f.exists();
+        try (FileWriter writer = new FileWriter(f, true)) {
+            if (writeHeader)
+                writer.write(getSummaryHeader(properties));
+            writer.write(getSummaryLogLine(properties, propLocation));
+        } catch (IOException e) {
+            logger.error("Could not write summary to file '{}'", summaryLocation, e);
+        }
+    }
+
+    private String getSummaryHeader(String[] properties) {
+        StringBuilder sb = new StringBuilder("#");
+        for (String p : properties) {
+            String columnName = String.format("%" + getSummaryColumnWidth(p) + "s, ", p);
+            sb.append(columnName);
+        }
+        sb.append("propertyFile");
+        sb.append('\n');
+        return sb.toString();
+    }
+
+    private String getSummaryLogLine(String[] properties, String propLocation) {
+        StringBuilder sb = new StringBuilder(" ");
+        for (String p : properties) {
+            sb.append(getFormattedProperty(p));
+        }
+        sb.append(propLocation);
+        sb.append('\n');
+        return sb.toString();
+    }
+
+    private String getFormattedProperty(String property) {
+        String result = properties.get(property);
+        if (result == null) {
+            result = "missing";
+        }
+        // limit number of decimal places for floating point numbers
+        try {
+            double doubleValue = Double.parseDouble(result.trim());
+            if (doubleValue != (long) doubleValue) {
+                result = String.format(Locale.US, "%.2f", doubleValue);
+            }
+        } catch (NumberFormatException e) {
+            // its not a number, never mind
+        }
+        return String.format(Locale.US, "%" + getSummaryColumnWidth(property) + "s, ", result);
+    }
+
+    private int getSummaryColumnWidth(String p) {
+        return Math.max(10, p.length());
     }
 }

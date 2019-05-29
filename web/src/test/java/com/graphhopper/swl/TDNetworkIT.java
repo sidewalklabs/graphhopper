@@ -21,6 +21,7 @@ import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.http.GraphHopperManaged;
+import com.graphhopper.jackson.Jackson;
 import com.graphhopper.util.CmdArgs;
 import com.graphhopper.util.details.PathDetail;
 import org.junit.Before;
@@ -34,6 +35,11 @@ import static org.hamcrest.Matchers.contains;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
+/**
+ * Integration test for time-dependent edge weights.
+ * Salvaged from a client project, that's why it uses a graph that's binary-committed to the repository.
+ * TODO: Change that
+ */
 public class TDNetworkIT {
     private GraphHopper graphHopper;
 
@@ -44,15 +50,15 @@ public class TDNetworkIT {
         configuration.put("r5.link_speed_file", "files/r5_predicted_tt.csv");
         configuration.put("graph.location", graphFile);
         configuration.put("routing.ch.disabling_allowed", true);
-        GraphHopperManaged graphHopperService = new GraphHopperManaged(configuration);
+        GraphHopperManaged graphHopperService = new GraphHopperManaged(configuration, Jackson.newObjectMapper());
         graphHopperService.start();
         this.graphHopper = graphHopperService.getGraphHopper();
     }
 
     @Test
-    public void testMonacoCar() {
+    public void testAndorraCar() {
         GHRequest request = new GHRequest(42.56819, 1.603231, 42.571034, 1.520662);
-        request.setPathDetails(Arrays.asList("time", "r5_edge_id"));
+        request.setPathDetails(Arrays.asList("time", "edge_key"));
         GHResponse route = graphHopper.route(request);
 
         final int EXPECTED_LINKS_IN_PATH = 52;
@@ -62,7 +68,7 @@ public class TDNetworkIT {
         assertEquals(EXPECTED_TOTAL_TRAVEL_TIME, route.getBest().getTime());
 
         List<PathDetail> time = route.getBest().getPathDetails().get("time");
-        List<PathDetail> edgeIds = route.getBest().getPathDetails().get("r5_edge_id");
+        List<PathDetail> edgeIds = route.getBest().getPathDetails().get("edge_key");
 
         assertEquals(EXPECTED_LINKS_IN_PATH, time.size());
         assertEquals(EXPECTED_LINKS_IN_PATH, edgeIds.size());
@@ -78,9 +84,9 @@ public class TDNetworkIT {
     }
 
     @Test
-    public void testMonacoBike() {
+    public void testAndorraBike() {
         GHRequest request = new GHRequest(42.56819, 1.603231, 42.571034, 1.520662);
-        request.setPathDetails(Arrays.asList("time", "r5_edge_id"));
+        request.setPathDetails(Arrays.asList("time", "edge_key"));
         request.setVehicle("bike");
         GHResponse route = graphHopper.route(request);
 
@@ -91,7 +97,7 @@ public class TDNetworkIT {
         assertEquals(EXPECTED_TOTAL_TRAVEL_TIME, route.getBest().getTime());
 
         List<PathDetail> time = route.getBest().getPathDetails().get("time");
-        List<PathDetail> edgeIds = route.getBest().getPathDetails().get("r5_edge_id");
+        List<PathDetail> edgeIds = route.getBest().getPathDetails().get("edge_key");
 
         assertEquals(EXPECTED_LINKS_IN_PATH, time.size());
         assertEquals(EXPECTED_LINKS_IN_PATH, edgeIds.size());
@@ -107,9 +113,9 @@ public class TDNetworkIT {
     }
 
     @Test
-    public void testMonacoFoot() {
+    public void testAndorraFoot() {
         GHRequest request = new GHRequest(42.56819, 1.603231, 42.571034, 1.520662);
-        request.setPathDetails(Arrays.asList("time", "r5_edge_id"));
+        request.setPathDetails(Arrays.asList("time", "edge_key"));
         request.setVehicle("foot");
         GHResponse route = graphHopper.route(request);
 
@@ -120,7 +126,7 @@ public class TDNetworkIT {
         assertEquals(EXPECTED_TOTAL_TRAVEL_TIME, route.getBest().getTime());
 
         List<PathDetail> time = route.getBest().getPathDetails().get("time");
-        List<PathDetail> edgeIds = route.getBest().getPathDetails().get("r5_edge_id");
+        List<PathDetail> edgeIds = route.getBest().getPathDetails().get("edge_key");
 
         assertEquals(EXPECTED_LINKS_IN_PATH, time.size());
         assertEquals(EXPECTED_LINKS_IN_PATH, edgeIds.size());
@@ -136,44 +142,40 @@ public class TDNetworkIT {
     }
 
     @Test
-    public void testMonacoTD() {
+    public void testAndorraTD() {
         GHRequest request = new GHRequest(42.56819, 1.603231, 42.571034, 1.520662);
         request.setAlgorithm("dijkstra");
-        request.setPathDetails(Arrays.asList("time", "r5_edge_id"));
+        request.setPathDetails(Arrays.asList("edge_key"));
         request.getHints().put("ch.disable", true);
         request.setWeighting("td");
         request.getHints().put("departure_time", 58*60);
         GHResponse route = graphHopper.route(request);
-        List<PathDetail> time = route.getBest().getPathDetails().get("time");
-        List<PathDetail> edgeIds = route.getBest().getPathDetails().get("r5_edge_id");
-        final long EXPECTED_TOTAL_TRAVEL_TIME = 1292460;
+        List<PathDetail> edgeIds = route.getBest().getPathDetails().get("edge_key");
+        final long EXPECTED_TOTAL_TRAVEL_TIME = 1292346;
 
         List<Integer> actualEdgeIds = edgeIds.stream().map(pd -> ((Integer) pd.getValue())).collect(Collectors.toList());
-        assertThat(actualEdgeIds, contains(4344,31,32,39,1038,1032,1605,1603,1601,71,69,4319,1591,1589,1587,1585,1583,1581,1579,1577,1553,1551,1549,1547,2375,3443,3441,3395,1383,1381,1379,583,581,579,577,575,573,571,560,562,564,554,568,542,552,2510,1918,1818,1816,1722,1724,1726));
+        assertThat(actualEdgeIds, contains(4340, 31, 32, 39, 1036, 1030, 1603, 1601, 1599, 71, 69, 4315, 1589, 1587, 1585, 1583, 1581, 1579, 1577, 1575, 1551, 1549, 1547, 1545, 2371, 3439, 3437, 3391, 1381, 1379, 1377, 581, 579, 577, 575, 573, 571, 569, 558, 560, 562, 552, 566, 540, 550, 2506, 1916, 1816, 1814, 1720, 1722, 1724));
 
         assertEquals(EXPECTED_TOTAL_TRAVEL_TIME, route.getBest().getTime());
-        assertEquals(EXPECTED_TOTAL_TRAVEL_TIME, sumTimes(time));
     }
 
     @Test
-    public void testMonacoTDLater() {
+    public void testAndorraTDLater() {
         GHRequest request = new GHRequest(42.56819, 1.603231, 42.571034, 1.520662);
         request.setAlgorithm("dijkstra");
-        request.setPathDetails(Arrays.asList("time", "r5_edge_id"));
+        request.setPathDetails(Arrays.asList("edge_key"));
         request.getHints().put("ch.disable", true);
         request.setWeighting("td");
         request.getHints().put("departure_time", 8*60*60);
         GHResponse route = graphHopper.route(request);
-        List<PathDetail> time = route.getBest().getPathDetails().get("time");
-        List<PathDetail> edgeIds = route.getBest().getPathDetails().get("r5_edge_id");
+        List<PathDetail> edgeIds = route.getBest().getPathDetails().get("edge_key");
 
         // During the morning peak, we choose a different route (and it is slower)
-        final long EXPECTED_TOTAL_TRAVEL_TIME = 1386060;
+        final long EXPECTED_TOTAL_TRAVEL_TIME = 1386129;
         List<Integer> actualEdgeIds = edgeIds.stream().map(pd -> ((Integer) pd.getValue())).collect(Collectors.toList());
-        assertThat(actualEdgeIds, contains(4344,31,32,34,1040,1042,1020,1025,1063,1061,1031,5613,1603,1601,71,69,4319,1591,1589,1587,1585,1583,1581,1579,1577,1553,1551,1549,1547,2375,3443,3441,3395,1383,1381,1379,583,581,579,577,575,573,571,560,562,564,554,568,542,552,2510,1918,1818,1816,1722,1724,1726));
+        assertThat(actualEdgeIds, contains(4340, 31, 32, 34, 1038, 1040, 1018, 1023, 1061, 1059, 1029, 5609, 1601, 1599, 71, 69, 4315, 1589, 1587, 1585, 1583, 1581, 1579, 1577, 1575, 1551, 1549, 1547, 1545, 2371, 3439, 3437, 3391, 1381, 1379, 1377, 581, 579, 577, 575, 573, 571, 569, 558, 560, 562, 552, 566, 540, 550, 2506, 1916, 1816, 1814, 1720, 1722, 1724));
 
         assertEquals(EXPECTED_TOTAL_TRAVEL_TIME, route.getBest().getTime());
-        assertEquals(EXPECTED_TOTAL_TRAVEL_TIME, sumTimes(time));
     }
 
 

@@ -1,14 +1,14 @@
 /*
  *  Licensed to GraphHopper GmbH under one or more contributor
- *  license agreements. See the NOTICE file distributed with this work for 
+ *  license agreements. See the NOTICE file distributed with this work for
  *  additional information regarding copyright ownership.
- * 
- *  GraphHopper GmbH licenses this file to you under the Apache License, 
- *  Version 2.0 (the "License"); you may not use this file except in 
+ *
+ *  GraphHopper GmbH licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except in
  *  compliance with the License. You may obtain a copy of the License at
- * 
+ *
  *       http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,6 +18,8 @@
 package com.graphhopper.routing.lm;
 
 import com.graphhopper.routing.*;
+import com.graphhopper.routing.profiles.BooleanEncodedValue;
+import com.graphhopper.routing.profiles.DecimalEncodedValue;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.weighting.FastestWeighting;
 import com.graphhopper.routing.weighting.Weighting;
@@ -45,8 +47,9 @@ import static org.junit.Assert.assertTrue;
  * @author Peter Karich
  */
 public class PrepareLandmarksTest
-/* extends AbstractRoutingAlgorithmTester */ {
+        /* extends AbstractRoutingAlgorithmTester */ {
     private GraphHopperStorage graph;
+    private EncodingManager encodingManager;
     private FlagEncoder encoder;
     private TraversalMode tm;
 
@@ -54,8 +57,9 @@ public class PrepareLandmarksTest
     public void setUp() {
         encoder = new CarFlagEncoder();
         tm = TraversalMode.NODE_BASED;
+        encodingManager = EncodingManager.create(encoder);
         GraphHopperStorage tmp = new GraphHopperStorage(new RAMDirectory(),
-                new EncodingManager(encoder), false, new GraphExtension.NoOpExtension());
+                encodingManager, false, new GraphExtension.NoOpExtension());
         tmp.create(1000);
         graph = tmp;
     }
@@ -68,18 +72,20 @@ public class PrepareLandmarksTest
         Random rand = new Random(0);
         int width = 15, height = 15;
 
+        DecimalEncodedValue avSpeedEnc = encoder.getAverageSpeedEnc();
+        BooleanEncodedValue accessEnc = encoder.getAccessEnc();
         for (int hIndex = 0; hIndex < height; hIndex++) {
             for (int wIndex = 0; wIndex < width; wIndex++) {
                 int node = wIndex + hIndex * width;
 
-                long flags = encoder.setProperties(20 + rand.nextDouble() * 30, true, true);
                 // do not connect first with last column!
+                double speed = 20 + rand.nextDouble() * 30;
                 if (wIndex + 1 < width)
-                    graph.edge(node, node + 1).setFlags(flags);
+                    graph.edge(node, node + 1).set(accessEnc, true).setReverse(accessEnc, true).set(avSpeedEnc, speed);
 
                 // avoid dead ends
                 if (hIndex + 1 < height)
-                    graph.edge(node, node + width).setFlags(flags);
+                    graph.edge(node, node + width).set(accessEnc, true).setReverse(accessEnc, true).set(avSpeedEnc, speed);
 
                 AbstractRoutingAlgorithmTester.updateDistancesFor(graph, node, -hIndex / 50.0, wIndex / 50.0);
             }

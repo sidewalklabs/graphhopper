@@ -17,13 +17,12 @@
  */
 package com.graphhopper.reader.gtfs;
 
-import com.graphhopper.storage.Graph;
 import com.graphhopper.util.EdgeIteratorState;
 
 import java.time.Instant;
 import java.util.Iterator;
 
-class Label {
+public class Label {
 
     static class Transition {
         final Label label;
@@ -62,10 +61,10 @@ class Label {
         }
     }
 
-    final long currentTime;
+    public final long currentTime;
 
     final int edge;
-    final int adjNode;
+    public final int adjNode;
 
     final int nTransfers;
     final int nWalkDistanceConstraintViolations;
@@ -117,7 +116,14 @@ class Label {
                             return new Transition(label, null);
                         } else {
                             EdgeIteratorState edgeIteratorState = label.parent == null ? null :
-                                    graph.getEdgeIteratorState(label.edge, label.parent.adjNode).detach(reverseEdgeFlags);
+                                    graph.getEdgeIteratorState(label.edge, reverseEdgeFlags ? label.adjNode : label.parent.adjNode).detach(false);
+                            if (reverseEdgeFlags && edgeIteratorState != null && (edgeIteratorState.getBaseNode() != label.parent.adjNode || edgeIteratorState.getAdjNode() != label.adjNode)) {
+                                throw new IllegalStateException();
+                            }
+                            if (!reverseEdgeFlags && edgeIteratorState != null && (edgeIteratorState.getAdjNode() != label.parent.adjNode || edgeIteratorState.getBaseNode() != label.adjNode)) {
+                                throw new IllegalStateException();
+                            }
+
                             Transition transition;
                             if (reverseEdgeFlags) {
                                 transition = new Transition(label, edgeIteratorState != null ? getEdgeLabel(edgeIteratorState, flagEncoder) : null);
@@ -134,7 +140,8 @@ class Label {
     }
 
     private static EdgeLabel getEdgeLabel(EdgeIteratorState edgeIteratorState, PtFlagEncoder flagEncoder) {
-        return new EdgeLabel(edgeIteratorState, flagEncoder.getEdgeType(edgeIteratorState.getFlags()), flagEncoder.getValidityId(edgeIteratorState.getFlags()), flagEncoder.getTransfers(edgeIteratorState.getFlags()), edgeIteratorState.getDistance());
+        return new EdgeLabel(edgeIteratorState, edgeIteratorState.get(flagEncoder.getTypeEnc()), edgeIteratorState.get(flagEncoder.getValidityIdEnc()),
+                edgeIteratorState.get(flagEncoder.getTransfersEnc()), edgeIteratorState.getDistance());
     }
 
 }

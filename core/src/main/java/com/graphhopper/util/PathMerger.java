@@ -1,14 +1,14 @@
 /*
  *  Licensed to GraphHopper GmbH under one or more contributor
- *  license agreements. See the NOTICE file distributed with this work for 
+ *  license agreements. See the NOTICE file distributed with this work for
  *  additional information regarding copyright ownership.
- * 
- *  GraphHopper GmbH licenses this file to you under the Apache License, 
- *  Version 2.0 (the "License"); you may not use this file except in 
+ *
+ *  GraphHopper GmbH licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except in
  *  compliance with the License. You may obtain a copy of the License at
- * 
+ *
  *       http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,7 +19,8 @@ package com.graphhopper.util;
 
 import com.graphhopper.PathWrapper;
 import com.graphhopper.routing.Path;
-import com.graphhopper.util.details.PathDetail;
+import com.graphhopper.routing.profiles.BooleanEncodedValue;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.details.PathDetailsBuilderFactory;
 import com.graphhopper.util.exceptions.ConnectionNotFoundException;
 
@@ -28,12 +29,12 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * This class merges multiple {@link Path} objects into one continues object that
+ * This class merges multiple {@link Path} objects into one continuous object that
  * can be used in the {@link PathWrapper}. There will be a Path between every waypoint.
  * So for two waypoints there will be only one Path object. For three waypoints there will be
  * two Path objects.
  * <p>
- * The instructions are generated per Path object and are merged into one continues InstructionList.
+ * The instructions are generated per Path object and are merged into one continuous InstructionList.
  * The PointList per Path object are merged and optionally simplified.
  *
  * @author Peter Karich
@@ -76,7 +77,7 @@ public class PathMerger {
         return this;
     }
 
-    public void doWork(PathWrapper altRsp, List<Path> paths, Translation tr) {
+    public void doWork(PathWrapper altRsp, List<Path> paths, EncodingManager encodingManager, Translation tr) {
         int origPoints = 0;
         long fullTimeInMillis = 0;
         double fullWeight = 0;
@@ -86,6 +87,7 @@ public class PathMerger {
         InstructionList fullInstructions = new InstructionList(tr);
         PointList fullPoints = PointList.EMPTY;
         List<String> description = new ArrayList<>();
+        BooleanEncodedValue roundaboutEnc = encodingManager.getBooleanEncodedValue(EncodingManager.ROUNDABOUT);
         for (int pathIndex = 0; pathIndex < paths.size(); pathIndex++) {
             Path path = paths.get(pathIndex);
             if (!path.isFound()) {
@@ -97,7 +99,7 @@ public class PathMerger {
             fullDistance += path.getDistance();
             fullWeight += path.getWeight();
             if (enableInstructions) {
-                InstructionList il = path.calcInstructions(tr);
+                InstructionList il = path.calcInstructions(roundaboutEnc, tr);
 
                 if (!il.isEmpty()) {
                     fullInstructions.addAll(il);
@@ -155,25 +157,6 @@ public class PathMerger {
             PathSimplification ps = new PathSimplification(altRsp, douglasPeucker, enableInstructions);
             ps.simplify();
         }
-    }
-
-    /**
-     * Merges <code>otherDetails</code> into the <code>pathDetails</code>.
-     * <p>
-     * This method makes sure that Entry list around via points are merged correctly.
-     * See #1091 and the misplaced PathDetail after waypoints.
-     */
-    public static void merge(List<PathDetail> pathDetails, List<PathDetail> otherDetails) {
-        // Make sure that the PathDetail list is merged correctly at via points
-        if (!pathDetails.isEmpty() && !otherDetails.isEmpty()) {
-            PathDetail lastDetail = pathDetails.get(pathDetails.size() - 1);
-            if (lastDetail.getValue().equals(otherDetails.get(0).getValue())) {
-                lastDetail.setLast(otherDetails.get(0).getLast());
-                otherDetails.remove(0);
-            }
-        }
-
-        pathDetails.addAll(otherDetails);
     }
 
     /**
