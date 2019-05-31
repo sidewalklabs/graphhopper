@@ -34,11 +34,15 @@ import com.graphhopper.http.health.GraphHopperHealthCheck;
 import com.graphhopper.http.health.GraphHopperStorageHealthCheck;
 import com.graphhopper.isochrone.algorithm.DelaunayTriangulationIsolineBuilder;
 import com.graphhopper.jackson.GraphHopperModule;
+import com.graphhopper.matrix.http.MatrixResource;
+import com.graphhopper.matrix.model.MatrixQueue;
 import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.gtfs.GtfsStorage;
 import com.graphhopper.reader.gtfs.PtFlagEncoder;
 import com.graphhopper.reader.gtfs.RealtimeFeed;
 import com.graphhopper.resources.*;
+import com.graphhopper.routing.GHMatrixAPI;
+import com.graphhopper.routing.MatrixAPI;
 import com.graphhopper.routing.util.CarFlagEncoder;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.routing.util.FootFlagEncoder;
@@ -53,6 +57,7 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import org.glassfish.hk2.api.Factory;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
+import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.ws.rs.ext.WriterInterceptor;
@@ -288,6 +293,21 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         environment.jersey().register(I18NResource.class);
         environment.jersey().register(InfoResource.class);
         environment.healthChecks().register("graphhopper", new GraphHopperHealthCheck(graphHopperManaged.getGraphHopper()));
+
+
+        MatrixAPI matrixAPI = new GHMatrixAPI(graphHopperManaged.getGraphHopper());
+        MatrixQueue matrixQueue = createAndStartQueue(configuration, matrixAPI, configuration.getInt("matrix.default_customer_priority", 1));
+        environment.jersey().register(new MatrixResource(configuration, matrixAPI, matrixQueue));
+    }
+
+    private MatrixQueue createAndStartQueue(CmdArgs args, MatrixAPI mCalc, Integer defaultCustomerPriority) {
+        // restrict to available processors (one thread for the GC and one for the free queue)
+        int threads = Runtime.getRuntime().availableProcessors() - 1;
+        threads = args.getInt("matrix.threads", threads);
+        LoggerFactory.getLogger(getClass()).info("default customer priority: " + defaultCustomerPriority + ", matrix threads " + (threads - 1) + ", free threads: 1");
+        MatrixQueue mQueue = new MatrixQueue(threads, mCalc);
+        mQueue.start();
+        return mQueue;
     }
 
 }

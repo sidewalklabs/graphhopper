@@ -39,6 +39,12 @@
             <version>${project.parent.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.graphhopper</groupId>
+            <artifactId>graphhopper-matrix</artifactId>
+            <version>0.13.0-tardur3</version>
+        </dependency>
+
         <!-- required for JDK9 -->
         <dependency>
             <groupId>javax.xml.ws</groupId>
