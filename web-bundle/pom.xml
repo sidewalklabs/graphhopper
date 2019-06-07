@@ -42,7 +42,7 @@
         <dependency>
             <groupId>com.graphhopper</groupId>
             <artifactId>graphhopper-matrix</artifactId>
-            <version>0.13.0-tardur3</version>
+            <version>0.13.0-tardur5</version>
         </dependency>
 
         <!-- required for JDK9 -->
