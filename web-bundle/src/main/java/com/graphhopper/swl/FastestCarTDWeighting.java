@@ -34,7 +34,7 @@ public class FastestCarTDWeighting implements TDWeighting {
     private final SpeedCalculator speedCalculator;
     private final long headingPenaltyMillis;
     private final double headingPenalty;
-    private long initialTime;
+    private int initialTime;
 
     public FastestCarTDWeighting(FlagEncoder encoder, SpeedCalculator speedCalculator, PMap map) {
         this.encoder = encoder;
@@ -92,8 +92,13 @@ public class FastestCarTDWeighting implements TDWeighting {
     }
 
     @Override
-    public long getInitialTime() {
-        return 0;
+    public int getInitialTime() {
+        return initialTime;
+    }
+
+    @Override
+    public void setInitialTime(int initialTime) {
+        this.initialTime = initialTime;
     }
 
     @Override

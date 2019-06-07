@@ -213,6 +213,13 @@
         </extensions>
     </build>
 
+    <repositories>
+        <repository>
+            <id>graphhopper-matrix</id>
+            <url>https://packagecloud.io/priv/${env.GRAPHHOPPER_TOKEN}/graphhopper/matrix/maven2</url>
+        </repository>
+    </repositories>
+
     <distributionManagement>
         <snapshotRepository>
             <id>ossrh</id>
