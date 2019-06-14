@@ -49,7 +49,7 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
         for (int i=0; i<16; i++) {
             stableId[i] = (byte) edge.get(stableIdByte[i]);
         }
-        return DatatypeConverter.printHexBinary(stableId);
+        return DatatypeConverter.printHexBinary(stableId).toLowerCase();
     }
 
     final void setStableId(EdgeIteratorState edge, String stableId) {
