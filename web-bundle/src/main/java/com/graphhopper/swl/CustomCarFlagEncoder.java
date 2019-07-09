@@ -19,7 +19,7 @@
 package com.graphhopper.swl;
 
 import com.graphhopper.routing.profiles.EncodedValue;
-import com.graphhopper.routing.profiles.SimpleIntEncodedValue;
+import com.graphhopper.routing.profiles.UnsignedIntEncodedValue;
 import com.graphhopper.routing.util.CarFlagEncoder;
 import com.graphhopper.util.EdgeIteratorState;
 
@@ -28,7 +28,7 @@ import java.util.List;
 
 public class CustomCarFlagEncoder extends CarFlagEncoder {
 
-    private SimpleIntEncodedValue[] stableIdByte = new SimpleIntEncodedValue[16];
+    private UnsignedIntEncodedValue[] stableIdByte = new UnsignedIntEncodedValue[16];
 
     public CustomCarFlagEncoder() {
         super();
@@ -39,7 +39,7 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
     public void createEncodedValues(List<EncodedValue> registerNewEncodedValue, String prefix, int index) {
         super.createEncodedValues(registerNewEncodedValue, prefix, index);
         for (int i=0; i<16; i++) {
-            stableIdByte[i] = new SimpleIntEncodedValue("stable-id-byte-"+i, 8);
+            stableIdByte[i] = new UnsignedIntEncodedValue("stable-id-byte-"+i, 8, false);
             registerNewEncodedValue.add(stableIdByte[i]);
         }
     }

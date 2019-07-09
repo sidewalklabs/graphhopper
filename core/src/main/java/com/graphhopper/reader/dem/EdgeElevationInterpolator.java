@@ -21,8 +21,10 @@ import com.carrotsearch.hppc.IntSet;
 import com.graphhopper.coll.GHBitSet;
 import com.graphhopper.coll.GHBitSetImpl;
 import com.graphhopper.coll.GHIntHashSet;
+import com.graphhopper.coll.GHTBitSet;
+import com.graphhopper.routing.profiles.EnumEncodedValue;
+import com.graphhopper.routing.profiles.RoadEnvironment;
 import com.graphhopper.routing.util.AllEdgesIterator;
-import com.graphhopper.routing.util.DataFlagEncoder;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.util.*;
@@ -50,21 +52,24 @@ import com.graphhopper.util.*;
  *
  * @author Alexey Valikov
  */
-public abstract class AbstractEdgeElevationInterpolator {
+public class EdgeElevationInterpolator {
 
     private final GraphHopperStorage storage;
-    protected final DataFlagEncoder dataFlagEncoder;
+    protected final EnumEncodedValue<RoadEnvironment> roadEnvironmentEnc;
     private final NodeElevationInterpolator nodeElevationInterpolator;
+    private final RoadEnvironment interpolateKey;
     private final ElevationInterpolator elevationInterpolator = new ElevationInterpolator();
 
-    public AbstractEdgeElevationInterpolator(GraphHopperStorage storage,
-                                             DataFlagEncoder dataFlagEncoder) {
+    public EdgeElevationInterpolator(GraphHopperStorage storage, EnumEncodedValue<RoadEnvironment> roadEnvironmentEnc, RoadEnvironment interpolateKey) {
         this.storage = storage;
-        this.dataFlagEncoder = dataFlagEncoder;
+        this.roadEnvironmentEnc = roadEnvironmentEnc;
+        this.interpolateKey = interpolateKey;
         this.nodeElevationInterpolator = new NodeElevationInterpolator(storage);
     }
 
-    protected abstract boolean isInterpolatableEdge(EdgeIteratorState edge);
+    protected boolean isInterpolatableEdge(EdgeIteratorState edge) {
+        return edge.get(roadEnvironmentEnc) == interpolateKey;
+    }
 
     public GraphHopperStorage getStorage() {
         return storage;
@@ -95,16 +100,19 @@ public abstract class AbstractEdgeElevationInterpolator {
                                  final GHBitSet visitedEdgeIds, final EdgeExplorer edgeExplorer) {
         final IntSet outerNodeIds = new GHIntHashSet();
         final GHIntHashSet innerNodeIds = new GHIntHashSet();
-        gatherOuterAndInnerNodeIds(edgeExplorer, interpolatableEdge, visitedEdgeIds, outerNodeIds,
-                innerNodeIds);
-        nodeElevationInterpolator.interpolateElevationsOfInnerNodes(outerNodeIds.toArray(),
-                innerNodeIds.toArray());
+        gatherOuterAndInnerNodeIds(edgeExplorer, interpolatableEdge, visitedEdgeIds, outerNodeIds, innerNodeIds);
+        nodeElevationInterpolator.interpolateElevationsOfInnerNodes(outerNodeIds.toArray(), innerNodeIds.toArray());
     }
 
     public void gatherOuterAndInnerNodeIds(final EdgeExplorer edgeExplorer,
                                            final EdgeIteratorState interpolatableEdge, final GHBitSet visitedEdgesIds,
                                            final IntSet outerNodeIds, final GHIntHashSet innerNodeIds) {
         final BreadthFirstSearch gatherOuterAndInnerNodeIdsSearch = new BreadthFirstSearch() {
+            @Override
+            protected GHBitSet createBitSet() {
+                return new GHTBitSet();
+            }
+
             @Override
             protected boolean checkAdjacent(EdgeIteratorState edge) {
                 visitedEdgesIds.add(edge.getEdge());
@@ -138,16 +146,18 @@ public abstract class AbstractEdgeElevationInterpolator {
                 double lon1 = nodeAccess.getLon(secondNodeId);
                 double ele1 = nodeAccess.getEle(secondNodeId);
 
-                final PointList pointList = edge.fetchWayGeometry(0);
+                final PointList pointList = edge.fetchWayGeometry(3);
                 final int count = pointList.size();
-                for (int index = 0; index < count; index++) {
+                for (int index = 1; index < count - 1; index++) {
                     double lat = pointList.getLat(index);
                     double lon = pointList.getLon(index);
                     double ele = elevationInterpolator.calculateElevationBasedOnTwoPoints(lat, lon,
                             lat0, lon0, ele0, lat1, lon1, ele1);
                     pointList.set(index, lat, lon, ele);
                 }
-                edge.setWayGeometry(pointList);
+                if (count > 2)
+                    edge.setWayGeometry(pointList.shallowCopy(1, count - 1, false));
+                edge.setDistance(pointList.calcDistance(Helper.DIST_3D));
             }
         }
     }

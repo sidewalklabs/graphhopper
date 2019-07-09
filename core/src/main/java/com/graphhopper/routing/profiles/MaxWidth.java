@@ -15,27 +15,22 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package com.graphhopper.reader.dem;
-
-import com.graphhopper.routing.util.DataFlagEncoder;
-import com.graphhopper.storage.GraphHopperStorage;
-import com.graphhopper.util.EdgeIteratorState;
+package com.graphhopper.routing.profiles;
 
 /**
- * Elevation interpolator for tunnels. Estimates elevations of inner nodes of
- * the tunnel based on elevations of entry/exit nodes of the tunnel.
+ * One of the three logistic attributes that can be stored per edge.
  *
- * @author Alexey Valikov
+ * @see MaxHeight
+ * @see MaxWeight
  */
-public class TunnelElevationInterpolator extends AbstractEdgeElevationInterpolator {
+public class MaxWidth {
+    public static final String KEY = "max_width";
 
-    public TunnelElevationInterpolator(GraphHopperStorage storage,
-                                       DataFlagEncoder dataFlagEncoder) {
-        super(storage, dataFlagEncoder);
-    }
-
-    @Override
-    protected boolean isInterpolatableEdge(EdgeIteratorState edge) {
-        return dataFlagEncoder.isTransportModeTunnel(edge);
+    /**
+     * Currently enables to store 0.1 to max=0.1*2⁷m and infinity. If a value is between the maximum and infinity
+     * it is assumed to use the maximum value.
+     */
+    public static DecimalEncodedValue create() {
+        return new UnsignedDecimalEncodedValue(KEY, 7, 0.1, Double.POSITIVE_INFINITY, false);
     }
 }

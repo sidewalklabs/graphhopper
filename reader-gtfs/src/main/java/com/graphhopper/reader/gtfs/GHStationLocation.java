@@ -15,27 +15,13 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package com.graphhopper.reader.dem;
 
-import com.graphhopper.routing.util.DataFlagEncoder;
-import com.graphhopper.storage.GraphHopperStorage;
-import com.graphhopper.util.EdgeIteratorState;
+package com.graphhopper.reader.gtfs;
 
-/**
- * Elevation interpolator for bridges. Estimates elevations of inner nodes of
- * the bridge based on elevations of entry/exit nodes of the bridge.
- *
- * @author Alexey Valikov
- */
-public class BridgeElevationInterpolator extends AbstractEdgeElevationInterpolator {
+public class GHStationLocation extends GHLocation {
+    public final String stop_id;
 
-    public BridgeElevationInterpolator(GraphHopperStorage storage,
-                                       DataFlagEncoder dataFlagEncoder) {
-        super(storage, dataFlagEncoder);
-    }
-
-    @Override
-    protected boolean isInterpolatableEdge(EdgeIteratorState edge) {
-        return dataFlagEncoder.isTransportModeBridge(edge);
+    public GHStationLocation(String ghPoint) {
+        this.stop_id = ghPoint;
     }
 }

@@ -60,7 +60,6 @@ public class CHGraphImpl implements CHGraph, Storable<CHGraph> {
     int shortcutEntryBytes;
     // the nodesCH storage is limited via baseGraph.nodeCount too
     int nodeCHEntryBytes;
-    final int shortcutBytesForFlags = 4;
     private int N_LEVEL;
     // shortcut memory layout is synced with edges indices until E_FLAGS, then:
     private int S_SKIP_EDGE1, S_SKIP_EDGE2, S_ORIG_FIRST, S_ORIG_LAST;
@@ -239,6 +238,13 @@ public class CHGraphImpl implements CHGraph, Storable<CHGraph> {
         EdgeAccess edgeAccess = isShortcut(edge) ? chEdgeAccess : baseGraph.edgeAccess;
         long edgePointer = edgeAccess.toPointer(edge);
         return edgeAccess.getOtherNode(node, edgePointer);
+    }
+
+    @Override
+    public boolean isAdjacentToNode(int edge, int node) {
+        EdgeAccess edgeAccess = isShortcut(edge) ? chEdgeAccess : baseGraph.edgeAccess;
+        long edgePointer = edgeAccess.toPointer(edge);
+        return edgeAccess.isAdjacentToNode(node, edgePointer);
     }
 
     void _prepareForContraction() {
@@ -527,19 +533,17 @@ public class CHGraphImpl implements CHGraph, Storable<CHGraph> {
 
         @Override
         public int getOrigEdgeFirst() {
-            if (!isShortcut()) {
+            if (!isShortcut() || !edgeBased) {
                 return getEdge();
             }
-            checkShortcutAndEdgeBased("getOrigEdgeFirst");
             return shortcuts.getInt(edgePointer + S_ORIG_FIRST);
         }
 
         @Override
         public int getOrigEdgeLast() {
-            if (!isShortcut()) {
+            if (!isShortcut() || !edgeBased) {
                 return getEdge();
             }
-            checkShortcutAndEdgeBased("getOrigEdgeLast");
             return shortcuts.getInt(edgePointer + S_ORIG_LAST);
         }
 

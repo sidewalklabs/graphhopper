@@ -19,12 +19,9 @@
 package com.graphhopper.swl;
 
 import com.graphhopper.routing.VirtualEdgeIteratorState;
-import com.graphhopper.routing.profiles.SimpleIntEncodedValue;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GHUtility;
 import com.graphhopper.util.details.AbstractPathDetailsBuilder;
-
-import javax.xml.bind.DatatypeConverter;
 
 public class R5EdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
     private final CustomCarFlagEncoder originalDirectionFlagEncoder;
