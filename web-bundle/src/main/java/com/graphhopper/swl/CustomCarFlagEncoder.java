@@ -44,14 +44,14 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
             registerNewEncodedValue.add(stableIdByte[i]);
         }
         for (int i=0; i<16; i++) {
-            reverseStableIdByte[i] = new SimpleIntEncodedValue("reverse-stable-id-byte-"+i, 8);
+            reverseStableIdByte[i] = new UnsignedIntEncodedValue("reverse-stable-id-byte-"+i, 8);
             registerNewEncodedValue.add(reverseStableIdByte[i]);
         }
     }
 
     final String getStableId(boolean reverse, EdgeIteratorState edge) {
         byte[] stableId = new byte[16];
-        SimpleIntEncodedValue[] idByte = reverse ? reverseStableIdByte : stableIdByte;
+        UnsignedIntEncodedValue[] idByte = reverse ? reverseStableIdByte : stableIdByte;
         for (int i=0; i<16; i++) {
             stableId[i] = (byte) edge.get(idByte[i]);
         }
@@ -64,7 +64,7 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
         if (stableIdBytes.length != 16)
             throw new IllegalArgumentException("stable ID must be 16 bytes: " + DatatypeConverter.printHexBinary(stableIdBytes));
 
-        SimpleIntEncodedValue[] idByte = reverse ? reverseStableIdByte : stableIdByte;
+        UnsignedIntEncodedValue[] idByte = reverse ? reverseStableIdByte : stableIdByte;
         for (int i=0; i<16; i++) {
             edge.set(idByte[i], Byte.toUnsignedInt(stableIdBytes[i]));
         }
