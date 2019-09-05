@@ -47,7 +47,8 @@ public class R5EdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
         if (edge instanceof VirtualEdgeIteratorState) {
             return String.valueOf(GHUtility.getEdgeFromEdgeKey(((VirtualEdgeIteratorState) edge).getOriginalEdgeKey()));
         } else {
-            return originalDirectionFlagEncoder.getStableId(edge);
+            boolean reverse = edge.get(EdgeIteratorState.REVERSE_STATE);
+            return originalDirectionFlagEncoder.getStableId(reverse, edge);
         }
     }
 
