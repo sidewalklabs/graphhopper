@@ -44,7 +44,7 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
             registerNewEncodedValue.add(stableIdByte[i]);
         }
         for (int i=0; i<16; i++) {
-            reverseStableIdByte[i] = new UnsignedIntEncodedValue("reverse-stable-id-byte-"+i, 8);
+            reverseStableIdByte[i] = new UnsignedIntEncodedValue("reverse-stable-id-byte-"+i, 8, false);
             registerNewEncodedValue.add(reverseStableIdByte[i]);
         }
     }
