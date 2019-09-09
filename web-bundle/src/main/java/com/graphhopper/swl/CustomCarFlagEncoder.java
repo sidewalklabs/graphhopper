@@ -19,7 +19,7 @@
 package com.graphhopper.swl;
 
 import com.graphhopper.routing.profiles.EncodedValue;
-import com.graphhopper.routing.profiles.SimpleIntEncodedValue;
+import com.graphhopper.routing.profiles.UnsignedIntEncodedValue;
 import com.graphhopper.routing.util.CarFlagEncoder;
 import com.graphhopper.util.EdgeIteratorState;
 
@@ -28,8 +28,8 @@ import java.util.List;
 
 public class CustomCarFlagEncoder extends CarFlagEncoder {
 
-    private SimpleIntEncodedValue[] stableIdByte = new SimpleIntEncodedValue[16];
-    private SimpleIntEncodedValue[] reverseStableIdByte = new SimpleIntEncodedValue[16];
+    private UnsignedIntEncodedValue[] stableIdByte = new UnsignedIntEncodedValue[16];
+    private UnsignedIntEncodedValue[] reverseStableIdByte = new UnsignedIntEncodedValue[16];
 
     public CustomCarFlagEncoder() {
         super();
@@ -40,18 +40,18 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
     public void createEncodedValues(List<EncodedValue> registerNewEncodedValue, String prefix, int index) {
         super.createEncodedValues(registerNewEncodedValue, prefix, index);
         for (int i=0; i<16; i++) {
-            stableIdByte[i] = new SimpleIntEncodedValue("stable-id-byte-"+i, 8);
+            stableIdByte[i] = new UnsignedIntEncodedValue("stable-id-byte-"+i, 8, false);
             registerNewEncodedValue.add(stableIdByte[i]);
         }
         for (int i=0; i<16; i++) {
-            reverseStableIdByte[i] = new SimpleIntEncodedValue("reverse-stable-id-byte-"+i, 8);
+            reverseStableIdByte[i] = new UnsignedIntEncodedValue("reverse-stable-id-byte-"+i, 8, false);
             registerNewEncodedValue.add(reverseStableIdByte[i]);
         }
     }
 
     final String getStableId(boolean reverse, EdgeIteratorState edge) {
         byte[] stableId = new byte[16];
-        SimpleIntEncodedValue[] idByte = reverse ? reverseStableIdByte : stableIdByte;
+        UnsignedIntEncodedValue[] idByte = reverse ? reverseStableIdByte : stableIdByte;
         for (int i=0; i<16; i++) {
             stableId[i] = (byte) edge.get(idByte[i]);
         }
@@ -64,7 +64,7 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
         if (stableIdBytes.length != 16)
             throw new IllegalArgumentException("stable ID must be 16 bytes: " + DatatypeConverter.printHexBinary(stableIdBytes));
 
-        SimpleIntEncodedValue[] idByte = reverse ? reverseStableIdByte : stableIdByte;
+        UnsignedIntEncodedValue[] idByte = reverse ? reverseStableIdByte : stableIdByte;
         for (int i=0; i<16; i++) {
             edge.set(idByte[i], Byte.toUnsignedInt(stableIdBytes[i]));
         }

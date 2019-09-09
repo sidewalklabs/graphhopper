@@ -21,6 +21,7 @@ import com.graphhopper.reader.ReaderNode;
 import com.graphhopper.reader.ReaderWay;
 import com.graphhopper.routing.profiles.BooleanEncodedValue;
 import com.graphhopper.routing.profiles.DecimalEncodedValue;
+import com.graphhopper.routing.profiles.Roundabout;
 import com.graphhopper.storage.IntsRef;
 import com.graphhopper.util.Helper;
 import com.graphhopper.util.Translation;
@@ -49,7 +50,7 @@ public abstract class AbstractBikeFlagEncoderTester {
     @Before
     public void setUp() {
         encodingManager = EncodingManager.create(encoder = createBikeEncoder());
-        roundaboutEnc = encodingManager.getBooleanEncodedValue(EncodingManager.ROUNDABOUT);
+        roundaboutEnc = encodingManager.getBooleanEncodedValue(Roundabout.KEY);
         priorityEnc = encodingManager.getDecimalEncodedValue(EncodingManager.getKey(encoder, "priority"));
         avSpeedEnc = encoder.getAverageSpeedEnc();
     }
@@ -178,6 +179,20 @@ public abstract class AbstractBikeFlagEncoderTester {
         way.setTag("cycleway", "track");
         way.setTag("railway", "abandoned");
         assertTrue(encoder.getAccess(way).isWay());
+
+        way.clearTags();
+        way.setTag("highway", "platform");
+        assertTrue(encoder.getAccess(way).isWay());
+
+        way.clearTags();
+        way.setTag("highway", "platform");
+        way.setTag("bicycle", "dismount");
+        assertTrue(encoder.getAccess(way).isWay());
+
+        way.clearTags();
+        way.setTag("highway", "platform");
+        way.setTag("bicycle", "no");
+        assertTrue(encoder.getAccess(way).canSkip());
 
         DateFormat simpleDateFormat = Helper.createFormatter("yyyy MMM dd");
 
@@ -354,6 +369,16 @@ public abstract class AbstractBikeFlagEncoderTester {
         wayType = getWayTypeFromFlags(way);
         assertEquals("get off the bike", wayType);
 
+        way.clearTags();
+        way.setTag("highway", "platform");
+        wayType = getWayTypeFromFlags(way);
+        assertEquals("get off the bike", wayType);
+
+        way.clearTags();
+        way.setTag("highway", "platform");
+        way.setTag("bicycle", "yes");
+        wayType = getWayTypeFromFlags(way);
+        assertEquals("", wayType);
     }
 
     @Test

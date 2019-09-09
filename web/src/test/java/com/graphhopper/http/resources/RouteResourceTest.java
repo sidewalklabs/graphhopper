@@ -25,8 +25,12 @@ import com.graphhopper.PathWrapper;
 import com.graphhopper.api.GraphHopperWeb;
 import com.graphhopper.http.GraphHopperApplication;
 import com.graphhopper.http.GraphHopperServerConfiguration;
+import com.graphhopper.routing.profiles.RoadClass;
+import com.graphhopper.routing.profiles.RoadEnvironment;
+import com.graphhopper.routing.profiles.Surface;
 import com.graphhopper.util.CmdArgs;
 import com.graphhopper.util.Helper;
+import com.graphhopper.util.InstructionList;
 import com.graphhopper.util.details.PathDetail;
 import com.graphhopper.util.exceptions.PointOutOfBoundsException;
 import com.graphhopper.util.shapes.GHPoint;
@@ -56,9 +60,11 @@ public class RouteResourceTest {
         config.getGraphHopperConfiguration().merge(new CmdArgs().
                 put("graph.flag_encoders", "car").
                 put("prepare.ch.weightings", "fastest").
+                put("routing.ch.disabling_allowed", "true").
                 put("prepare.min_network_size", "0").
                 put("prepare.min_one_way_network_size", "0").
                 put("datareader.file", "../core/files/andorra.osm.pbf").
+                put("graph.encoded_values", "road_class,surface,road_environment,max_speed").
                 put("graph.location", DIR));
     }
 
@@ -139,7 +145,7 @@ public class RouteResourceTest {
     }
 
     @Test
-    public void testGraphHopperWeb() throws Exception {
+    public void testGraphHopperWeb() {
         GraphHopperWeb hopper = new GraphHopperWeb();
         assertTrue(hopper.load("http://localhost:8080/route"));
         GHResponse rsp = hopper.route(new GHRequest(42.554851, 1.536198, 42.510071, 1.548128));
@@ -159,16 +165,33 @@ public class RouteResourceTest {
         assertTrue("distance wasn't correct:" + arsp.getDistance(), arsp.getDistance() > 20000);
         assertTrue("distance wasn't correct:" + arsp.getDistance(), arsp.getDistance() < 21000);
 
-        List<Map<String, Object>> instructions = arsp.getInstructions().createJson();
+        InstructionList instructions = arsp.getInstructions();
         assertEquals(26, instructions.size());
-        assertEquals("Continue onto la Callisa", instructions.get(0).get("text"));
-        assertEquals("At roundabout, take exit 2", instructions.get(4).get("text"));
-        assertEquals(true, instructions.get(4).get("exited"));
-        assertEquals(false, instructions.get(24).get("exited"));
+        assertEquals("Continue onto la Callisa", instructions.get(0).getTurnDescription(null));
+        assertEquals("At roundabout, take exit 2", instructions.get(4).getTurnDescription(null));
+        assertEquals(true, instructions.get(4).getExtraInfoJSON().get("exited"));
+        assertEquals(false, instructions.get(24).getExtraInfoJSON().get("exited"));
     }
 
     @Test
-    public void testPathDetails() throws Exception {
+    public void testPathDetailsRoadClass() {
+        GraphHopperAPI hopper = new com.graphhopper.api.GraphHopperWeb();
+        assertTrue(hopper.load("http://localhost:8080/route"));
+        GHRequest request = new GHRequest(42.546757, 1.528645, 42.520573, 1.557999);
+        request.setPathDetails(Arrays.asList(RoadClass.KEY, Surface.KEY, RoadEnvironment.KEY, "average_speed"));
+        GHResponse rsp = hopper.route(request);
+        assertFalse(rsp.getErrors().toString(), rsp.hasErrors());
+        assertEquals(4, rsp.getBest().getPathDetails().get(RoadClass.KEY).size());
+        assertEquals(RoadClass.PRIMARY.toString(), rsp.getBest().getPathDetails().get(RoadClass.KEY).get(3).getValue());
+
+        List<PathDetail> roadEnvList = rsp.getBest().getPathDetails().get(RoadEnvironment.KEY);
+        assertEquals(10, roadEnvList.size());
+        assertEquals(RoadEnvironment.ROAD.toString(), roadEnvList.get(0).getValue());
+        assertEquals(RoadEnvironment.TUNNEL.toString(), roadEnvList.get(6).getValue());
+    }
+
+    @Test
+    public void testPathDetails() {
         GraphHopperAPI hopper = new com.graphhopper.api.GraphHopperWeb();
         assertTrue(hopper.load("http://localhost:8080/route"));
         GHRequest request = new GHRequest(42.554851, 1.536198, 42.510071, 1.548128);
@@ -227,8 +250,8 @@ public class RouteResourceTest {
     }
 
     @Test
-    public void testPathDetailsWithoutGraphHopperWeb() throws Exception {
-        final Response response = app.client().target("http://localhost:8080/route?point=42.554851,1.536198&point=42.510071,1.548128&details=average_speed&details=edge_id").request().buildGet().invoke();
+    public void testPathDetailsWithoutGraphHopperWeb() {
+        final Response response = app.client().target("http://localhost:8080/route?point=42.554851,1.536198&point=42.510071,1.548128&details=average_speed&details=edge_id&details=max_speed").request().buildGet().invoke();
         assertEquals(200, response.getStatus());
         JsonNode json = response.readEntity(JsonNode.class);
         JsonNode infoJson = json.get("info");
@@ -248,6 +271,10 @@ public class RouteResourceTest {
         int lastLink = edgeIds.get(edgeIds.size() - 1).get(2).asInt();
         assertEquals(880, firstLink);
         assertEquals(1421, lastLink);
+
+        JsonNode maxSpeed = details.get("max_speed");
+        assertEquals(-1, maxSpeed.get(0).get(2).asDouble(-1), .01);
+        assertEquals(50, maxSpeed.get(1).get(2).asDouble(-1), .01);
     }
 
     @Test
