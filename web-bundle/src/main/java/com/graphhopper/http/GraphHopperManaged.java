@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.json.geo.JsonFeatureCollection;
 import com.graphhopper.reader.osm.GraphHopperOSM;
+import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
 import com.graphhopper.routing.lm.LandmarkStorage;
 import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
 import com.graphhopper.routing.util.FlagEncoder;
@@ -94,6 +95,8 @@ public class GraphHopperManaged implements Managed {
             public FlagEncoder createFlagEncoder(String name, PMap configuration) {
                 if (name.equals("car")) {
                     return customCarFlagEncoder;
+                } else if (name.equals("truck")) {
+                    return TruckFlagEncoder.createTruck(configuration, "truck");
                 }
                 return delegate.createFlagEncoder(name, configuration);
             }
