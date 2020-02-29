@@ -63,7 +63,7 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
         byte[] stableIdBytes = Longs.toByteArray(stableIdLong);
 
         if (stableIdBytes.length != 8)
-            throw new IllegalArgumentException("stable ID must be 8 bytes: " + stableIdBytes);
+            throw new IllegalArgumentException("stable ID must be 8 bytes: " + stableId);
 
         UnsignedIntEncodedValue[] idBytes = reverse ? reverseStableIdEnc : stableIdEnc;
         for (int i=0; i<8; i++) {
