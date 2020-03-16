@@ -1,6 +1,7 @@
 graphhopper:
   graph.location: transit_data/graphhopper
   routing.ch.disabling_allowed: true
+  routing.max_visited_nodes: 1500000
   r5.link_speed_file: transit_data/graphhopper/r5_predicted_tt.csv
 
 server:
