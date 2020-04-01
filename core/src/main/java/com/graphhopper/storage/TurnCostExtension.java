@@ -197,6 +197,13 @@ public class TurnCostExtension implements GraphExtension {
         return nextCostFlags(edgeFrom, nodeVia, edgeTo);
     }
 
+    /**
+     * @return the count of unique turn cost entries currently stored.
+     */
+    public int getTurnCostsCount() {
+        return turnCostsCount;
+    }
+
     public boolean isUTurn(int edgeFrom, int edgeTo) {
         return edgeFrom == edgeTo;
     }
