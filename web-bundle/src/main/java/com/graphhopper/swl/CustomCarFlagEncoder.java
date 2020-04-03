@@ -23,6 +23,7 @@ import com.graphhopper.routing.profiles.UnsignedIntEncodedValue;
 import com.graphhopper.routing.util.CarFlagEncoder;
 import com.graphhopper.util.EdgeIteratorState;
 import com.google.common.primitives.Longs;
+import com.graphhopper.util.PMap;
 
 import java.util.List;
 
@@ -31,8 +32,8 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
     private UnsignedIntEncodedValue[] stableIdEnc = new UnsignedIntEncodedValue[8];
     private UnsignedIntEncodedValue[] reverseStableIdEnc = new UnsignedIntEncodedValue[8];
 
-    public CustomCarFlagEncoder() {
-        super();
+    public CustomCarFlagEncoder(PMap configuration) {
+        super(configuration);
         super.restrictedValues.remove("private");
     }
 
