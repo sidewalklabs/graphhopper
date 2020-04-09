@@ -4,7 +4,8 @@ graphhopper:
   routing.max_visited_nodes: 1500000
   r5.link_speed_file: transit_data/graphhopper/r5_predicted_tt.csv
 
-  prepare.ch.edge_based: edge_and_node
+  # Uncomment this if the export was done with turn-restriction-aware contraction hierarchies
+  # prepare.ch.edge_based: edge_and_node
 
   #  datareader.file: oregon-latest.osm.pbf
   #  graph.flag_encoders: car|turn_costs=true
