@@ -4,6 +4,14 @@ graphhopper:
   routing.max_visited_nodes: 1500000
   r5.link_speed_file: transit_data/graphhopper/r5_predicted_tt.csv
 
+  prepare.ch.edge_based: edge_and_node
+
+  #  datareader.file: oregon-latest.osm.pbf
+  #  graph.flag_encoders: car|turn_costs=true
+  #  graph.bytes_for_flags: 64
+  #
+  #  prepare.ch.weightings: fastest
+
 server:
   minThreads: 4
   maxThreads: 8
