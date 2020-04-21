@@ -31,21 +31,25 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
 
     private UnsignedIntEncodedValue[] stableIdEnc = new UnsignedIntEncodedValue[8];
     private UnsignedIntEncodedValue[] reverseStableIdEnc = new UnsignedIntEncodedValue[8];
+    private String name;
 
-    public CustomCarFlagEncoder(PMap configuration) {
+    public CustomCarFlagEncoder(PMap configuration, String name) {
         super(configuration);
         super.restrictedValues.remove("private");
+        this.name = name;
     }
 
     @Override
     public void createEncodedValues(List<EncodedValue> registerNewEncodedValue, String prefix, int index) {
         super.createEncodedValues(registerNewEncodedValue, prefix, index);
         for (int i=0; i<8; i++) {
-            stableIdEnc[i] = new UnsignedIntEncodedValue("stable-id-byte-"+i, 8, false);
+            stableIdEnc[i] = new UnsignedIntEncodedValue(
+                    "stable-id-byte-" + i + "-" + name, 8, false);
             registerNewEncodedValue.add(stableIdEnc[i]);
         }
         for (int i=0; i<8; i++) {
-            reverseStableIdEnc[i] = new UnsignedIntEncodedValue("reverse-stable-id-byte-"+i, 8, false);
+            reverseStableIdEnc[i] = new UnsignedIntEncodedValue(
+                    "reverse-stable-id-byte-" + i + "-" + name, 8, false);
             registerNewEncodedValue.add(reverseStableIdEnc[i]);
         }
     }
@@ -72,4 +76,8 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
         }
     }
 
+    @Override
+    public String toString() {
+        return name;
+    }
 }

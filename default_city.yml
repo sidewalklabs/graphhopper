@@ -4,6 +4,9 @@ graphhopper:
   routing.max_visited_nodes: 1500000
   r5.link_speed_file: transit_data/graphhopper/r5_predicted_tt.csv
 
+  graph.flag_encoders: car_1,car_12,car_23,bike,foot,truck
+  graph.bytes_for_flags: 96
+
   # Uncomment this if the export was done with turn-restriction-aware contraction hierarchies
   # prepare.ch.edge_based: edge_and_node
 

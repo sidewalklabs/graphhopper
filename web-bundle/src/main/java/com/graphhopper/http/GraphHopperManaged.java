@@ -24,10 +24,7 @@ import com.graphhopper.json.geo.JsonFeatureCollection;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
 import com.graphhopper.routing.lm.LandmarkStorage;
-import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
-import com.graphhopper.routing.util.FlagEncoder;
-import com.graphhopper.routing.util.FlagEncoderFactory;
-import com.graphhopper.routing.util.HintsMap;
+import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
@@ -93,13 +90,17 @@ public class GraphHopperManaged implements Managed {
             private FlagEncoderFactory delegate = new DefaultFlagEncoderFactory();
             @Override
             public FlagEncoder createFlagEncoder(String name, PMap configuration) {
-                if (name.equals("car")) {
-                    customCarFlagEncoder = new CustomCarFlagEncoder(configuration);
+                logger.info("encountered flag encoder named " + name);
+                if (name.startsWith("car")) {
+                    customCarFlagEncoder = new CustomCarFlagEncoder(configuration, name);
                     return customCarFlagEncoder;
+                } else if (name.startsWith("bike")) {
+                    return new BikeFlagEncoder(configuration);
                 } else if (name.equals("truck")) {
                     return TruckFlagEncoder.createTruck(configuration, "truck");
+                } else {
+                    return delegate.createFlagEncoder(name, configuration);
                 }
-                return delegate.createFlagEncoder(name, configuration);
             }
         });
         graphHopper.init(configuration);
