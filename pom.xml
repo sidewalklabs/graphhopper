@@ -220,6 +220,13 @@
 
     <repositories>
         <repository>
+            <id>osgeo</id>
+            <name>OSGeo Release Repository</name>
+            <url>https://repo.osgeo.org/repository/release/</url>
+            <snapshots><enabled>false</enabled></snapshots>
+            <releases><enabled>true</enabled></releases>
+        </repository>
+        <repository>
             <id>graphhopper-matrix</id>
             <url>https://packagecloud.io/priv/${env.GRAPHHOPPER_TOKEN}/graphhopper/matrix/maven2</url>
         </repository>
