@@ -18,6 +18,8 @@
 
 package com.graphhopper.swl;
 
+import com.graphhopper.GraphHopper;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.util.details.*;
@@ -29,10 +31,10 @@ import static com.graphhopper.util.Parameters.DETAILS.*;
 
 public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFactory {
 
-    private final CustomCarFlagEncoder customCarFlagEncoder;
+    private final GraphHopper graphHopper;
 
-    public PathDetailsBuilderFactoryWithEdgeKey(CustomCarFlagEncoder customCarFlagEncoder) {
-        this.customCarFlagEncoder = customCarFlagEncoder;
+    public PathDetailsBuilderFactoryWithEdgeKey(GraphHopper graphHopper) {
+        this.graphHopper = graphHopper;
     }
 
     @Override
@@ -56,7 +58,7 @@ public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFact
         }
 
         if (requestedPathDetails.contains("r5_edge_id")) {
-            builders.add(new R5EdgeIdPathDetailsBuilder(customCarFlagEncoder));
+            builders.add(new R5EdgeIdPathDetailsBuilder(((CustomCarFlagEncoder) graphHopper.getEncodingManager().getEncoder("car"))));
         }
 
         if (requestedPathDetails.size() != builders.size()) {
