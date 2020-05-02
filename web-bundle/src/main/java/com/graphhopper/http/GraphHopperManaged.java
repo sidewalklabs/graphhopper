@@ -88,7 +88,6 @@ public class GraphHopperManaged implements Managed {
                 throw new RuntimeException(e);
             }
         }
-        customCarFlagEncoder = new CustomCarFlagEncoder(new PMap());
         graphHopper.setFlagEncoderFactory(new FlagEncoderFactory() {
             private FlagEncoderFactory delegate = new DefaultFlagEncoderFactory();
             @Override
