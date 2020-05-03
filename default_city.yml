@@ -4,6 +4,9 @@ graphhopper:
   routing.max_visited_nodes: 1500000
   r5.link_speed_file: transit_data/graphhopper/r5_predicted_tt.csv
 
+  graph.flag_encoders: car_2,car_8,car_13,car_18,bike,foot,truck
+  graph.bytes_for_flags: 112
+
 server:
   minThreads: 4
   maxThreads: 8
