@@ -23,13 +23,12 @@ function printBashUsage {
   echo "     --action build       creates the graphhopper web JAR"
   echo "     --action clean       removes all JARs, necessary if you need to use the latest source (e.g. after switching the branch etc)"
   echo "     --action measurement does performance analysis of the current source version via random routes (Measurement class)"
-  echo "     --action torture     can be used to test real world routes via feeding graphhopper logs into a GraphHopper system (Torture class)"
   echo "-c | --config <config>    specify the application configuration"
   echo "-d | --run-background     run the application in background (detach)"
   echo "-fd| --force-download     force the download of the OSM data file if needed"
   echo "-h | --help               display this message"
   echo "--host <host>             specify to which host the service should be bound"
-  echo "-i | --input <file>       path to the input map file or name of the file to download"
+  echo "-i | --input <file>       path to the input map file or name of the file to download. To download from geofabrik don't append 'latest.osm' and use _ instead of /, e.g. europe_ireland-and-northern-ireland.pbf"
   echo "--jar <file>              specify the jar file (useful if you want to reuse this script for custom builds)"
   echo "-o | --graph-cache <dir>  directory for graph cache output"
   echo "-p | --profiles <string>  comma separated list of vehicle profiles"
@@ -48,22 +47,22 @@ while [ ! -z $1 ]; do
     -fd|--force-download) FORCE_DWN=1; shift 1;;
     -h|--help) printBashUsage
       exit 0;;
-    --host) GH_WEB_OPTS="$GH_WEB_OPTS -Ddw.server.applicationConnectors[0].bindHost=$2"; shift 2;;
+    --host) GH_WEB_OPTS="$GH_WEB_OPTS -Ddw.server.application_connectors[0].bind_host=$2"; shift 2;;
     -i|--input) FILE="$2"; shift 2;;
     --jar) JAR="$2"; shift 2;;
     -o|--graph-cache) GRAPH="$2"; shift 2;;
-    -p|--profiles) GH_WEB_OPTS="$GH_WEB_OPTS -Dgraphhopper.graph.flag_encoders=$2"; shift 2;;
-    --port) GH_WEB_OPTS="$GH_WEB_OPTS -Ddw.server.applicationConnectors[0].port=$2"; shift 2;;
+    -p|--profiles) GH_WEB_OPTS="$GH_WEB_OPTS -Ddw.graphhopper.graph.flag_encoders=$2"; shift 2;;
+    --port) GH_WEB_OPTS="$GH_WEB_OPTS -Ddw.server.application_connectors[0].port=$2"; shift 2;;
     -v|--version) echo $VERSION
     	exit 2;;
     # forward VM options, here we assume no spaces ie. just one parameter!?
     -D*)
        GH_WEB_OPTS="$GH_WEB_OPTS $1"; shift 1;;
-    # forward parameter via replacing first two characters of the key with -Dgraphhopper.
+    # forward parameter via replacing first two characters of the key with -Ddw.graphhopper.
     *=*)
        echo "Old parameter assignment not allowed $1"; exit 2;;
     --*)
-       GH_WEB_OPTS="$GH_WEB_OPTS -Dgraphhopper.${1:2}=$2"; shift 2;;
+       GH_WEB_OPTS="$GH_WEB_OPTS -Ddw.graphhopper.${1:2}=$2"; shift 2;;
     -*) echo "Option unknown: $1"
         echo
         printBashUsage
@@ -93,7 +92,12 @@ fi
 
 # default init, https://stackoverflow.com/a/28085062/194609
 : "${CONFIG:=config.yml}"
+if [ -f $CONFIG ]; then
+  echo "copying non-default config file: $CONFIG"
+  cp $CONFIG config.yml
+fi
 if [ ! -f "config.yml" ]; then
+  echo "no config file was specified using example-config.yml"
   cp config-example.yml $CONFIG
 fi
 
@@ -153,6 +157,7 @@ function ensureMaven {
 }
 
 function execMvn {
+  ensureMaven
   "$MAVEN_HOME/bin/mvn" "$@" > /tmp/graphhopper-compile.log
   returncode=$?
   if [[ $returncode != 0 ]] ; then
@@ -171,8 +176,6 @@ function packageJar {
     echo "## existing jar found $JAR"
   fi
 }
-
-ensureMaven
 
 ## now handle actions which do not take an OSM file
 if [ "$ACTION" = "clean" ]; then
@@ -246,7 +249,7 @@ echo "## now $ACTION. JAVA_OPTS=$JAVA_OPTS"
 if [[ "$ACTION" = "web" ]]; then
   export MAVEN_OPTS="$MAVEN_OPTS $JAVA_OPTS"
   if [[ "$RUN_BACKGROUND" == "true" ]]; then
-    exec "$JAVA" $JAVA_OPTS -Dgraphhopper.datareader.file="$OSM_FILE" -Dgraphhopper.graph.location="$GRAPH" \
+    exec "$JAVA" $JAVA_OPTS -Ddw.graphhopper.datareader.file="$OSM_FILE" -Ddw.graphhopper.graph.location="$GRAPH" \
                  $GH_WEB_OPTS -jar "$JAR" server $CONFIG <&- &
     
     if [[ "$GH_PID_FILE" != "" ]]; then
@@ -255,22 +258,18 @@ if [[ "$ACTION" = "web" ]]; then
     exit $?
   else
     # TODO how to avoid duplicative command for foreground and background?
-    exec "$JAVA" $JAVA_OPTS -Dgraphhopper.datareader.file="$OSM_FILE" -Dgraphhopper.graph.location="$GRAPH" \
+    exec "$JAVA" $JAVA_OPTS -Ddw.graphhopper.datareader.file="$OSM_FILE" -Ddw.graphhopper.graph.location="$GRAPH" \
                  $GH_WEB_OPTS -jar "$JAR" server $CONFIG
     # foreground => we never reach this here
   fi
 
 elif [ "$ACTION" = "import" ]; then
-  "$JAVA" $JAVA_OPTS -Dgraphhopper.datareader.file="$OSM_FILE" -Dgraphhopper.graph.location="$GRAPH" \
+  "$JAVA" $JAVA_OPTS -Ddw.graphhopper.datareader.file="$OSM_FILE" -Ddw.graphhopper.graph.location="$GRAPH" \
          $GH_IMPORT_OPTS -jar "$JAR" import $CONFIG
 
-elif [ "$ACTION" = "torture" ]; then
-  execMvn --projects tools -am -DskipTests clean package
-  JAR=tools/target/graphhopper-tools-$VERSION-jar-with-dependencies.jar
-  "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.tools.QueryTorture $@
-
 elif [ "$ACTION" = "measurement" ]; then
-  ARGS="$GH_WEB_OPTS graph.location=$GRAPH datareader.file=$OSM_FILE prepare.ch.weightings=fastest prepare.lm.weightings=fastest graph.flag_encoders=car \
+  ARGS="$GH_WEB_OPTS graph.location=$GRAPH datareader.file=$OSM_FILE \
+       measurement.weighting=fastest measurement.ch.node=true measurement.ch.edge=false measurement.lm=true graph.flag_encoders=car|turn_costs=true \
        prepare.min_network_size=10000 prepare.min_oneway_network_size=10000"
 
  function startMeasurement {

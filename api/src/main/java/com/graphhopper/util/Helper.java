@@ -36,7 +36,6 @@ import java.util.Map.Entry;
  */
 public class Helper {
     public static final DistanceCalc DIST_EARTH = new DistanceCalcEarth();
-    public static final DistanceCalc3D DIST_3D = new DistanceCalc3D();
     public static final DistancePlaneProjection DIST_PLANE = new DistancePlaneProjection();
     public static final AngleCalc ANGLE_CALC = new AngleCalc();
     public static final Charset UTF_CS = Charset.forName("UTF-8");
@@ -84,7 +83,7 @@ public class Helper {
             maxTurnCosts >>= 1;
             counter++;
         }
-        return counter++;
+        return counter;
     }
 
     public static void saveProperties(Map<String, String> map, Writer tmpWriter) throws IOException {
@@ -294,11 +293,10 @@ public class Helper {
      * Converts into an integer to be compatible with the still limited DataAccess class (accepts
      * only integer values). But this conversion also reduces memory consumption where the precision
      * loss is acceptable. As +- 180° and +-90° are assumed as maximum values.
-     * <p>
      *
      * @return the integer of the specified degree
      */
-    public static final int degreeToInt(double deg) {
+    public static int degreeToInt(double deg) {
         if (deg >= Double.MAX_VALUE)
             return Integer.MAX_VALUE;
         if (deg <= -Double.MAX_VALUE)
@@ -308,11 +306,10 @@ public class Helper {
 
     /**
      * Converts back the integer value.
-     * <p>
      *
      * @return the degree value of the specified integer
      */
-    public static final double intToDegree(int storedInt) {
+    public static double intToDegree(int storedInt) {
         if (storedInt == Integer.MAX_VALUE)
             return Double.MAX_VALUE;
         if (storedInt == -Integer.MAX_VALUE)
@@ -323,7 +320,7 @@ public class Helper {
     /**
      * Converts elevation value (in meters) into integer for storage.
      */
-    public static final int eleToInt(double ele) {
+    public static int eleToInt(double ele) {
         if (ele >= Integer.MAX_VALUE)
             return Integer.MAX_VALUE;
         return (int) (ele * ELE_FACTOR);
@@ -333,19 +330,10 @@ public class Helper {
      * Converts the integer value retrieved from storage into elevation (in meters). Do not expect
      * more precision than meters although it currently is!
      */
-    public static final double intToEle(int integEle) {
+    public static double intToEle(int integEle) {
         if (integEle == Integer.MAX_VALUE)
             return Double.MAX_VALUE;
         return integEle / ELE_FACTOR;
-    }
-
-
-    /**
-     * Trying to force the release of the mapped ByteBuffer. See
-     * http://stackoverflow.com/q/2972986/194609 and use only if you know what you are doing.
-     */
-    public static void cleanHack() {
-        System.gc();
     }
 
     public static String nf(long no) {
@@ -366,7 +354,7 @@ public class Helper {
     /**
      * This methods returns the value or min if too small or max if too big.
      */
-    public static final double keepIn(double value, double min, double max) {
+    public static double keepIn(double value, double min, double max) {
         return Math.max(min, Math.min(value, max));
     }
 
@@ -378,15 +366,15 @@ public class Helper {
         return Math.round(value * factor) / factor;
     }
 
-    public static final double round6(double value) {
+    public static double round6(double value) {
         return Math.round(value * 1e6) / 1e6;
     }
 
-    public static final double round4(double value) {
+    public static double round4(double value) {
         return Math.round(value * 1e4) / 1e4;
     }
 
-    public static final double round2(double value) {
+    public static double round2(double value) {
         return Math.round(value * 100) / 100d;
     }
 
@@ -411,18 +399,45 @@ public class Helper {
      * This method handles the specified (potentially negative) int as unsigned bit representation
      * and returns the positive converted long.
      */
-    public static final long toUnsignedLong(int x) {
+    public static long toUnsignedLong(int x) {
         return ((long) x) & 0xFFFFffffL;
     }
 
     /**
      * Converts the specified long back into a signed int (reverse method for toUnsignedLong)
      */
-    public static final int toSignedInt(long x) {
+    public static int toSignedInt(long x) {
         return (int) x;
     }
 
-    public static final String camelCaseToUnderScore(String key) {
+    /**
+     * This method probes the specified string for a boolean, int, long, float and double. If all this fails it returns
+     * the unchanged string.
+     */
+    public static Object toObject(String string) {
+        if ("true".equalsIgnoreCase(string) || "false".equalsIgnoreCase(string))
+            return Boolean.parseBoolean(string);
+        try {
+            return Integer.parseInt(string);
+        } catch (NumberFormatException ex) {
+            try {
+                return Long.parseLong(string);
+            } catch (NumberFormatException ex2) {
+                try {
+                    return Float.parseFloat(string);
+                } catch (NumberFormatException ex3) {
+                    try {
+                        return Double.parseDouble(string);
+                    } catch (NumberFormatException ex4) {
+                        // give up and simply return the string
+                        return string;
+                    }
+                }
+            }
+        }
+    }
+
+    public static String camelCaseToUnderScore(String key) {
         if (key.isEmpty())
             return key;
 
@@ -438,7 +453,7 @@ public class Helper {
         return sb.toString();
     }
 
-    public static final String underScoreToCamelCase(String key) {
+    public static String underScoreToCamelCase(String key) {
         if (key.isEmpty())
             return key;
 
@@ -470,5 +485,23 @@ public class Helper {
             sb.append(strings.get(i));
         }
         return sb.toString();
+    }
+
+    /**
+     * parses a string like [a,b,c]
+     */
+    public static List<String> parseList(String listStr) {
+        String trimmed = listStr.trim();
+        if (trimmed.length() < 2)
+            return Collections.emptyList();
+        String[] items = trimmed.substring(1, trimmed.length() - 1).split(",");
+        List<String> result = new ArrayList<>();
+        for (String item : items) {
+            String s = item.trim();
+            if (!s.isEmpty()) {
+                result.add(s);
+            }
+        }
+        return result;
     }
 }

@@ -19,7 +19,7 @@ package com.graphhopper.storage.index;
 
 import com.carrotsearch.hppc.IntArrayList;
 import com.graphhopper.coll.GHIntHashSet;
-import com.graphhopper.routing.profiles.BooleanEncodedValue;
+import com.graphhopper.routing.ev.BooleanEncodedValue;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.storage.Directory;
 import com.graphhopper.storage.Graph;
@@ -30,7 +30,10 @@ import com.graphhopper.util.shapes.BBox;
 import com.graphhopper.util.shapes.GHPoint;
 import org.junit.Test;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -47,7 +50,7 @@ public class LocationIndexTreeTest extends AbstractLocationIndexTester {
         return (LocationIndexTree) createIndexNoPrepare(g, resolution).prepareIndex();
     }
 
-    public LocationIndexTree createIndexNoPrepare(Graph g, int resolution) {
+    private LocationIndexTree createIndexNoPrepare(Graph g, int resolution) {
         Directory dir = new RAMDirectory(location);
         LocationIndexTree tmpIDX = new LocationIndexTree(g, dir);
         tmpIDX.setResolution(resolution);

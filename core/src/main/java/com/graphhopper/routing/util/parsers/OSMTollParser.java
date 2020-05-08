@@ -18,11 +18,10 @@
 package com.graphhopper.routing.util.parsers;
 
 import com.graphhopper.reader.ReaderWay;
-import com.graphhopper.routing.profiles.EncodedValue;
-import com.graphhopper.routing.profiles.EncodedValueLookup;
-import com.graphhopper.routing.profiles.EnumEncodedValue;
-import com.graphhopper.routing.profiles.Toll;
-import com.graphhopper.routing.util.EncodingManager;
+import com.graphhopper.routing.ev.EncodedValue;
+import com.graphhopper.routing.ev.EncodedValueLookup;
+import com.graphhopper.routing.ev.EnumEncodedValue;
+import com.graphhopper.routing.ev.Toll;
 import com.graphhopper.storage.IntsRef;
 
 import java.util.List;
@@ -32,7 +31,11 @@ public class OSMTollParser implements TagParser {
     private final EnumEncodedValue<Toll> tollEnc;
 
     public OSMTollParser() {
-        this.tollEnc = new EnumEncodedValue<>(Toll.KEY, Toll.class);
+        this(new EnumEncodedValue<>(Toll.KEY, Toll.class));
+    }
+
+    public OSMTollParser(EnumEncodedValue<Toll> tollEnc) {
+        this.tollEnc = tollEnc;
     }
 
     @Override
@@ -41,10 +44,14 @@ public class OSMTollParser implements TagParser {
     }
 
     @Override
-    public IntsRef handleWayTags(IntsRef edgeFlags, ReaderWay readerWay, EncodingManager.Access access, long relationFlags) {
+    public IntsRef handleWayTags(IntsRef edgeFlags, ReaderWay readerWay, boolean ferry, IntsRef relationFlags) {
         if (readerWay.hasTag("toll", "yes"))
             tollEnc.setEnum(false, edgeFlags, Toll.ALL);
         else if (readerWay.hasTag("toll:hgv", "yes"))
+            tollEnc.setEnum(false, edgeFlags, Toll.HGV);
+        else if (readerWay.hasTag("toll:N2", "yes"))
+            tollEnc.setEnum(false, edgeFlags, Toll.HGV);
+        else if (readerWay.hasTag("toll:N3", "yes"))
             tollEnc.setEnum(false, edgeFlags, Toll.HGV);
         return edgeFlags;
     }

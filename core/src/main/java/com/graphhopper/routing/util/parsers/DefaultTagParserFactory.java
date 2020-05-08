@@ -17,7 +17,7 @@
  */
 package com.graphhopper.routing.util.parsers;
 
-import com.graphhopper.routing.profiles.*;
+import com.graphhopper.routing.ev.*;
 import com.graphhopper.util.PMap;
 
 import static com.graphhopper.util.Helper.toLowerCase;
@@ -48,10 +48,26 @@ public class DefaultTagParserFactory implements TagParserFactory {
             return new OSMMaxHeightParser();
         else if (name.equals(MaxWidth.KEY))
             return new OSMMaxWidthParser();
+        else if (name.equals(MaxAxleLoad.KEY))
+            return new OSMMaxAxleLoadParser();
+        else if (name.equals(MaxLength.KEY))
+            return new OSMMaxLengthParser();
         else if (name.equals(Surface.KEY))
             return new OSMSurfaceParser();
         else if (name.equals(Toll.KEY))
             return new OSMTollParser();
+        else if (name.equals(TrackType.KEY))
+            return new OSMTrackTypeParser();
+        else if (name.equals(Hazmat.KEY))
+            return new OSMHazmatParser();
+        else if (name.equals(HazmatTunnel.KEY))
+            return new OSMHazmatTunnelParser();
+        else if (name.equals(HazmatWater.KEY))
+            return new OSMHazmatWaterParser();
+        else if (name.equals(Country.KEY))
+            throw new IllegalArgumentException("The property spatial_rules.borders_directory is required in the configuration " +
+                    "when using 'country' in encoded_values");
+
         throw new IllegalArgumentException("entry in encoder list not supported " + name);
     }
 }

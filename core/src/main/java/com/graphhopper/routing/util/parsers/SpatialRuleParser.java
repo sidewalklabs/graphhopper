@@ -18,43 +18,43 @@
 package com.graphhopper.routing.util.parsers;
 
 import com.graphhopper.reader.ReaderWay;
-import com.graphhopper.routing.profiles.*;
-import com.graphhopper.routing.util.EncodingManager;
-import com.graphhopper.routing.util.spatialrules.SpatialRule;
+import com.graphhopper.routing.ev.EncodedValue;
+import com.graphhopper.routing.ev.EncodedValueLookup;
+import com.graphhopper.routing.ev.IntEncodedValue;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookup;
+import com.graphhopper.routing.util.spatialrules.SpatialRuleSet;
 import com.graphhopper.storage.IntsRef;
 import com.graphhopper.util.shapes.GHPoint;
 
 import java.util.List;
 
+/**
+ * This parser stores the spatialId in the edgeFlags based on previously defined areas.
+ */
 public class SpatialRuleParser implements TagParser {
 
     private final IntEncodedValue spatialRuleEnc;
     private SpatialRuleLookup spatialRuleLookup;
 
-    public SpatialRuleParser(SpatialRuleLookup spatialRuleLookup) {
-        this(spatialRuleLookup, new EnumEncodedValue<>(Country.KEY, Country.class));
-    }
-
     public SpatialRuleParser(SpatialRuleLookup spatialRuleLookup, IntEncodedValue spatialRuleEnc) {
         this.spatialRuleLookup = spatialRuleLookup;
+        if (spatialRuleEnc == null)
+            throw new IllegalStateException("SpatialRuleLookup was not initialized before building the EncodingManager");
         this.spatialRuleEnc = spatialRuleEnc;
     }
 
     @Override
     public void createEncodedValues(EncodedValueLookup lookup, List<EncodedValue> registerNewEncodedValue) {
-        if (spatialRuleEnc == null)
-            throw new IllegalStateException("SpatialRuleLookup was not initialized before building the EncodingManager");
         registerNewEncodedValue.add(spatialRuleEnc);
     }
 
     @Override
-    public IntsRef handleWayTags(IntsRef edgeFlags, ReaderWay way, EncodingManager.Access access, long relationFlags) {
+    public IntsRef handleWayTags(IntsRef edgeFlags, ReaderWay way, boolean ferry, IntsRef relationFlags) {
         GHPoint estimatedCenter = way.getTag("estimated_center", null);
         if (estimatedCenter != null) {
-            SpatialRule rule = spatialRuleLookup.lookupRule(estimatedCenter);
-            way.setTag("spatial_rule", rule);
-            spatialRuleEnc.setInt(false, edgeFlags, spatialRuleLookup.getSpatialId(rule));
+            SpatialRuleSet ruleSet = spatialRuleLookup.lookupRules(estimatedCenter.lat, estimatedCenter.lon);
+            way.setTag("spatial_rule_set", ruleSet);
+            spatialRuleEnc.setInt(false, edgeFlags, ruleSet.getSpatialId());
         }
         return edgeFlags;
     }

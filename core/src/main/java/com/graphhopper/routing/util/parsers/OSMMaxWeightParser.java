@@ -18,34 +18,26 @@
 package com.graphhopper.routing.util.parsers;
 
 import com.graphhopper.reader.ReaderWay;
-import com.graphhopper.routing.profiles.DecimalEncodedValue;
-import com.graphhopper.routing.profiles.EncodedValue;
-import com.graphhopper.routing.profiles.EncodedValueLookup;
-import com.graphhopper.routing.profiles.MaxWeight;
-import com.graphhopper.routing.util.EncodingManager;
+import com.graphhopper.routing.ev.DecimalEncodedValue;
+import com.graphhopper.routing.ev.EncodedValue;
+import com.graphhopper.routing.ev.EncodedValueLookup;
+import com.graphhopper.routing.ev.MaxWeight;
+import com.graphhopper.routing.util.parsers.helpers.OSMValueExtractor;
 import com.graphhopper.storage.IntsRef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.List;
 
-import static com.graphhopper.util.Helper.isEmpty;
-import static com.graphhopper.util.Helper.toLowerCase;
-
 public class OSMMaxWeightParser implements TagParser {
 
-    private static Logger LOG = LoggerFactory.getLogger(OSMMaxWeightParser.class);
-    private final DecimalEncodedValue weightEncoder;
-    private final boolean enableLog;
+    private DecimalEncodedValue weightEncoder;
 
     public OSMMaxWeightParser() {
-        this(MaxWeight.create(), false);
+        this(MaxWeight.create());
     }
 
-    public OSMMaxWeightParser(DecimalEncodedValue weightEncoder, boolean enableLog) {
+    public OSMMaxWeightParser(DecimalEncodedValue weightEncoder) {
         this.weightEncoder = weightEncoder;
-        this.enableLog = enableLog;
     }
 
     @Override
@@ -54,41 +46,10 @@ public class OSMMaxWeightParser implements TagParser {
     }
 
     @Override
-    public IntsRef handleWayTags(IntsRef edgeFlags, ReaderWay way, EncodingManager.Access access, long relationFlags) {
+    public IntsRef handleWayTags(IntsRef edgeFlags, ReaderWay way, boolean ferry, IntsRef relationFlags) {
         // do not include OSM tag "height" here as it has completely different meaning (height of peak)
         List<String> weightTags = Arrays.asList("maxweight", "maxgcweight");
-        extractTons(edgeFlags, way, weightEncoder, weightTags, enableLog);
+        OSMValueExtractor.extractTons(edgeFlags, way, weightEncoder, weightTags);
         return edgeFlags;
-    }
-
-    static void extractTons(IntsRef edgeFlags, ReaderWay way, DecimalEncodedValue valueEncoder, List<String> keys, boolean enableLog) {
-        String value = way.getFirstPriorityTag(keys);
-        if (isEmpty(value))
-            return;
-        try {
-            double val = stringToTons(value);
-            if (val > valueEncoder.getMaxDecimal())
-                val = valueEncoder.getMaxDecimal();
-            valueEncoder.setDecimal(false, edgeFlags, val);
-        } catch (Exception ex) {
-            if (enableLog)
-                LOG.warn("Unable to extract tons from malformed road attribute '{}' for way (OSM_ID = {}).", value, way.getId());
-        }
-    }
-
-    public static double stringToTons(String value) {
-        value = toLowerCase(value).replaceAll(" ", "").replaceAll("(tons|ton)", "t");
-        value = value.replace("mgw", "").trim();
-        double factor = 1;
-        if (value.equals("default") || value.equals("none")) {
-            return -1;
-        } else if (value.endsWith("t")) {
-            value = value.substring(0, value.length() - 1);
-        } else if (value.endsWith("lbs")) {
-            value = value.substring(0, value.length() - 3);
-            factor = 0.00045359237;
-        }
-
-        return Double.parseDouble(value) * factor;
     }
 }

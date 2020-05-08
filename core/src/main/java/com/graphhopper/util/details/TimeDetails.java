@@ -20,8 +20,9 @@ package com.graphhopper.util.details;
 import com.graphhopper.routing.weighting.TDWeighting;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.GHUtility;
 
-import static com.graphhopper.util.Parameters.DETAILS.TIME;
+import static com.graphhopper.util.Parameters.Details.TIME;
 
 /**
  * Calculate the time segments for a Path
@@ -31,8 +32,8 @@ import static com.graphhopper.util.Parameters.DETAILS.TIME;
 public class TimeDetails extends AbstractPathDetailsBuilder {
 
     private final Weighting weighting;
-
-    private int edgeId = -1;
+    private int prevEdgeId = -1;
+    // will include the turn time penalty
     private long accumulatedTime = 0;
     private long time = 0;
 
@@ -46,12 +47,12 @@ public class TimeDetails extends AbstractPathDetailsBuilder {
 
     @Override
     public boolean isEdgeDifferentToLastEdge(EdgeIteratorState edge) {
-        if (edge.getEdge() != edgeId) {
-            edgeId = edge.getEdge();
+        if (edge.getEdge() != prevEdgeId) {
             if (weighting instanceof TDWeighting) {
                 time = ((TDWeighting) weighting).calcTDMillis(edge, false, -1, accumulatedTime);
             } else {
-                time = weighting.calcMillis(edge, false, -1);
+                time = GHUtility.calcMillisWithTurnMillis(weighting, edge, false, prevEdgeId);
+            prevEdgeId = edge.getEdge();
             }
             accumulatedTime += time;
             return true;

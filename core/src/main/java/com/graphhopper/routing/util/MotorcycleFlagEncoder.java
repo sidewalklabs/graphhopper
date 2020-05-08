@@ -18,9 +18,9 @@
 package com.graphhopper.routing.util;
 
 import com.graphhopper.reader.ReaderWay;
-import com.graphhopper.routing.profiles.DecimalEncodedValue;
-import com.graphhopper.routing.profiles.EncodedValue;
-import com.graphhopper.routing.profiles.UnsignedDecimalEncodedValue;
+import com.graphhopper.routing.ev.DecimalEncodedValue;
+import com.graphhopper.routing.ev.EncodedValue;
+import com.graphhopper.routing.ev.UnsignedDecimalEncodedValue;
 import com.graphhopper.routing.weighting.CurvatureWeighting;
 import com.graphhopper.routing.weighting.PriorityWeighting;
 import com.graphhopper.storage.IntsRef;
@@ -50,21 +50,18 @@ public class MotorcycleFlagEncoder extends CarFlagEncoder {
     }
 
     public MotorcycleFlagEncoder(PMap properties) {
-        this((int) properties.getLong("speed_bits", 5),
+        this(properties.getInt("speed_bits", 5),
                 properties.getDouble("speed_factor", 5),
-                properties.getBool("turn_costs", false) ? 1 : 0
-        );
-        this.properties = properties;
-        this.setBlockFords(properties.getBool("block_fords", true));
-    }
+                properties.getBool("turn_costs", false) ? 1 : 0);
 
-    public MotorcycleFlagEncoder(String propertiesStr) {
-        this(new PMap(propertiesStr));
+        blockPrivate(properties.getBool("block_private", true));
+        blockFords(properties.getBool("block_fords", false));
+        blockBarriersByDefault(properties.getBool("block_barriers", true));
     }
 
     public MotorcycleFlagEncoder(int speedBits, double speedFactor, int maxTurnCosts) {
         super(speedBits, speedFactor, maxTurnCosts);
-        speedTwoDirections = true;
+        setSpeedTwoDirections(true);
         restrictions.remove("motorcar");
         //  moped, mofa
         restrictions.add("motorcycle");
@@ -117,8 +114,6 @@ public class MotorcycleFlagEncoder extends CarFlagEncoder {
         defaultSpeedMap.put("road", 20);
         // forestry stuff
         defaultSpeedMap.put("track", 15);
-
-        init();
     }
 
     @Override
@@ -184,7 +179,7 @@ public class MotorcycleFlagEncoder extends CarFlagEncoder {
     }
 
     @Override
-    public IntsRef handleWayTags(IntsRef edgeFlags, ReaderWay way, EncodingManager.Access accept, long priorityFromRelation) {
+    public IntsRef handleWayTags(IntsRef edgeFlags, ReaderWay way, EncodingManager.Access accept) {
         if (accept.canSkip())
             return edgeFlags;
 
@@ -225,14 +220,14 @@ public class MotorcycleFlagEncoder extends CarFlagEncoder {
             setSpeed(true, edgeFlags, ferrySpeed);
         }
 
-        priorityWayEncoder.setDecimal(false, edgeFlags, PriorityCode.getFactor(handlePriority(priorityFromRelation, way)));
+        priorityWayEncoder.setDecimal(false, edgeFlags, PriorityCode.getFactor(handlePriority(way)));
 
         // Set the curvature to the Maximum
         curvatureEncoder.setDecimal(false, edgeFlags, PriorityCode.getFactor(10));
         return edgeFlags;
     }
 
-    private int handlePriority(long relationFlags, ReaderWay way) {
+    private int handlePriority(ReaderWay way) {
         String highway = way.getTag("highway", "");
         if (avoidSet.contains(highway)) {
             return PriorityCode.WORST.getValue();
@@ -245,7 +240,7 @@ public class MotorcycleFlagEncoder extends CarFlagEncoder {
 
     @Override
     public void applyWayTags(ReaderWay way, EdgeIteratorState edge) {
-        double speed = edge.get(speedEncoder);
+        double speed = edge.get(avgSpeedEnc);
         double roadDistance = edge.getDistance();
         double beelineDistance = getBeelineDistance(way);
         double bendiness = beelineDistance / roadDistance;

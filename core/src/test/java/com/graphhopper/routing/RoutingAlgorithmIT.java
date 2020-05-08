@@ -18,28 +18,25 @@
 package com.graphhopper.routing;
 
 import com.graphhopper.GraphHopper;
+import com.graphhopper.config.LMProfile;
+import com.graphhopper.config.Profile;
 import com.graphhopper.reader.PrincetonReader;
 import com.graphhopper.routing.util.EncodingManager;
-import com.graphhopper.routing.util.FlagEncoder;
-import com.graphhopper.routing.util.HintsMap;
 import com.graphhopper.routing.util.TestAlgoCollector.AlgoHelperEntry;
 import com.graphhopper.routing.util.TraversalMode;
 import com.graphhopper.routing.weighting.Weighting;
-import com.graphhopper.storage.CHGraph;
 import com.graphhopper.storage.Directory;
 import com.graphhopper.storage.GraphBuilder;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.storage.index.LocationIndexTree;
+import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
 import com.graphhopper.util.StopWatch;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.zip.GZIPInputStream;
 
 import static com.graphhopper.util.Parameters.Algorithms.*;
@@ -51,7 +48,7 @@ import static org.junit.Assert.assertTrue;
  * @author Peter Karich
  */
 public class RoutingAlgorithmIT {
-    public static List<AlgoHelperEntry> createAlgos(final GraphHopper hopper, final HintsMap hints, TraversalMode tMode) {
+    public static List<AlgoHelperEntry> createAlgos(final GraphHopper hopper, final String weightingStr, final String vehicleStr, TraversalMode tMode) {
         GraphHopperStorage ghStorage = hopper.getGraphHopperStorage();
         LocationIndex idx = hopper.getLocationIndex();
 
@@ -59,75 +56,61 @@ public class RoutingAlgorithmIT {
         if (tMode.isEdgeBased())
             addStr = "turn|";
 
-        FlagEncoder encoder = hopper.getEncodingManager().getEncoder(hints.getVehicle());
-        Weighting weighting = hopper.createWeighting(hints, encoder, hopper.getGraphHopperStorage());
+        Profile profile = new Profile("profile").setVehicle(vehicleStr).setWeighting(weightingStr).setTurnCosts(tMode.isEdgeBased());
+        Weighting weighting = hopper.createWeighting(profile, new PMap());
 
-        HintsMap defaultHints = new HintsMap().put(Parameters.CH.DISABLE, true).put(Parameters.Landmark.DISABLE, true)
-                .setVehicle(hints.getVehicle()).setWeighting(hints.getWeighting());
+        PMap defaultHints = new PMap()
+                .putObject(Parameters.CH.DISABLE, true)
+                .putObject(Parameters.Landmark.DISABLE, true)
+                .putObject("vehicle", vehicleStr)
+                .putObject("weighting", weightingStr);
 
         AlgorithmOptions defaultOpts = AlgorithmOptions.start(new AlgorithmOptions("", weighting, tMode)).hints(defaultHints).build();
-        List<AlgoHelperEntry> prepare = new ArrayList<>();
-        prepare.add(new AlgoHelperEntry(ghStorage, AlgorithmOptions.start(defaultOpts).algorithm(ASTAR).build(), idx, "astar|beeline|" + addStr + weighting));
+        List<AlgoHelperEntry> algos = new ArrayList<>();
+        algos.add(new AlgoHelperEntry(ghStorage, AlgorithmOptions.start(defaultOpts).algorithm(ASTAR).build(), idx, "astar|beeline|" + addStr + weighting));
         // later: include dijkstraOneToMany
-        prepare.add(new AlgoHelperEntry(ghStorage, AlgorithmOptions.start(defaultOpts).algorithm(DIJKSTRA).build(), idx, "dijkstra|" + addStr + weighting));
+        algos.add(new AlgoHelperEntry(ghStorage, AlgorithmOptions.start(defaultOpts).algorithm(DIJKSTRA).build(), idx, "dijkstra|" + addStr + weighting));
 
         AlgorithmOptions astarbiOpts = AlgorithmOptions.start(defaultOpts).algorithm(ASTAR_BI).build();
-        astarbiOpts.getHints().put(ASTAR_BI + ".approximation", "BeelineSimplification");
+        astarbiOpts.getHints().putObject(ASTAR_BI + ".approximation", "BeelineSimplification");
         AlgorithmOptions dijkstrabiOpts = AlgorithmOptions.start(defaultOpts).algorithm(DIJKSTRA_BI).build();
-        prepare.add(new AlgoHelperEntry(ghStorage, astarbiOpts, idx, "astarbi|beeline|" + addStr + weighting));
-        prepare.add(new AlgoHelperEntry(ghStorage, dijkstrabiOpts, idx, "dijkstrabi|" + addStr + weighting));
+        algos.add(new AlgoHelperEntry(ghStorage, astarbiOpts, idx, "astarbi|beeline|" + addStr + weighting));
+        algos.add(new AlgoHelperEntry(ghStorage, dijkstrabiOpts, idx, "dijkstrabi|" + addStr + weighting));
 
         // add additional preparations if CH and LM preparation are enabled
-        if (hopper.getLMFactoryDecorator().isEnabled()) {
-            final HintsMap lmHints = new HintsMap(defaultHints).put(Parameters.Landmark.DISABLE, false);
-            prepare.add(new AlgoHelperEntry(ghStorage, AlgorithmOptions.start(astarbiOpts).hints(lmHints).build(), idx, "astarbi|landmarks|" + weighting) {
+        if (hopper.getLMPreparationHandler().isEnabled()) {
+            final PMap lmHints = new PMap(defaultHints).putObject(Parameters.Landmark.DISABLE, false);
+            algos.add(new AlgoHelperEntry(ghStorage, AlgorithmOptions.start(astarbiOpts).hints(lmHints).build(), idx, "astarbi|landmarks|" + weighting) {
                 @Override
                 public RoutingAlgorithmFactory createRoutingFactory() {
-                    return hopper.getAlgorithmFactory(lmHints);
+                    return hopper.getAlgorithmFactory(vehicleStr + "_profile", true, false);
                 }
             });
         }
 
-        if (hopper.getCHFactoryDecorator().isEnabled()) {
-            final HintsMap chHints = new HintsMap(defaultHints);
-            chHints.put(Parameters.CH.DISABLE, false);
-            chHints.put(Parameters.Routing.EDGE_BASED, tMode.isEdgeBased());
-            Weighting pickedWeighting = null;
-            for (Weighting tmpWeighting : hopper.getCHFactoryDecorator().getNodeBasedWeightings()) {
-                if (tmpWeighting.equals(weighting)) {
-                    pickedWeighting = tmpWeighting;
-                    break;
-                }
-            }
-            // todo: not so sure about this, can the edge based weighting entry overwrite the picked weighting found
-            // in the node based weightings ?
-            for (Weighting tmpWeighting : hopper.getCHFactoryDecorator().getEdgeBasedWeightings()) {
-                if (tmpWeighting.equals(weighting)) {
-                    pickedWeighting = tmpWeighting;
-                    break;
-                }
-            }
-            if (pickedWeighting == null)
-                throw new IllegalStateException("Didn't find weighting " + hints.getWeighting() + " in " + hopper.getCHFactoryDecorator().getNodeBasedWeightings());
-
-            prepare.add(new AlgoHelperEntry(ghStorage.getGraph(CHGraph.class, pickedWeighting),
-                    AlgorithmOptions.start(dijkstrabiOpts).hints(chHints).build(), idx, "dijkstrabi|ch|prepare|" + hints.getWeighting()) {
+        if (hopper.getCHPreparationHandler().isEnabled()) {
+            final PMap chHints = new PMap(defaultHints);
+            chHints.putObject(Parameters.CH.DISABLE, false);
+            chHints.putObject(Parameters.Routing.EDGE_BASED, tMode.isEdgeBased());
+            Profile pickedProfile = new ProfileResolver(hopper.getEncodingManager(), hopper.getProfiles(), hopper.getCHPreparationHandler().getCHProfiles(), Collections.<LMProfile>emptyList()).selectProfileCH(chHints);
+            algos.add(new AlgoHelperEntry(ghStorage.getCHGraph(pickedProfile.getName()),
+                    AlgorithmOptions.start(dijkstrabiOpts).hints(chHints).build(), idx, "dijkstrabi|ch|prepare|" + weightingStr) {
                 @Override
                 public RoutingAlgorithmFactory createRoutingFactory() {
-                    return hopper.getAlgorithmFactory(chHints);
+                    return hopper.getAlgorithmFactory(vehicleStr + "_profile", false, true);
                 }
             });
 
-            prepare.add(new AlgoHelperEntry(ghStorage.getGraph(CHGraph.class, pickedWeighting),
-                    AlgorithmOptions.start(astarbiOpts).hints(chHints).build(), idx, "astarbi|ch|prepare|" + hints.getWeighting()) {
+            algos.add(new AlgoHelperEntry(ghStorage.getCHGraph(pickedProfile.getName()),
+                    AlgorithmOptions.start(astarbiOpts).hints(chHints).build(), idx, "astarbi|ch|prepare|" + weightingStr) {
                 @Override
                 public RoutingAlgorithmFactory createRoutingFactory() {
-                    return hopper.getAlgorithmFactory(chHints);
+                    return hopper.getAlgorithmFactory(vehicleStr + "_profile", false, true);
                 }
             });
         }
 
-        return prepare;
+        return algos;
     }
 
     @Test
@@ -143,7 +126,6 @@ public class RoutingAlgorithmIT {
         new PrincetonReader(graph).setStream(new GZIPInputStream(PrincetonReader.class.getResourceAsStream(bigFile))).read();
         GraphHopper hopper = new GraphHopper() {
             {
-                setCHEnabled(false);
                 setEncodingManager(eManager);
                 loadGraph(graph);
             }
@@ -154,7 +136,7 @@ public class RoutingAlgorithmIT {
             }
         };
 
-        Collection<AlgoHelperEntry> prepares = createAlgos(hopper, new HintsMap().setWeighting("shortest").setVehicle("car"), TraversalMode.NODE_BASED);
+        Collection<AlgoHelperEntry> prepares = createAlgos(hopper, "shortest", "car", TraversalMode.NODE_BASED);
 
         for (AlgoHelperEntry entry : prepares) {
             StopWatch sw = new StopWatch();

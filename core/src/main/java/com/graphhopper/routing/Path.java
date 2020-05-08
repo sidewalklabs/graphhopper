@@ -26,67 +26,43 @@ import com.graphhopper.routing.weighting.TDWeighting;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.NodeAccess;
-import com.graphhopper.storage.SPTEntry;
-import com.graphhopper.util.*;
-import com.graphhopper.util.details.PathDetail;
-import com.graphhopper.util.details.PathDetailsBuilder;
-import com.graphhopper.util.details.PathDetailsBuilderFactory;
-import com.graphhopper.util.details.PathDetailsFromEdges;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.graphhopper.util.EdgeIterator;
+import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.FetchMode;
+import com.graphhopper.util.PointList;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * Stores the nodes for the found path of an algorithm. It additionally needs the edgeIds to make
- * edge determination faster and less complex as there could be several edges (u,v) especially for
- * graphs with shortcuts.
- * <p>
+ * This class represents the result of a shortest path calculation. It also provides methods to extract further
+ * information about the found path, like instructions etc.
  *
  * @author Peter Karich
  * @author Ottavio Campana
  * @author jan soe
+ * @author easbar
  */
 public class Path {
-    private final Logger logger = LoggerFactory.getLogger(getClass());
-
-    final StopWatch extractSW = new StopWatch("extract");
-    protected Graph graph;
-    protected double distance;
-    // we go upwards (via SPTEntry.parent) from the goal node to the origin node
-    protected boolean reverseOrder = true;
-    protected long time;
-    /**
-     * Shortest path tree entry
-     */
-    protected SPTEntry sptEntry;
-    protected int endNode = -1;
+    Graph graph;
+    double distance;
+    long time;
+    int endNode = -1;
+    private boolean reverseOrder = true;
     private List<String> description;
-    protected Weighting weighting;
-    private FlagEncoder encoder;
     private boolean found;
     private int fromNode = -1;
     private GHIntArrayList edgeIds;
     private double weight;
     private NodeAccess nodeAccess;
+    private String debugInfo = "";
 
-    public Path(Graph graph, Weighting weighting) {
+    public Path(Graph graph) {
         this.weight = Double.MAX_VALUE;
         this.graph = graph;
         this.nodeAccess = graph.getNodeAccess();
-        this.weighting = weighting;
-        this.encoder = weighting.getFlagEncoder();
         this.edgeIds = new GHIntArrayList();
-    }
-
-    /**
-     * Populates an unextracted path instances from the specified path p.
-     */
-    Path(Path p) {
-        this(p.graph, p.weighting);
-        weight = p.weight;
-        edgeIds = new GHIntArrayList(p.edgeIds);
-        sptEntry = p.sptEntry;
     }
 
     /**
@@ -104,13 +80,12 @@ public class Path {
         return this;
     }
 
-    public Path setSPTEntry(SPTEntry sptEntry) {
-        this.sptEntry = sptEntry;
-        return this;
+    public void addEdge(int edge) {
+        edgeIds.add(edge);
     }
 
-    protected void addEdge(int edge) {
-        edgeIds.add(edge);
+    public int getEndNode() {
+        return endNode;
     }
 
     protected Path setEndNode(int end) {
@@ -123,7 +98,7 @@ public class Path {
      */
     private int getFromNode() {
         if (fromNode < 0)
-            throw new IllegalStateException("Call extract() before retrieving fromNode");
+            throw new IllegalStateException("fromNode < 0 should not happen");
 
         return fromNode;
     }
@@ -149,7 +124,7 @@ public class Path {
         return this;
     }
 
-    void reverseOrder() {
+    void reverseEdges() {
         if (!reverseOrder)
             throw new IllegalStateException("Switching order multiple times is not supported");
 
@@ -159,6 +134,11 @@ public class Path {
 
     public Path setDistance(double distance) {
         this.distance = distance;
+        return this;
+    }
+
+    public Path addDistance(double distance) {
+        this.distance += distance;
         return this;
     }
 
@@ -176,6 +156,11 @@ public class Path {
         return time;
     }
 
+    public Path addTime(long time) {
+        this.time += time;
+        return this;
+    }
+
     /**
      * This weight will be updated during the algorithm. The initial value is maximum double.
      */
@@ -189,49 +174,18 @@ public class Path {
     }
 
     /**
-     * Extracts the Path from the shortest-path-tree determined by sptEntry.
-     */
-    public Path extract() {
-        if (isFound())
-            throw new IllegalStateException("Extract can only be called once");
-
-        extractSW.start();
-        SPTEntry currEdge = sptEntry;
-        setEndNode(currEdge.adjNode);
-        boolean nextEdgeValid = EdgeIterator.Edge.isValid(currEdge.edge);
-        int nextEdge;
-        while (nextEdgeValid) {
-            // the reverse search needs the next edge
-            nextEdgeValid = EdgeIterator.Edge.isValid(currEdge.parent.edge);
-            nextEdge = nextEdgeValid ? currEdge.parent.edge : EdgeIterator.NO_EDGE;
-            processEdge(currEdge.edge, currEdge.adjNode, nextEdge);
-            currEdge = currEdge.parent;
-        }
-        if (weighting instanceof TDWeighting) {
-            time = sptEntry.time - currEdge.time;
-        }
-        setFromNode(currEdge.adjNode);
-        reverseOrder();
-        extractSW.stop();
-        return setFound(true);
-    }
-
-    /**
      * Yields the final edge of the path
      */
     public EdgeIteratorState getFinalEdge() {
         return graph.getEdgeIteratorState(edgeIds.get(edgeIds.size() - 1), endNode);
     }
 
-    /**
-     * @return the time it took to extract the path in nano (!) seconds
-     */
-    public long getExtractTime() {
-        return extractSW.getNanos();
+    public void setDebugInfo(String debugInfo) {
+        this.debugInfo = debugInfo;
     }
 
     public String getDebugInfo() {
-        return extractSW.toString();
+        return debugInfo;
     }
 
     /**
@@ -256,7 +210,7 @@ public class Path {
      * @param visitor callback to handle every edge. The edge is decoupled from the iterator and can
      *                be stored.
      */
-    private void forEveryEdge(EdgeVisitor visitor) {
+    public void forEveryEdge(EdgeVisitor visitor) {
         int tmpNode = getFromNode();
         int len = edgeIds.size();
         int prevEdgeId = EdgeIterator.NO_EDGE;
@@ -330,7 +284,7 @@ public class Path {
      * This method calculated a list of points for this path
      * <p>
      *
-     * @return this path its geometry
+     * @return the geometry of this path
      */
     public PointList calcPoints() {
         final PointList points = new PointList(edgeIds.size() + 1, nodeAccess.is3D());
@@ -346,7 +300,7 @@ public class Path {
         forEveryEdge(new EdgeVisitor() {
             @Override
             public void next(EdgeIteratorState eb, int index, int prevEdgeId) {
-                PointList pl = eb.fetchWayGeometry(2);
+                PointList pl = eb.fetchWayGeometry(FetchMode.PILLAR_AND_ADJ);
                 for (int j = 0; j < pl.getSize(); j++) {
                     points.add(pl, j);
                 }
@@ -360,61 +314,13 @@ public class Path {
         return points;
     }
 
-    /**
-     * @return the list of instructions for this path.
-     */
-    public InstructionList calcInstructions(BooleanEncodedValue roundaboutEnc, final Translation tr) {
-        final InstructionList ways = new InstructionList(edgeIds.size() / 4, tr);
-        if (edgeIds.isEmpty()) {
-            if (isFound()) {
-                ways.add(new FinishInstruction(nodeAccess, endNode));
-            }
-            return ways;
-        }
-        forEveryEdge(new InstructionsFromEdges(getFromNode(), graph, weighting, encoder, roundaboutEnc, nodeAccess, tr, ways));
-        return ways;
-    }
-
-    /**
-     * Calculates the PathDetails for this Path. This method will return fast, if there are no calculators.
-     *
-     * @param pathBuilderFactory Generates the relevant PathBuilders
-     * @return List of PathDetails for this Path
-     */
-    public Map<String, List<PathDetail>> calcDetails(List<String> requestedPathDetails, PathDetailsBuilderFactory pathBuilderFactory, int previousIndex) {
-        if (!isFound() || requestedPathDetails.isEmpty())
-            return Collections.emptyMap();
-        List<PathDetailsBuilder> pathBuilders = pathBuilderFactory.createPathDetailsBuilders(requestedPathDetails, encoder, weighting);
-        if (pathBuilders.isEmpty())
-            return Collections.emptyMap();
-
-        forEveryEdge(new PathDetailsFromEdges(pathBuilders, previousIndex));
-
-        Map<String, List<PathDetail>> pathDetails = new HashMap<>(pathBuilders.size());
-        for (PathDetailsBuilder builder : pathBuilders) {
-            Map.Entry<String, List<PathDetail>> entry = builder.build();
-            List<PathDetail> existing = pathDetails.put(entry.getKey(), entry.getValue());
-            if (existing != null)
-                throw new IllegalStateException("Some PathDetailsBuilders use duplicate key: " + entry.getKey());
-        }
-
-        return pathDetails;
+    public int getSize() {
+        return edgeIds.size();
     }
 
     @Override
     public String toString() {
         return "found: " + found + ", weight: " + weight + ", time: " + time + ", distance: " + distance + ", edges: " + edgeIds.size();
-    }
-
-    public String toDetailsString() {
-        String str = "";
-        for (int i = 0; i < edgeIds.size(); i++) {
-            if (i > 0)
-                str += "->";
-
-            str += edgeIds.get(i);
-        }
-        return toString() + ", found:" + isFound() + ", " + str;
     }
 
     /**

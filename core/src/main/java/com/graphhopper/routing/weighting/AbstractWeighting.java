@@ -17,13 +17,13 @@
  */
 package com.graphhopper.routing.weighting;
 
-import com.graphhopper.routing.profiles.BooleanEncodedValue;
-import com.graphhopper.routing.profiles.DecimalEncodedValue;
+import com.graphhopper.routing.ev.BooleanEncodedValue;
+import com.graphhopper.routing.ev.DecimalEncodedValue;
 import com.graphhopper.routing.util.FlagEncoder;
-import com.graphhopper.routing.util.HintsMap;
 import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.FetchMode;
 
-import static com.graphhopper.util.Helper.toLowerCase;
+import static com.graphhopper.routing.weighting.TurnCostProvider.NO_TURN_COST_PROVIDER;
 
 /**
  * @author Peter Karich
@@ -32,8 +32,13 @@ public abstract class AbstractWeighting implements Weighting {
     protected final FlagEncoder flagEncoder;
     protected final DecimalEncodedValue avSpeedEnc;
     protected final BooleanEncodedValue accessEnc;
+    private final TurnCostProvider turnCostProvider;
 
     protected AbstractWeighting(FlagEncoder encoder) {
+        this(encoder, NO_TURN_COST_PROVIDER);
+    }
+
+    protected AbstractWeighting(FlagEncoder encoder, TurnCostProvider turnCostProvider) {
         this.flagEncoder = encoder;
         if (!flagEncoder.isRegistered())
             throw new IllegalStateException("Make sure you add the FlagEncoder " + flagEncoder + " to an EncodingManager before using it elsewhere");
@@ -42,10 +47,17 @@ public abstract class AbstractWeighting implements Weighting {
 
         avSpeedEnc = encoder.getAverageSpeedEnc();
         accessEnc = encoder.getAccessEnc();
+        this.turnCostProvider = turnCostProvider;
     }
 
+    /**
+     * In most cases subclasses should only override this method to change the edge-weight. The turn cost handling
+     * should normally be changed by passing another {@link TurnCostProvider} implementation to the constructor instead.
+     */
+    public abstract double calcEdgeWeight(EdgeIteratorState edgeState, boolean reverse);
+
     @Override
-    public long calcMillis(EdgeIteratorState edgeState, boolean reverse, int prevOrNextEdgeId) {
+    public long calcEdgeMillis(EdgeIteratorState edgeState, boolean reverse) {
         // special case for loop edges: since they do not have a meaningful direction we always need to read them in
         // forward direction
         if (edgeState.getBaseNode() == edgeState.getAdjNode()) {
@@ -55,7 +67,7 @@ public abstract class AbstractWeighting implements Weighting {
         if (reverse && !edgeState.getReverse(accessEnc) || !reverse && !edgeState.get(accessEnc))
             throw new IllegalStateException("Calculating time should not require to read speed from edge in wrong direction. " +
                     "(" + edgeState.getBaseNode() + " - " + edgeState.getAdjNode() + ") "
-                    + edgeState.fetchWayGeometry(3) + ", dist: " + edgeState.getDistance() + " "
+                    + edgeState.fetchWayGeometry(FetchMode.ALL) + ", dist: " + edgeState.getDistance() + " "
                     + "Reverse:" + reverse + ", fwd:" + edgeState.get(accessEnc) + ", bwd:" + edgeState.getReverse(accessEnc) + ", fwd-speed: " + edgeState.get(avSpeedEnc) + ", bwd-speed: " + edgeState.getReverse(avSpeedEnc));
 
         double speed = reverse ? edgeState.getReverse(avSpeedEnc) : edgeState.get(avSpeedEnc);
@@ -68,8 +80,18 @@ public abstract class AbstractWeighting implements Weighting {
     }
 
     @Override
-    public boolean matches(HintsMap reqMap) {
-        return getName().equals(reqMap.getWeighting()) && flagEncoder.toString().equals(reqMap.getVehicle());
+    public double calcTurnWeight(int inEdge, int viaNode, int outEdge) {
+        return turnCostProvider.calcTurnWeight(inEdge, viaNode, outEdge);
+    }
+
+    @Override
+    public long calcTurnMillis(int inEdge, int viaNode, int outEdge) {
+        return turnCostProvider.calcTurnMillis(inEdge, viaNode, outEdge);
+    }
+
+    @Override
+    public boolean hasTurnCosts() {
+        return turnCostProvider != NO_TURN_COST_PROVIDER;
     }
 
     @Override
@@ -94,18 +116,11 @@ public abstract class AbstractWeighting implements Weighting {
         return toString().equals(other.toString());
     }
 
-    static final boolean isValidName(String name) {
+    static boolean isValidName(String name) {
         if (name == null || name.isEmpty())
             return false;
 
         return name.matches("[\\|_a-z]+");
-    }
-
-    /**
-     * Replaces all characters which are not numbers, characters or underscores with underscores
-     */
-    public static String weightingToFileName(Weighting w, boolean edgeBased) {
-        return toLowerCase(w.toString()).replaceAll("\\|", "_") + (edgeBased ? "_edge" : "_node");
     }
 
     @Override

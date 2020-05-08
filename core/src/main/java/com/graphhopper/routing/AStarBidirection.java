@@ -19,8 +19,8 @@ package com.graphhopper.routing;
 
 import com.graphhopper.routing.AStar.AStarEntry;
 import com.graphhopper.routing.util.TraversalMode;
+import com.graphhopper.routing.weighting.BalancedWeightApproximator;
 import com.graphhopper.routing.weighting.BeelineWeightApproximator;
-import com.graphhopper.routing.weighting.ConsistentWeightApproximator;
 import com.graphhopper.routing.weighting.WeightApproximator;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
@@ -29,6 +29,8 @@ import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.Helper;
 import com.graphhopper.util.Parameters;
+
+import java.util.PriorityQueue;
 
 /**
  * This class implements a bidirectional A* algorithm. It is interesting to note that a
@@ -56,8 +58,9 @@ import com.graphhopper.util.Parameters;
  * @author Peter Karich
  * @author jansoe
  */
-public class AStarBidirection extends AbstractBidirAlgo implements RecalculationHook {
-    private ConsistentWeightApproximator weightApprox;
+public class AStarBidirection extends AbstractNonCHBidirAlgo {
+    private BalancedWeightApproximator weightApprox;
+    double stoppingCriterionOffset;
 
     public AStarBidirection(Graph graph, Weighting weighting, TraversalMode tMode) {
         super(graph, weighting, tMode);
@@ -68,9 +71,17 @@ public class AStarBidirection extends AbstractBidirAlgo implements Recalculation
 
     @Override
     void init(int from, double fromWeight, int to, double toWeight) {
-        weightApprox.setFrom(from);
-        weightApprox.setTo(to);
+        weightApprox.setFromTo(from, to);
+        stoppingCriterionOffset = weightApprox.approximate(to, true) + weightApprox.getSlack();
         super.init(from, fromWeight, to, toWeight);
+    }
+
+    @Override
+    protected boolean finished() {
+        if (finishedFrom || finishedTo)
+            return true;
+
+        return currFrom.weight + currTo.weight >= bestWeight + stoppingCriterionOffset;
     }
 
     @Override
@@ -107,55 +118,14 @@ public class AStarBidirection extends AbstractBidirAlgo implements Recalculation
         return weightApprox.getApproximation();
     }
 
-    /**
-     * @param approx if true it enables approximate distance calculation from lat,lon values
-     */
     public AStarBidirection setApproximation(WeightApproximator approx) {
-        weightApprox = new ConsistentWeightApproximator(approx);
+        weightApprox = new BalancedWeightApproximator(approx);
         return this;
     }
 
-    void setFromDataStructures(AStarBidirection astar) {
-        super.setFromDataStructures(astar);
-        weightApprox.setFrom(astar.currFrom.adjNode);
-    }
-
-    void setToDataStructures(AStarBidirection astar) {
-        super.setToDataStructures(astar);
-        weightApprox.setTo(astar.currTo.adjNode);
-    }
-
     @Override
-    public void afterHeuristicChange(boolean forward, boolean backward) {
-        if (forward) {
-
-            // update PQ due to heuristic change (i.e. weight changed)
-            if (!pqOpenSetFrom.isEmpty()) {
-                // copy into temporary array to avoid pointer change of PQ
-                AStarEntry[] entries = pqOpenSetFrom.toArray(new AStarEntry[pqOpenSetFrom.size()]);
-                pqOpenSetFrom.clear();
-                for (AStarEntry value : entries) {
-                    value.weight = value.weightOfVisitedPath + weightApprox.approximate(value.adjNode, false);
-                    // does not work for edge based
-                    // ignoreExplorationFrom.add(value.adjNode);
-
-                    pqOpenSetFrom.add(value);
-                }
-            }
-        }
-
-        if (backward) {
-            if (!pqOpenSetTo.isEmpty()) {
-                AStarEntry[] entries = pqOpenSetTo.toArray(new AStarEntry[pqOpenSetTo.size()]);
-                pqOpenSetTo.clear();
-                for (AStarEntry value : entries) {
-                    value.weight = value.weightOfVisitedPath + weightApprox.approximate(value.adjNode, true);
-                    // ignoreExplorationTo.add(value.adjNode);
-
-                    pqOpenSetTo.add(value);
-                }
-            }
-        }
+    void setToDataStructures(AbstractBidirAlgo other) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

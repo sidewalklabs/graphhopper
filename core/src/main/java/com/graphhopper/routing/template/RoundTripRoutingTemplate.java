@@ -20,14 +20,17 @@ package com.graphhopper.routing.template;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.PathWrapper;
-import com.graphhopper.routing.*;
-import com.graphhopper.routing.util.DefaultEdgeFilter;
+import com.graphhopper.routing.AlgorithmOptions;
+import com.graphhopper.routing.Path;
+import com.graphhopper.routing.RoutingAlgorithm;
+import com.graphhopper.routing.RoutingAlgorithmFactory;
+import com.graphhopper.routing.ev.EncodedValueLookup;
+import com.graphhopper.routing.querygraph.QueryGraph;
 import com.graphhopper.routing.util.EdgeFilter;
-import com.graphhopper.routing.util.EncodingManager;
-import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.routing.util.tour.MultiPointTour;
 import com.graphhopper.routing.util.tour.TourStrategy;
 import com.graphhopper.routing.weighting.AvoidEdgesWeighting;
+import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.Helper;
@@ -54,33 +57,29 @@ public class RoundTripRoutingTemplate extends AbstractRoutingTemplate implements
     private final int maxRetries;
     private final GHRequest ghRequest;
     private final GHResponse ghResponse;
-    private final LocationIndex locationIndex;
-    private final EncodingManager encodingManager;
-    private PathWrapper altResponse;
     // result from route
     private List<Path> pathList;
 
-    public RoundTripRoutingTemplate(GHRequest request, GHResponse ghRsp, LocationIndex locationIndex, EncodingManager encodingManager, int maxRetries) {
+    public RoundTripRoutingTemplate(GHRequest request, GHResponse ghRsp, LocationIndex locationIndex,
+                                    EncodedValueLookup lookup, Weighting weighting, int maxRetries) {
+        super(locationIndex, lookup, weighting);
         this.ghRequest = request;
         this.ghResponse = ghRsp;
-        this.locationIndex = locationIndex;
-        this.encodingManager = encodingManager;
         this.maxRetries = maxRetries;
     }
 
     @Override
-    public List<QueryResult> lookup(List<GHPoint> points, FlagEncoder encoder) {
+    public List<QueryResult> lookup(List<GHPoint> points) {
         if (points.size() != 1 || ghRequest.getPoints().size() != 1)
             throw new IllegalArgumentException("For round trip calculation exactly one point is required");
         final double distanceInMeter = ghRequest.getHints().getDouble(RoundTrip.DISTANCE, 10000);
         final long seed = ghRequest.getHints().getLong(RoundTrip.SEED, 0L);
-        double initialHeading = ghRequest.getFavoredHeading(0);
+        double initialHeading = ghRequest.getHeadings().isEmpty() ? Double.NaN : ghRequest.getHeadings().get(0);
         final int roundTripPointCount = Math.min(20, ghRequest.getHints().getInt(RoundTrip.POINTS, 2 + (int) (distanceInMeter / 50000)));
         final GHPoint start = points.get(0);
 
         TourStrategy strategy = new MultiPointTour(new Random(seed), distanceInMeter, roundTripPointCount, initialHeading);
         queryResults = new ArrayList<>(2 + strategy.getNumberOfGeneratedPoints());
-        EdgeFilter edgeFilter = DefaultEdgeFilter.allEdges(encoder);
         QueryResult startQR = locationIndex.findClosest(start.lat, start.lon, edgeFilter);
         if (!startQR.isValid())
             throw new PointNotFoundException("Cannot find point 0: " + start, 0);
@@ -116,7 +115,7 @@ public class RoundTripRoutingTemplate extends AbstractRoutingTemplate implements
         algoOpts = AlgorithmOptions.start(algoOpts).
                 algorithm(Parameters.Algorithms.ASTAR_BI).
                 weighting(avoidPathWeighting).build();
-        algoOpts.getHints().put(Algorithms.AStarBi.EPSILON, 2);
+        algoOpts.getHints().putObject(Algorithms.AStarBi.EPSILON, 2);
 
         long visitedNodesSum = 0L;
         QueryResult start = queryResults.get(0);
@@ -139,8 +138,8 @@ public class RoundTripRoutingTemplate extends AbstractRoutingTemplate implements
             avoidPathWeighting.addEdges(path.calcEdges());
         }
 
-        ghResponse.getHints().put("visited_nodes.sum", visitedNodesSum);
-        ghResponse.getHints().put("visited_nodes.average", (float) visitedNodesSum / (queryResults.size() - 1));
+        ghResponse.getHints().putObject("visited_nodes.sum", visitedNodesSum);
+        ghResponse.getHints().putObject("visited_nodes.average", (float) visitedNodesSum / (queryResults.size() - 1));
 
         return pathList;
     }
@@ -150,13 +149,11 @@ public class RoundTripRoutingTemplate extends AbstractRoutingTemplate implements
     }
 
     @Override
-    public boolean isReady(PathMerger pathMerger, Translation tr) {
-        altResponse = new PathWrapper();
+    public void finish(PathMerger pathMerger, Translation tr) {
+        PathWrapper altResponse = new PathWrapper();
         altResponse.setWaypoints(getWaypoints());
         ghResponse.add(altResponse);
-        pathMerger.doWork(altResponse, pathList, encodingManager, tr);
-        // with potentially retrying, including generating new route points, for now disabled
-        return true;
+        pathMerger.doWork(altResponse, pathList, lookup, tr);
     }
 
     private QueryResult generateValidPoint(GHPoint from, double distanceInMeters, double heading,
@@ -176,9 +173,4 @@ public class RoundTripRoutingTemplate extends AbstractRoutingTemplate implements
         }
     }
 
-    @Override
-    public int getMaxRetries() {
-        // with potentially retrying, including generating new route points, for now disabled
-        return 1;
-    }
 }

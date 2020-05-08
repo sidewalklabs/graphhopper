@@ -18,23 +18,23 @@
 package com.graphhopper.routing.util.parsers;
 
 import com.graphhopper.reader.ReaderWay;
-import com.graphhopper.routing.profiles.DecimalEncodedValue;
-import com.graphhopper.routing.profiles.EncodedValue;
-import com.graphhopper.routing.profiles.EncodedValueLookup;
-import com.graphhopper.routing.profiles.MaxSpeed;
+import com.graphhopper.routing.ev.DecimalEncodedValue;
+import com.graphhopper.routing.ev.EncodedValue;
+import com.graphhopper.routing.ev.EncodedValueLookup;
+import com.graphhopper.routing.ev.MaxSpeed;
+import com.graphhopper.routing.ev.RoadClass;
 import com.graphhopper.routing.util.AbstractFlagEncoder;
-import com.graphhopper.routing.util.EncodingManager;
-import com.graphhopper.routing.util.spatialrules.SpatialRule;
+import com.graphhopper.routing.util.spatialrules.SpatialRuleSet;
+import com.graphhopper.routing.util.spatialrules.TransportationMode;
 import com.graphhopper.storage.IntsRef;
-import com.graphhopper.util.shapes.GHPoint;
 
 import java.util.List;
 
-import static com.graphhopper.routing.profiles.MaxSpeed.UNSET_SPEED;
+import static com.graphhopper.routing.ev.MaxSpeed.UNSET_SPEED;
 
 public class OSMMaxSpeedParser implements TagParser {
 
-    private final DecimalEncodedValue carMaxSpeedEnc;
+    protected final DecimalEncodedValue carMaxSpeedEnc;
 
     public OSMMaxSpeedParser() {
         this(MaxSpeed.create());
@@ -53,14 +53,13 @@ public class OSMMaxSpeedParser implements TagParser {
     }
 
     @Override
-    public IntsRef handleWayTags(IntsRef edgeFlags, ReaderWay way, EncodingManager.Access access, long relationFlags) {
+    public IntsRef handleWayTags(IntsRef edgeFlags, ReaderWay way, boolean ferry, IntsRef relationFlags) {
         double maxSpeed = AbstractFlagEncoder.parseSpeed(way.getTag("maxspeed"));
 
-        if (maxSpeed < 0) {
-            GHPoint estmCentre = way.getTag("estimated_center", null);
-            SpatialRule spatialRule = way.getTag("spatial_rule", null);
-            if (estmCentre != null && spatialRule != null)
-                maxSpeed = spatialRule.getMaxSpeed(way.getTag("highway", ""), maxSpeed);
+        SpatialRuleSet spatialRuleSet = way.getTag("spatial_rule_set", null);
+        if (spatialRuleSet != null && spatialRuleSet != SpatialRuleSet.EMPTY) {
+            RoadClass roadClass = RoadClass.find(way.getTag("highway", ""));
+            maxSpeed = spatialRuleSet.getMaxSpeed(roadClass, TransportationMode.MOTOR_VEHICLE, maxSpeed);
         }
 
         double fwdSpeed = AbstractFlagEncoder.parseSpeed(way.getTag("maxspeed:forward"));
