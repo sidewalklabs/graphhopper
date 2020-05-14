@@ -20,10 +20,6 @@ package com.graphhopper.routing;
 import com.carrotsearch.hppc.IntArrayList;
 import com.carrotsearch.hppc.IntIndexedContainer;
 import com.graphhopper.coll.GHIntArrayList;
-import com.graphhopper.routing.profiles.BooleanEncodedValue;
-import com.graphhopper.routing.util.FlagEncoder;
-import com.graphhopper.routing.weighting.TDWeighting;
-import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.util.EdgeIterator;
@@ -186,20 +182,6 @@ public class Path {
 
     public String getDebugInfo() {
         return debugInfo;
-    }
-
-    /**
-     * Calculates the distance and time of the specified edgeId. Also it adds the edgeId to the path list.
-     *
-     * @param prevEdgeId the edge that comes before edgeId: --prevEdgeId-x-edgeId-->adjNode
-     */
-    protected void processEdge(int edgeId, int adjNode, int prevEdgeId) {
-        EdgeIteratorState iter = graph.getEdgeIteratorState(edgeId, adjNode);
-        distance += iter.getDistance();
-        if (!(weighting instanceof TDWeighting)) {
-            time += weighting.calcMillis(iter, false, prevEdgeId);
-        }
-        addEdge(edgeId);
     }
 
     /**

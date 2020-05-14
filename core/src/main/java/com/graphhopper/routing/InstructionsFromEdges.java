@@ -20,7 +20,6 @@ package com.graphhopper.routing;
 import com.graphhopper.routing.ev.*;
 import com.graphhopper.routing.util.DefaultEdgeFilter;
 import com.graphhopper.routing.util.FlagEncoder;
-import com.graphhopper.routing.weighting.TDWeighting;
 import com.graphhopper.routing.util.spatialrules.TransportationMode;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
@@ -509,13 +508,8 @@ public class InstructionsFromEdges implements Path.EdgeVisitor {
         }
         double newDist = edge.getDistance();
         prevInstruction.setDistance(newDist + prevInstruction.getDistance());
-        if (weighting instanceof TDWeighting) {
-            prevInstruction.setTime(((TDWeighting) weighting).calcTDMillis(edge, false, EdgeIterator.NO_EDGE, prevInstruction.getTime())
-                    + prevInstruction.getTime());
-        } else {
-            prevInstruction.setTime(weighting.calcMillis(edge, false, EdgeIterator.NO_EDGE)
-                    + prevInstruction.getTime());
-        }
+        // todo: why do we not account for turn times here ?
+        prevInstruction.setTime(weighting.calcEdgeMillis(edge, false) + prevInstruction.getTime());
     }
 
 }

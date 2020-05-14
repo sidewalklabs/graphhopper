@@ -35,6 +35,7 @@ import com.graphhopper.http.health.GraphHopperHealthCheck;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.matrix.http.MatrixResource;
 import com.graphhopper.matrix.model.MatrixQueue;
+import com.graphhopper.matrix.model.MatrixSerializer;
 import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.gtfs.GtfsStorage;
 import com.graphhopper.reader.gtfs.PtRouteResource;
@@ -42,6 +43,7 @@ import com.graphhopper.resources.*;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
 import com.graphhopper.routing.ProfileResolver;
+import com.graphhopper.routing.ee.CustomGraphHopper;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.index.LocationIndex;
@@ -186,7 +188,7 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
     }
 
     @Override
-    public void run(GraphHopperBundleConfiguration configuration, Environment environment) {
+    public void run(GraphHopperBundleConfiguration graphHopperBundleConfiguration, Environment environment) {
         for (Object k : System.getProperties().keySet()) {
             if (k instanceof String && ((String) k).startsWith("graphhopper."))
                 throw new IllegalArgumentException("You need to prefix system parameters with '-Ddw.graphhopper.' instead of '-Dgraphhopper.' see #1879 and #1897");
@@ -221,17 +223,17 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         // a single entry.
         environment.jersey().register(new IllegalArgumentExceptionMapper());
 
-        final GraphHopperManaged graphHopperManaged = new GraphHopperManaged(configuration.getGraphHopperConfiguration(), environment.getObjectMapper());
+        final GraphHopperManaged graphHopperManaged = new GraphHopperManaged(graphHopperBundleConfiguration.getGraphHopperConfiguration(), environment.getObjectMapper());
         environment.lifecycle().manage(graphHopperManaged);
         final GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
+        ProfileResolver profileResolver = new ProfileResolver(graphHopper.getEncodingManager(), graphHopper.getProfiles(), graphHopper.getCHPreparationHandler().getCHProfiles(), graphHopper.getLMPreparationHandler().getLMProfiles());
         environment.jersey().register(new AbstractBinder() {
             @Override
             protected void configure() {
-                bind(configuration.getGraphHopperConfiguration()).to(GraphHopperConfig.class);
+                bind(graphHopperBundleConfiguration.getGraphHopperConfiguration()).to(GraphHopperConfig.class);
                 bind(graphHopper).to(GraphHopper.class);
                 bind(graphHopper).to(GraphHopperAPI.class);
-                bind(new ProfileResolver(graphHopper.getEncodingManager(), graphHopper.getProfiles(), graphHopper.getCHPreparationHandler().getCHProfiles(), graphHopper.getLMPreparationHandler().getLMProfiles()))
-                        .to(ProfileResolver.class);
+                bind(profileResolver).to(ProfileResolver.class);
 
                 bindFactory(HasElevation.class).to(Boolean.class).named("hasElevation");
                 bindFactory(LocationIndexFactory.class).to(LocationIndex.class);
@@ -247,7 +249,7 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         environment.jersey().register(RouteResource.class);
         environment.jersey().register(CustomWeightingRouteResource.class);
         environment.jersey().register(IsochroneResource.class);
-        if (configuration.getGraphHopperConfiguration().has("gtfs.file")) {
+        if (graphHopperBundleConfiguration.getGraphHopperConfiguration().has("gtfs.file")) {
             // These are pt-specific implementations of /route and /isochrone, but the same API.
             // We serve them under different paths (/route-pt and /isochrone-pt), and forward
             // requests for ?vehicle=pt there.
@@ -258,20 +260,24 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         environment.jersey().register(SPTResource.class);
         environment.jersey().register(I18NResource.class);
         environment.jersey().register(InfoResource.class);
-        environment.healthChecks().register("graphhopper", new GraphHopperHealthCheck(graphHopper));
+        MatrixSerializer serializer = new MatrixSerializer(graphHopperManaged.getGraphHopper() instanceof CustomGraphHopper);
+        MatrixAPI matrixAPI = new GHMatrixAPI(graphHopperManaged.getGraphHopper(), graphHopperBundleConfiguration.getGraphHopperConfiguration());
+        MatrixQueue matrixQueue = createAndStartQueue(graphHopperBundleConfiguration.getGraphHopperConfiguration(), matrixAPI, serializer);
+        environment.jersey().register(new MatrixResource(
+                graphHopperBundleConfiguration.getGraphHopperConfiguration(),
+                profileResolver,
+                matrixAPI, matrixQueue, serializer));
 
-
-        MatrixAPI matrixAPI = new GHMatrixAPI(graphHopperManaged.getGraphHopper());
-        MatrixQueue matrixQueue = createAndStartQueue(configuration, matrixAPI, configuration.getInt("matrix.default_customer_priority", 1));
-        environment.jersey().register(new MatrixResource(configuration, matrixAPI, matrixQueue));
+        environment.healthChecks().register("graphhopper", new GraphHopperHealthCheck(graphHopperManaged.getGraphHopper()));
     }
 
-    private MatrixQueue createAndStartQueue(CmdArgs args, MatrixAPI mCalc, Integer defaultCustomerPriority) {
+    private MatrixQueue createAndStartQueue(GraphHopperConfig args, MatrixAPI mCalc, MatrixSerializer matrixSerializer) {
+        int defaultCustomerPriority = args.getInt("matrix.default_customer_priority", 1);
         // restrict to available processors (one thread for the GC and one for the free queue)
         int threads = Runtime.getRuntime().availableProcessors() - 1;
         threads = args.getInt("matrix.threads", threads);
         LoggerFactory.getLogger(getClass()).info("default customer priority: " + defaultCustomerPriority + ", matrix threads " + (threads - 1) + ", free threads: 1");
-        MatrixQueue mQueue = new MatrixQueue(threads, mCalc);
+        MatrixQueue mQueue = new MatrixQueue(threads, mCalc, matrixSerializer);
         mQueue.start();
         return mQueue;
     }

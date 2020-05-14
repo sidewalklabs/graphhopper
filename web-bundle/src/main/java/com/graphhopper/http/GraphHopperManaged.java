@@ -28,13 +28,13 @@ import com.graphhopper.jackson.Jackson;
 import com.graphhopper.json.geo.JsonFeatureCollection;
 import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.osm.GraphHopperOSM;
+import com.graphhopper.routing.ee.vehicles.CustomCarFlagEncoder;
 import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
 import com.graphhopper.routing.lm.LandmarkStorage;
 import com.graphhopper.routing.util.CustomModel;
 import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.routing.util.FlagEncoderFactory;
-import com.graphhopper.routing.util.HintsMap;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
@@ -68,7 +68,7 @@ public class GraphHopperManaged implements Managed {
     public GraphHopperManaged(GraphHopperConfig configuration, ObjectMapper objectMapper) {
         ObjectMapper localObjectMapper = objectMapper.copy();
         localObjectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        String linkSpeedFile = configuration.get("r5.link_speed_file", null);
+        String linkSpeedFile = configuration.getString("r5.link_speed_file", null);
         final SpeedCalculator speedCalculator;
         if (linkSpeedFile != null) {
             speedCalculator = new FileSpeedCalculator(linkSpeedFile);
@@ -86,16 +86,7 @@ public class GraphHopperManaged implements Managed {
         if (configuration.has("gtfs.file")) {
             graphHopper = new GraphHopperGtfs(configuration);
         } else {
-            graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection) {
-            @Override
-            public Weighting createWeighting(HintsMap hintsMap, FlagEncoder encoder, Graph graph) {
-                if (hintsMap.getWeighting().equals("td")) {
-                    return new FastestCarTDWeighting(encoder, speedCalculator, hintsMap);
-                } else {
-                    return super.createWeighting(hintsMap, encoder, graph);
-                }
-            }
-        }.forServer();
+            graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection).forServer();
         }
         if (!configuration.getString("spatial_rules.location", "").isEmpty()) {
             throw new RuntimeException("spatial_rules.location has been deprecated. Please use spatial_rules.borders_directory instead.");
