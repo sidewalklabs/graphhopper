@@ -1,5 +1,7 @@
 graphhopper:
   graph.location: transit_data/graphhopper
+  #   graph.location: web/files/swl-portland/graphhopper
+
   routing.ch.disabling_allowed: true
   routing.max_visited_nodes: 1500000
   r5.link_speed_file: transit_data/graphhopper/r5_predicted_tt.csv
@@ -14,15 +16,15 @@ graphhopper:
   #  prepare.ch.weightings: fastest
 
 server:
-  minThreads: 4
-  maxThreads: 8
-  applicationConnectors:
+  min_threads: 4
+  max_threads: 8
+  application_connectors:
   - type: http
     port: 8998
     # for security reasons bind (localhost does not work with k8s svcs)
-    bindHost: 0.0.0.0
-    acceptorThreads: 1
-    selectorThreads: 2
-    acceptQueueSize: 8
-  requestLog:
+    bind_host: 0.0.0.0
+    acceptor_threads: 1
+    selector_threads: 2
+    accept_queue_size: 8
+  request_log:
       appenders: []

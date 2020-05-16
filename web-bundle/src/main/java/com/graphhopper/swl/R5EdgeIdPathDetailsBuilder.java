@@ -20,6 +20,7 @@ package com.graphhopper.swl;
 
 import com.graphhopper.routing.ev.EncodedValueLookup;
 import com.graphhopper.routing.querygraph.VirtualEdgeIteratorState;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GHUtility;
 import com.graphhopper.util.details.AbstractPathDetailsBuilder;
@@ -30,7 +31,7 @@ public class R5EdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
 
     public R5EdgeIdPathDetailsBuilder(EncodedValueLookup originalDirectionFlagEncoder) {
         super("r5_edge_id");
-        this.originalDirectionFlagEncoder = new StableIdEncodedValues();
+        this.originalDirectionFlagEncoder = StableIdEncodedValues.fromEncodingManager((EncodingManager) originalDirectionFlagEncoder);
         edgeId = "";
     }
 

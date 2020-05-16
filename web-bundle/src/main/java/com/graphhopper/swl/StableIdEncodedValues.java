@@ -1,6 +1,8 @@
 package com.graphhopper.swl;
 
 import com.google.common.primitives.Longs;
+import com.graphhopper.reader.gtfs.GtfsStorage;
+import com.graphhopper.reader.gtfs.PtEncodedValues;
 import com.graphhopper.routing.ev.UnsignedIntEncodedValue;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.EdgeIteratorState;
@@ -10,14 +12,25 @@ public class StableIdEncodedValues {
     private UnsignedIntEncodedValue[] stableIdEnc = new UnsignedIntEncodedValue[8];
     private UnsignedIntEncodedValue[] reverseStableIdEnc = new UnsignedIntEncodedValue[8];
 
-    public void createEncodedValues(EncodingManager.Builder emBuilder) {
+    private StableIdEncodedValues(EncodingManager encodingManager) {
         for (int i=0; i<8; i++) {
-            stableIdEnc[i] = new UnsignedIntEncodedValue("stable-id-byte-"+i, 8, false);
-            emBuilder.add(stableIdEnc[i]);
+            stableIdEnc[i] = (UnsignedIntEncodedValue) encodingManager.getIntEncodedValue("stable-id-byte-"+i);
         }
         for (int i=0; i<8; i++) {
-            reverseStableIdEnc[i] = new UnsignedIntEncodedValue("reverse-stable-id-byte-"+i, 8, false);
-            emBuilder.add(reverseStableIdEnc[i]);
+            reverseStableIdEnc[i] = (UnsignedIntEncodedValue) encodingManager.getIntEncodedValue("reverse-stable-id-byte-"+i);
+        }
+    }
+
+    public static StableIdEncodedValues fromEncodingManager(EncodingManager encodingManager) {
+        return new StableIdEncodedValues(encodingManager);
+    }
+
+    public static void createAndAddEncodedValues(EncodingManager.Builder emBuilder) {
+        for (int i=0; i<8; i++) {
+            emBuilder.add(new UnsignedIntEncodedValue("stable-id-byte-"+i, 8, false));
+        }
+        for (int i=0; i<8; i++) {
+            emBuilder.add(new UnsignedIntEncodedValue("reverse-stable-id-byte-"+i, 8, false));
         }
     }
 

@@ -31,16 +31,13 @@ import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.ee.vehicles.CustomCarFlagEncoder;
 import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
 import com.graphhopper.routing.lm.LandmarkStorage;
-import com.graphhopper.routing.util.CustomModel;
-import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
-import com.graphhopper.routing.util.FlagEncoder;
-import com.graphhopper.routing.util.FlagEncoderFactory;
+import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
-import com.graphhopper.routing.weighting.Weighting;
-import com.graphhopper.storage.Graph;
-import com.graphhopper.swl.*;
 import com.graphhopper.routing.weighting.custom.CustomProfile;
 import com.graphhopper.routing.weighting.custom.CustomWeighting;
+import com.graphhopper.swl.EncodedValueFactoryWithStableId;
+import com.graphhopper.swl.PathDetailsBuilderFactoryWithEdgeKey;
+import com.graphhopper.swl.StableIdEncodedValues;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
 import com.graphhopper.util.shapes.BBox;
@@ -68,13 +65,6 @@ public class GraphHopperManaged implements Managed {
     public GraphHopperManaged(GraphHopperConfig configuration, ObjectMapper objectMapper) {
         ObjectMapper localObjectMapper = objectMapper.copy();
         localObjectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        String linkSpeedFile = configuration.getString("r5.link_speed_file", null);
-        final SpeedCalculator speedCalculator;
-        if (linkSpeedFile != null) {
-            speedCalculator = new FileSpeedCalculator(linkSpeedFile);
-        } else {
-            speedCalculator = new DefaultSpeedCalculator();
-        }
         String splitAreaLocation = configuration.getString(Parameters.Landmark.PREPARE + "split_area_location", "");
         JsonFeatureCollection landmarkSplittingFeatureCollection;
         try (Reader reader = splitAreaLocation.isEmpty() ? new InputStreamReader(LandmarkStorage.class.getResource("map.geo.json").openStream(), UTF_CS) : new InputStreamReader(new FileInputStream(splitAreaLocation), UTF_CS)) {
@@ -86,7 +76,12 @@ public class GraphHopperManaged implements Managed {
         if (configuration.has("gtfs.file")) {
             graphHopper = new GraphHopperGtfs(configuration);
         } else {
-            graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection).forServer();
+            graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection) {
+                @Override
+                protected void registerCustomEncodedValues(EncodingManager.Builder emBuilder) {
+                    StableIdEncodedValues.createAndAddEncodedValues(emBuilder);
+                }
+            }.forServer();
         }
         if (!configuration.getString("spatial_rules.location", "").isEmpty()) {
             throw new RuntimeException("spatial_rules.location has been deprecated. Please use spatial_rules.borders_directory instead.");
@@ -145,6 +140,7 @@ public class GraphHopperManaged implements Managed {
                 return delegate.createFlagEncoder(name, configuration);
             }
         });
+        graphHopper.setEncodedValueFactory(new EncodedValueFactoryWithStableId());
         graphHopper.init(configuration);
         graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey(graphHopper));
     }
