@@ -982,7 +982,11 @@ public class GraphHopper implements GraphHopperAPI {
         if (isCHPrepared()) {
             // check loaded profiles
             for (CHProfile profile : chPreparationHandler.getCHProfiles()) {
-                if (!getProfileVersion(profile.getProfile()).equals("" + profilesByName.get(profile.getProfile()).getVersion()))
+                String profileString = profilesByName.get(profile.getProfile()).toString();
+                String profileVersion = getProfileVersion(profile.getProfile());
+                System.out.println(profileString);
+                System.out.println(profileVersion);
+                if (!profileVersion.equals("" + profilesByName.get(profile.getProfile()).getVersion()))
                     throw new IllegalArgumentException("CH preparation of " + profile.getProfile() + " already exists in storage and doesn't match configuration");
             }
         } else {

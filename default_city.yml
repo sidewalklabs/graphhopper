@@ -1,10 +1,8 @@
 graphhopper:
   graph.location: transit_data/graphhopper
-  #   graph.location: web/files/swl-portland/graphhopper
 
   routing.ch.disabling_allowed: true
   routing.max_visited_nodes: 1500000
-  r5.link_speed_file: transit_data/graphhopper/r5_predicted_tt.csv
 
   # Uncomment this if the export was done with turn-restriction-aware contraction hierarchies
   # prepare.ch.edge_based: edge_and_node
@@ -14,6 +12,26 @@ graphhopper:
   #  graph.bytes_for_flags: 64
   #
   #  prepare.ch.weightings: fastest
+
+  profiles:
+    - name: fastest_car
+      vehicle: car
+      weighting: fastest
+    - name: best_bike
+      vehicle: bike
+      weighting: fastest
+    - name: fastest_foot
+      vehicle: foot
+      weighting: fastest
+    - name: fastest_truck
+      vehicle: truck
+      weighting: fastest
+
+  profiles_ch:
+    - profile: fastest_car
+    - profile: best_bike
+    - profile: fastest_foot
+    - profile: fastest_truck
 
 server:
   min_threads: 4
