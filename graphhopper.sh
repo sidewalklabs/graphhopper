@@ -186,7 +186,19 @@ if [ "$ACTION" = "clean" ]; then
 
 elif [ "$ACTION" = "build" ]; then
  packageJar
- exit  
+ exit
+
+elif [ "$ACTION" = "web" ]; then
+ # remove once #1700 is implemented
+ if [ ! -f "web/src/main/resources/assets/js/main.js" ]; then
+   rm -rf ./*/target # force rebuilding the jar as overrides is likely not enabled for assets in config.yml
+   cd web
+   npm install
+   BROWSERIFYSWAP_ENV='development' npm run bundleProduction
+   cd ..
+ else
+   echo "## existing main.js found $JAR"
+ fi
 fi
  
 if [ "$FILE" = "" ]; then
@@ -270,7 +282,7 @@ elif [ "$ACTION" = "import" ]; then
 elif [ "$ACTION" = "measurement" ]; then
   ARGS="$GH_WEB_OPTS graph.location=$GRAPH datareader.file=$OSM_FILE \
        measurement.weighting=fastest measurement.ch.node=true measurement.ch.edge=false measurement.lm=true graph.flag_encoders=car|turn_costs=true \
-       prepare.min_network_size=10000 prepare.min_oneway_network_size=10000"
+       prepare.min_network_size=10000"
 
  function startMeasurement {
     execMvn --projects tools -am -DskipTests clean package

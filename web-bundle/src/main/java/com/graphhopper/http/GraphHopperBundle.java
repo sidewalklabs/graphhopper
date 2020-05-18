@@ -141,6 +141,26 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         }
     }
 
+    static class ProfileResolverFactory implements Factory<ProfileResolver> {
+
+        @Inject
+        GraphHopper graphHopper;
+
+        @Override
+        public ProfileResolver provide() {
+            return new ProfileResolver(graphHopper.getEncodingManager(),
+                    graphHopper.getProfiles(),
+                    graphHopper.getCHPreparationHandler().getCHProfiles(),
+                    graphHopper.getLMPreparationHandler().getLMProfiles()
+            );
+        }
+
+        @Override
+        public void dispose(ProfileResolver profileResolver) {
+
+        }
+    }
+
     static class HasElevation implements Factory<Boolean> {
 
         @Inject
@@ -226,15 +246,14 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         final GraphHopperManaged graphHopperManaged = new GraphHopperManaged(graphHopperBundleConfiguration.getGraphHopperConfiguration(), environment.getObjectMapper());
         environment.lifecycle().manage(graphHopperManaged);
         final GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
-        ProfileResolver profileResolver = new ProfileResolver(graphHopper.getEncodingManager(), graphHopper.getProfiles(), graphHopper.getCHPreparationHandler().getCHProfiles(), graphHopper.getLMPreparationHandler().getLMProfiles());
         environment.jersey().register(new AbstractBinder() {
             @Override
             protected void configure() {
                 bind(graphHopperBundleConfiguration.getGraphHopperConfiguration()).to(GraphHopperConfig.class);
                 bind(graphHopper).to(GraphHopper.class);
                 bind(graphHopper).to(GraphHopperAPI.class);
-                bind(profileResolver).to(ProfileResolver.class);
 
+                bindFactory(ProfileResolverFactory.class).to(ProfileResolver.class);
                 bindFactory(HasElevation.class).to(Boolean.class).named("hasElevation");
                 bindFactory(LocationIndexFactory.class).to(LocationIndex.class);
                 bindFactory(TranslationMapFactory.class).to(TranslationMap.class);
