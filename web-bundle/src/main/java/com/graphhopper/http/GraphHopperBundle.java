@@ -47,6 +47,7 @@ import com.graphhopper.routing.ee.CustomGraphHopper;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.index.LocationIndex;
+import com.graphhopper.swl.MatrixResourceFactory;
 import com.graphhopper.util.TranslationMap;
 import io.dropwizard.ConfiguredBundle;
 import io.dropwizard.setup.Bootstrap;
@@ -279,13 +280,19 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         environment.jersey().register(SPTResource.class);
         environment.jersey().register(I18NResource.class);
         environment.jersey().register(InfoResource.class);
+
         MatrixSerializer serializer = new MatrixSerializer(graphHopperManaged.getGraphHopper() instanceof CustomGraphHopper);
         MatrixAPI matrixAPI = new GHMatrixAPI(graphHopperManaged.getGraphHopper(), graphHopperBundleConfiguration.getGraphHopperConfiguration());
         MatrixQueue matrixQueue = createAndStartQueue(graphHopperBundleConfiguration.getGraphHopperConfiguration(), matrixAPI, serializer);
-        environment.jersey().register(new MatrixResource(
-                graphHopperBundleConfiguration.getGraphHopperConfiguration(),
-                profileResolver,
-                matrixAPI, matrixQueue, serializer));
+        environment.jersey().register(new AbstractBinder() {
+            @Override
+            protected void configure() {
+                bind(serializer).to(MatrixSerializer.class);
+                bind(matrixAPI).to(MatrixAPI.class);
+                bind(matrixQueue).to(MatrixQueue.class);
+            }
+        });
+        environment.jersey().register(MatrixResourceFactory.class);
 
         environment.healthChecks().register("graphhopper", new GraphHopperHealthCheck(graphHopperManaged.getGraphHopper()));
     }
