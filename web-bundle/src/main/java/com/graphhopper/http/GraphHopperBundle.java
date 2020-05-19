@@ -33,6 +33,7 @@ import com.graphhopper.GraphHopperAPI;
 import com.graphhopper.GraphHopperConfig;
 import com.graphhopper.http.health.GraphHopperHealthCheck;
 import com.graphhopper.jackson.Jackson;
+import com.graphhopper.matrix.http.MatrixCalculationExceptionMapper;
 import com.graphhopper.matrix.http.MatrixResource;
 import com.graphhopper.matrix.model.MatrixQueue;
 import com.graphhopper.matrix.model.MatrixSerializer;
@@ -239,6 +240,8 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         // come out as JSON or GPX, depending on the media type
         environment.jersey().register(new MultiExceptionMapper());
         environment.jersey().register(new MultiExceptionGPXMessageBodyWriter());
+
+        environment.jersey().register(new MatrixCalculationExceptionMapper());
 
         // This makes an IllegalArgumentException come out as a MultiException with
         // a single entry.
