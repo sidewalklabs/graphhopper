@@ -56,11 +56,15 @@ public class RouteResource {
 
     private final GraphHopperAPI graphHopper;
     private final Boolean hasElevation;
+    private final Boolean usesCongestion;
 
     @Inject
-    public RouteResource(GraphHopperAPI graphHopper, @Named("hasElevation") Boolean hasElevation) {
+    public RouteResource(GraphHopperAPI graphHopper,
+                         @Named("hasElevation") Boolean hasElevation,
+                         @Named("usesCongestion") Boolean usesCongestion) {
         this.graphHopper = graphHopper;
         this.hasElevation = hasElevation;
+        this.usesCongestion = usesCongestion;
     }
 
     @GET
@@ -115,6 +119,11 @@ public class RouteResource {
             }
         } else {
             request = new GHRequest(requestPoints);
+        }
+
+        // Remove congestion hour from vehicle string if multiple congestion levels are not being used
+        if (!usesCongestion && vehicleStr.startsWith("car")) {
+            vehicleStr = "car";
         }
 
         initHints(request.getHints(), uriInfo.getQueryParameters());

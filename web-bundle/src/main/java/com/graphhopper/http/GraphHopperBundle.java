@@ -50,6 +50,7 @@ import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.util.CmdArgs;
 import com.graphhopper.util.TranslationMap;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import io.dropwizard.ConfiguredBundle;
 import io.dropwizard.lifecycle.Managed;
 import io.dropwizard.setup.Bootstrap;
@@ -159,6 +160,21 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         @Override
         public void dispose(DelaunayTriangulationIsolineBuilder delaunayTriangulationIsolineBuilder) {
         }
+    }
+
+    static class UsesCongestion implements Factory<Boolean> {
+
+        @Inject
+        GraphHopper graphHopper;
+
+        // We're using congestion if more than our 4 standard flag encoders are present (auto, bike, ped, truck)
+        @Override
+        public Boolean provide() {
+            return graphHopper.getEncodingManager().fetchEdgeEncoders().size() > 4;
+        }
+
+        @Override
+        public void dispose(Boolean instance) {}
     }
 
     @Override
@@ -275,6 +291,7 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
                 bind(graphHopperManaged.getGraphHopper()).to(GraphHopperAPI.class);
 
                 bindFactory(HasElevation.class).to(Boolean.class).named("hasElevation");
+                bindFactory(UsesCongestion.class).to(Boolean.class).named("usesCongestion");
                 bindFactory(LocationIndexFactory.class).to(LocationIndex.class);
                 bindFactory(TranslationMapFactory.class).to(TranslationMap.class);
                 bindFactory(EncodingManagerFactory.class).to(EncodingManager.class);
