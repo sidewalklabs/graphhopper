@@ -1,0 +1,31 @@
+graphhopper:
+  graph.location: transit_data/graphhopper
+  routing.ch.disabling_allowed: true
+  routing.max_visited_nodes: 1500000
+  r5.link_speed_file: transit_data/graphhopper/r5_predicted_tt.csv
+
+  graph.flag_encoders: car_2,car_8,car_13,car_18,bike,foot,truck
+  graph.bytes_for_flags: 112
+
+  # Uncomment this if the export was done with turn-restriction-aware contraction hierarchies
+  # prepare.ch.edge_based: edge_and_node
+
+  #  datareader.file: oregon-latest.osm.pbf
+  #  graph.flag_encoders: car|turn_costs=true
+  #  graph.bytes_for_flags: 64
+  #
+  #  prepare.ch.weightings: fastest
+
+server:
+  minThreads: 4
+  maxThreads: 8
+  applicationConnectors:
+    - type: http
+      port: 8998
+      # for security reasons bind (localhost does not work with k8s svcs)
+      bindHost: 0.0.0.0
+      acceptorThreads: 1
+      selectorThreads: 2
+      acceptQueueSize: 8
+  requestLog:
+    appenders: []
