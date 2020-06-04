@@ -48,7 +48,6 @@ public class GraphHopperManaged implements Managed {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final GraphHopper graphHopper;
-    private CustomCarFlagEncoder customCarFlagEncoder;
 
     public GraphHopperManaged(CmdArgs configuration, ObjectMapper objectMapper) {
         String linkSpeedFile = configuration.get("r5.link_speed_file", null);
@@ -91,8 +90,7 @@ public class GraphHopperManaged implements Managed {
             @Override
             public FlagEncoder createFlagEncoder(String name, PMap configuration) {
                 if (name.startsWith("car")) {
-                    customCarFlagEncoder = new CustomCarFlagEncoder(configuration, name);
-                    return customCarFlagEncoder;
+                    return new CustomCarFlagEncoder(configuration, name);
                 } else if (name.startsWith("bike")) {
                     return new BikeFlagEncoder(configuration);
                 } else if (name.equals("truck")) {
@@ -103,7 +101,7 @@ public class GraphHopperManaged implements Managed {
             }
         });
         graphHopper.init(configuration);
-        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey(customCarFlagEncoder));
+        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey(graphHopper));
     }
 
     @Override
