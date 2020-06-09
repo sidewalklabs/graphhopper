@@ -31,11 +31,9 @@ import static com.graphhopper.util.Parameters.DETAILS.*;
 public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFactory {
 
     private final GraphHopper graphHopper;
-    private final int flagEncoderCount;
 
     public PathDetailsBuilderFactoryWithEdgeKey(GraphHopper graphHopper) {
         this.graphHopper = graphHopper;
-        this.flagEncoderCount = graphHopper.getEncodingManager().fetchEdgeEncoders().size();
     }
 
     @Override
@@ -60,7 +58,7 @@ public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFact
 
         if (requestedPathDetails.contains("r5_edge_id")) {
             String encoderName;
-            if (flagEncoderCount > 4) {
+            if (graphHopper.getEncodingManager().fetchEdgeEncoders().size() > 4) {
                 encoderName = "car_2";
             } else {
                 encoderName = "car";
