@@ -1,7 +1,7 @@
 package com.graphhopper.resources;
 
 import com.graphhopper.GraphHopper;
-import com.graphhopper.routing.profiles.*;
+import com.graphhopper.routing.ev.*;
 import com.graphhopper.routing.util.DefaultEdgeFilter;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.NodeAccess;
@@ -58,7 +58,7 @@ public class MVTResource {
             @PathParam("z") int zInfo,
             @PathParam("x") int xInfo,
             @PathParam("y") int yInfo,
-            @QueryParam(Parameters.DETAILS.PATH_DETAILS) List<String> pathDetails) {
+            @QueryParam(Parameters.Details.PATH_DETAILS) List<String> pathDetails) {
 
         if (zInfo <= 9) {
             VectorTile.Tile.Builder mvtBuilder = VectorTile.Tile.newBuilder();
@@ -99,7 +99,7 @@ public class MVTResource {
                 LineString lineString;
                 RoadClass rc = edge.get(roadClassEnc);
                 if (zInfo >= 14) {
-                    PointList pl = edge.fetchWayGeometry(3);
+                    PointList pl = edge.fetchWayGeometry(FetchMode.ALL);
                     lineString = pl.toLineString(false);
                 } else if (rc == RoadClass.MOTORWAY
                         || zInfo > 10 && (rc == RoadClass.PRIMARY || rc == RoadClass.TRUNK)

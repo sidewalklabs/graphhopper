@@ -18,41 +18,38 @@
 
 package com.graphhopper.http;
 
-import com.bedatadriven.jackson.datatype.jts.JtsModule;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.BeanDescription;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.SerializationConfig;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.fasterxml.jackson.databind.util.StdDateFormat;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.GraphHopperAPI;
+import com.graphhopper.GraphHopperConfig;
 import com.graphhopper.http.health.GraphHopperHealthCheck;
-import com.graphhopper.http.health.GraphHopperStorageHealthCheck;
-import com.graphhopper.isochrone.algorithm.DelaunayTriangulationIsolineBuilder;
-import com.graphhopper.jackson.GraphHopperModule;
-import com.graphhopper.matrix.http.MatrixResource;
+import com.graphhopper.jackson.Jackson;
+import com.graphhopper.matrix.http.MatrixCalculationExceptionMapper;
 import com.graphhopper.matrix.model.MatrixQueue;
+import com.graphhopper.matrix.model.MatrixSerializer;
 import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.gtfs.GtfsStorage;
-import com.graphhopper.reader.gtfs.PtFlagEncoder;
+import com.graphhopper.reader.gtfs.PtRouteResource;
 import com.graphhopper.resources.*;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
-import com.graphhopper.routing.util.CarFlagEncoder;
+import com.graphhopper.routing.ProfileResolver;
+import com.graphhopper.routing.ee.CustomGraphHopper;
 import com.graphhopper.routing.util.EncodingManager;
-import com.graphhopper.routing.util.FootFlagEncoder;
-import com.graphhopper.storage.GHDirectory;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.index.LocationIndex;
-import com.graphhopper.util.CmdArgs;
+import com.graphhopper.swl.MatrixResourceFactory;
 import com.graphhopper.util.TranslationMap;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import io.dropwizard.ConfiguredBundle;
-import io.dropwizard.lifecycle.Managed;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import org.glassfish.hk2.api.Factory;
@@ -60,9 +57,6 @@ import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import javax.ws.rs.ext.WriterInterceptor;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -100,6 +94,22 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         }
     }
 
+    static class GtfsStorageFactory implements Factory<GtfsStorage> {
+
+        @Inject
+        GraphHopperGtfs graphHopper;
+
+        @Override
+        public GtfsStorage provide() {
+            return graphHopper.getGtfsStorage();
+        }
+
+        @Override
+        public void dispose(GtfsStorage instance) {
+
+        }
+    }
+
     static class EncodingManagerFactory implements Factory<EncodingManager> {
 
         @Inject
@@ -132,6 +142,26 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         }
     }
 
+    static class ProfileResolverFactory implements Factory<ProfileResolver> {
+
+        @Inject
+        GraphHopper graphHopper;
+
+        @Override
+        public ProfileResolver provide() {
+            return new ProfileResolver(graphHopper.getEncodingManager(),
+                    graphHopper.getProfiles(),
+                    graphHopper.getCHPreparationHandler().getCHProfiles(),
+                    graphHopper.getLMPreparationHandler().getLMProfiles()
+            );
+        }
+
+        @Override
+        public void dispose(ProfileResolver profileResolver) {
+
+        }
+    }
+
     static class HasElevation implements Factory<Boolean> {
 
         @Inject
@@ -145,20 +175,6 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         @Override
         public void dispose(Boolean instance) {
 
-        }
-    }
-
-    static class RasterHullBuilderFactory implements Factory<DelaunayTriangulationIsolineBuilder> {
-
-        DelaunayTriangulationIsolineBuilder builder = new DelaunayTriangulationIsolineBuilder();
-
-        @Override
-        public DelaunayTriangulationIsolineBuilder provide() {
-            return builder;
-        }
-
-        @Override
-        public void dispose(DelaunayTriangulationIsolineBuilder delaunayTriangulationIsolineBuilder) {
         }
     }
 
@@ -179,10 +195,15 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
 
     @Override
     public void initialize(Bootstrap<?> bootstrap) {
+        // See #1440: avoids warning regarding com.fasterxml.jackson.module.afterburner.util.MyClassLoader
+        bootstrap.setObjectMapper(io.dropwizard.jackson.Jackson.newMinimalObjectMapper());
+        // avoids warning regarding com.fasterxml.jackson.databind.util.ClassUtil
+        bootstrap.getObjectMapper().registerModule(new Jdk8Module());
+
+        Jackson.initObjectMapper(bootstrap.getObjectMapper());
         bootstrap.getObjectMapper().setDateFormat(new StdDateFormat());
-        bootstrap.getObjectMapper().registerModule(new JtsModule());
-        bootstrap.getObjectMapper().registerModule(new GraphHopperModule());
-        bootstrap.getObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        // See https://github.com/dropwizard/dropwizard/issues/1558
+        bootstrap.getObjectMapper().enable(MapperFeature.ALLOW_EXPLICIT_PROPERTY_RENAMING);
         // Because VirtualEdgeIteratorState has getters which throw Exceptions.
         // http://stackoverflow.com/questions/35359430/how-to-make-jackson-ignore-properties-if-the-getters-throw-exceptions
         bootstrap.getObjectMapper().registerModule(new SimpleModule().setSerializerModifier(new BeanSerializerModifier() {
@@ -203,8 +224,28 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
     }
 
     @Override
-    public void run(GraphHopperBundleConfiguration configuration, Environment environment) {
-        configuration.getGraphHopperConfiguration().merge(CmdArgs.readFromSystemProperties());
+    public void run(GraphHopperBundleConfiguration graphHopperBundleConfiguration, Environment environment) {
+        for (Object k : System.getProperties().keySet()) {
+            if (k instanceof String && ((String) k).startsWith("graphhopper."))
+                throw new IllegalArgumentException("You need to prefix system parameters with '-Ddw.graphhopper.' instead of '-Dgraphhopper.' see #1879 and #1897");
+        }
+
+        // When Dropwizard's Hibernate Validation misvalidates a query parameter,
+        // a JerseyViolationException is thrown.
+        // With this mapper, we use our custom format for that (backwards compatibility),
+        // and also coerce the media type of the response to JSON, so we can return JSON error
+        // messages from methods that normally have a different return type.
+        // That's questionable, but on the other hand, Dropwizard itself does the same thing,
+        // not here, but in a different place (the custom parameter parsers).
+        // So for the moment we have to assume that both mechanisms
+        // a) always return JSON error messages, and
+        // b) there's no need to annotate the method with media type JSON for that.
+        //
+        // However, for places that throw IllegalArgumentException or MultiException,
+        // we DO need to use the media type JSON annotation, because
+        // those are agnostic to the media type (could be GPX!), so the server needs to know
+        // that a JSON error response is supported. (See below.)
+        environment.jersey().register(new GHJerseyViolationExceptionMapper());
 
         // If the "?type=gpx" parameter is present, sets a corresponding media type header
         environment.jersey().register(new TypeGPXFilter());
@@ -214,118 +255,74 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         environment.jersey().register(new MultiExceptionMapper());
         environment.jersey().register(new MultiExceptionGPXMessageBodyWriter());
 
+        environment.jersey().register(new MatrixCalculationExceptionMapper());
+
+        // This makes an IllegalArgumentException come out as a MultiException with
+        // a single entry.
         environment.jersey().register(new IllegalArgumentExceptionMapper());
-        environment.jersey().register(new GHPointConverterProvider());
 
-        if (configuration.getGraphHopperConfiguration().has("gtfs.file")) {
-            // switch to different API implementation when using Pt
-            runPtGraphHopper(configuration.getGraphHopperConfiguration(), environment);
-        } else {
-            runRegularGraphHopper(configuration.getGraphHopperConfiguration(), environment);
-        }
-    }
-
-    private void runPtGraphHopper(CmdArgs configuration, Environment environment) {
-        final PtFlagEncoder ptFlagEncoder = new PtFlagEncoder();
-        final GHDirectory ghDirectory = GraphHopperGtfs.createGHDirectory(configuration.get("graph.location", "target/tmp"));
-        final GtfsStorage gtfsStorage = GraphHopperGtfs.createGtfsStorage();
-        final EncodingManager encodingManager = new EncodingManager.Builder(configuration.getInt("graph.bytes_for_flags", 8)).add(ptFlagEncoder).add(new FootFlagEncoder()).add(new CarFlagEncoder()).build();
-        final GraphHopperStorage graphHopperStorage = GraphHopperGtfs.createOrLoad(ghDirectory, encodingManager, ptFlagEncoder, gtfsStorage,
-                configuration.has("gtfs.file") ? Arrays.asList(configuration.get("gtfs.file", "").split(",")) : Collections.emptyList(),
-                configuration.has("datareader.file") ? Arrays.asList(configuration.get("datareader.file", "").split(",")) : Collections.emptyList());
-        final TranslationMap translationMap = GraphHopperGtfs.createTranslationMap();
-        final LocationIndex locationIndex = GraphHopperGtfs.createOrLoadIndex(ghDirectory, graphHopperStorage);
-        environment.jersey().register(new AbstractBinder() {
-            @Override
-            protected void configure() {
-                bind(configuration).to(CmdArgs.class);
-                bind(false).to(Boolean.class).named("hasElevation");
-                bind(locationIndex).to(LocationIndex.class);
-                bind(translationMap).to(TranslationMap.class);
-                bind(encodingManager).to(EncodingManager.class);
-                bind(ptFlagEncoder).to(PtFlagEncoder.class);
-                bind(graphHopperStorage).to(GraphHopperStorage.class);
-                bind(gtfsStorage).to(GtfsStorage.class);
-                bindFactory(RasterHullBuilderFactory.class).to(DelaunayTriangulationIsolineBuilder.class);
-            }
-        });
-        environment.jersey().register(NearestResource.class);
-        environment.jersey().register(GraphHopperGtfs.class);
-        environment.jersey().register(new PtIsochroneResource(gtfsStorage, encodingManager, graphHopperStorage, locationIndex));
-        environment.jersey().register(I18NResource.class);
-        environment.jersey().register(InfoResource.class);
-        // Say we only support pt, even though we now have several flag encoders. Yes, I know, we're almost there.
-        environment.jersey().register((WriterInterceptor) context -> {
-            if (context.getEntity() instanceof InfoResource.Info) {
-                InfoResource.Info info = (InfoResource.Info) context.getEntity();
-                info.supported_vehicles = new String[]{"pt"};
-                info.features.remove("car");
-                info.features.remove("foot");
-                context.setEntity(info);
-            }
-            context.proceed();
-        });
-        environment.lifecycle().manage(new Managed() {
-            @Override
-            public void start() throws Exception {
-            }
-
-            @Override
-            public void stop() throws Exception {
-                locationIndex.close();
-                graphHopperStorage.close();
-            }
-        });
-        environment.healthChecks().register("graphhopper-storage", new GraphHopperStorageHealthCheck(graphHopperStorage));
-    }
-
-    private void runRegularGraphHopper(CmdArgs configuration, Environment environment) {
-        final GraphHopperManaged graphHopperManaged = new GraphHopperManaged(configuration, environment.getObjectMapper());
+        final GraphHopperManaged graphHopperManaged = new GraphHopperManaged(graphHopperBundleConfiguration.getGraphHopperConfiguration(), environment.getObjectMapper());
         environment.lifecycle().manage(graphHopperManaged);
+        final GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
         environment.jersey().register(new AbstractBinder() {
             @Override
             protected void configure() {
-                bind(configuration).to(CmdArgs.class);
-                bind(graphHopperManaged).to(GraphHopperManaged.class);
-                bind(graphHopperManaged.getGraphHopper()).to(GraphHopper.class);
-                bind(graphHopperManaged.getGraphHopper()).to(GraphHopperAPI.class);
+                bind(graphHopperBundleConfiguration.getGraphHopperConfiguration()).to(GraphHopperConfig.class);
+                bind(graphHopper).to(GraphHopper.class);
+                bind(graphHopper).to(GraphHopperAPI.class);
 
+                bindFactory(ProfileResolverFactory.class).to(ProfileResolver.class);
                 bindFactory(HasElevation.class).to(Boolean.class).named("hasElevation");
                 bindFactory(UsesCongestion.class).to(Boolean.class).named("usesCongestion");
                 bindFactory(LocationIndexFactory.class).to(LocationIndex.class);
                 bindFactory(TranslationMapFactory.class).to(TranslationMap.class);
                 bindFactory(EncodingManagerFactory.class).to(EncodingManager.class);
                 bindFactory(GraphHopperStorageFactory.class).to(GraphHopperStorage.class);
-                bindFactory(RasterHullBuilderFactory.class).to(DelaunayTriangulationIsolineBuilder.class);
+                bindFactory(GtfsStorageFactory.class).to(GtfsStorage.class);
             }
         });
-
-        if (configuration.getBool("web.change_graph.enabled", false)) {
-            environment.jersey().register(ChangeGraphResource.class);
-        }
 
         environment.jersey().register(MVTResource.class);
         environment.jersey().register(NearestResource.class);
         environment.jersey().register(RouteResource.class);
+        environment.jersey().register(CustomWeightingRouteResource.class);
         environment.jersey().register(IsochroneResource.class);
+        if (graphHopperBundleConfiguration.getGraphHopperConfiguration().has("gtfs.file")) {
+            // These are pt-specific implementations of /route and /isochrone, but the same API.
+            // We serve them under different paths (/route-pt and /isochrone-pt), and forward
+            // requests for ?vehicle=pt there.
+            environment.jersey().register(PtRouteResource.class);
+            environment.jersey().register(PtIsochroneResource.class);
+            environment.jersey().register(PtRedirectFilter.class);
+        }
+        environment.jersey().register(SPTResource.class);
         environment.jersey().register(I18NResource.class);
         environment.jersey().register(InfoResource.class);
+
+        MatrixSerializer serializer = new MatrixSerializer(graphHopperManaged.getGraphHopper() instanceof CustomGraphHopper);
+        MatrixAPI matrixAPI = new GHMatrixAPI(graphHopperManaged.getGraphHopper(), graphHopperBundleConfiguration.getGraphHopperConfiguration());
+        MatrixQueue matrixQueue = createAndStartQueue(graphHopperBundleConfiguration.getGraphHopperConfiguration(), matrixAPI, serializer);
+        environment.jersey().register(new AbstractBinder() {
+            @Override
+            protected void configure() {
+                bind(serializer).to(MatrixSerializer.class);
+                bind(matrixAPI).to(MatrixAPI.class);
+                bind(matrixQueue).to(MatrixQueue.class);
+            }
+        });
+        environment.jersey().register(MatrixResourceFactory.class);
+
         environment.healthChecks().register("graphhopper", new GraphHopperHealthCheck(graphHopperManaged.getGraphHopper()));
-
-
-        MatrixAPI matrixAPI = new GHMatrixAPI(graphHopperManaged.getGraphHopper());
-        MatrixQueue matrixQueue = createAndStartQueue(configuration, matrixAPI, configuration.getInt("matrix.default_customer_priority", 1));
-        environment.jersey().register(new MatrixResource(configuration, matrixAPI, matrixQueue));
     }
 
-    private MatrixQueue createAndStartQueue(CmdArgs args, MatrixAPI mCalc, Integer defaultCustomerPriority) {
+    private MatrixQueue createAndStartQueue(GraphHopperConfig args, MatrixAPI mCalc, MatrixSerializer matrixSerializer) {
+        int defaultCustomerPriority = args.getInt("matrix.default_customer_priority", 1);
         // restrict to available processors (one thread for the GC and one for the free queue)
         int threads = Runtime.getRuntime().availableProcessors() - 1;
         threads = args.getInt("matrix.threads", threads);
         LoggerFactory.getLogger(getClass()).info("default customer priority: " + defaultCustomerPriority + ", matrix threads " + (threads - 1) + ", free threads: 1");
-        MatrixQueue mQueue = new MatrixQueue(threads, mCalc);
+        MatrixQueue mQueue = new MatrixQueue(threads, mCalc, matrixSerializer);
         mQueue.start();
         return mQueue;
     }
-
 }

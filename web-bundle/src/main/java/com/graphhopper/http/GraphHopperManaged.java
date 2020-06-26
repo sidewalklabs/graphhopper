@@ -18,29 +18,42 @@
 
 package com.graphhopper.http;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.graphhopper.GraphHopper;
+import com.graphhopper.GraphHopperConfig;
+import com.graphhopper.config.Profile;
+import com.graphhopper.jackson.Jackson;
 import com.graphhopper.json.geo.JsonFeatureCollection;
+import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.osm.GraphHopperOSM;
+import com.graphhopper.routing.ee.vehicles.CustomCarFlagEncoder;
 import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
 import com.graphhopper.routing.lm.LandmarkStorage;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
-import com.graphhopper.routing.weighting.Weighting;
-import com.graphhopper.storage.Graph;
-import com.graphhopper.swl.*;
-import com.graphhopper.util.CmdArgs;
+import com.graphhopper.routing.weighting.custom.CustomProfile;
+import com.graphhopper.routing.weighting.custom.CustomWeighting;
+import com.graphhopper.swl.EncodedValueFactoryWithStableId;
+import com.graphhopper.swl.PathDetailsBuilderFactoryWithEdgeKey;
+import com.graphhopper.swl.StableIdEncodedValues;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
 import com.graphhopper.util.shapes.BBox;
 import io.dropwizard.lifecycle.Managed;
+import org.locationtech.jts.geom.Envelope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.graphhopper.util.Helper.UTF_CS;
 
@@ -49,50 +62,78 @@ public class GraphHopperManaged implements Managed {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final GraphHopper graphHopper;
 
-    public GraphHopperManaged(CmdArgs configuration, ObjectMapper objectMapper) {
-        String linkSpeedFile = configuration.get("r5.link_speed_file", null);
-        final SpeedCalculator speedCalculator;
-        if (linkSpeedFile != null) {
-            speedCalculator = new FileSpeedCalculator(linkSpeedFile);
-        } else {
-            speedCalculator = new DefaultSpeedCalculator();
-        }
-        String splitAreaLocation = configuration.get(Parameters.Landmark.PREPARE + "split_area_location", "");
+    public GraphHopperManaged(GraphHopperConfig configuration, ObjectMapper objectMapper) {
+        ObjectMapper localObjectMapper = objectMapper.copy();
+        localObjectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        String splitAreaLocation = configuration.getString(Parameters.Landmark.PREPARE + "split_area_location", "");
         JsonFeatureCollection landmarkSplittingFeatureCollection;
         try (Reader reader = splitAreaLocation.isEmpty() ? new InputStreamReader(LandmarkStorage.class.getResource("map.geo.json").openStream(), UTF_CS) : new InputStreamReader(new FileInputStream(splitAreaLocation), UTF_CS)) {
-            landmarkSplittingFeatureCollection = objectMapper.readValue(reader, JsonFeatureCollection.class);
+            landmarkSplittingFeatureCollection = localObjectMapper.readValue(reader, JsonFeatureCollection.class);
         } catch (IOException e1) {
             logger.error("Problem while reading border map GeoJSON. Skipping this.", e1);
             landmarkSplittingFeatureCollection = null;
         }
-        graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection) {
-            @Override
-            public Weighting createWeighting(HintsMap hintsMap, FlagEncoder encoder, Graph graph) {
-                if (hintsMap.getWeighting().equals("td")) {
-                    return new FastestCarTDWeighting(encoder, speedCalculator, hintsMap);
-                } else {
-                    return super.createWeighting(hintsMap, encoder, graph);
+        if (configuration.has("gtfs.file")) {
+            graphHopper = new GraphHopperGtfs(configuration);
+        } else {
+            graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection) {
+                @Override
+                protected void registerCustomEncodedValues(EncodingManager.Builder emBuilder) {
+                    StableIdEncodedValues.createAndAddEncodedValues(emBuilder);
                 }
-            }
-        }.forServer();
-        String spatialRuleLocation = configuration.get("spatial_rules.location", "");
-        if (!spatialRuleLocation.isEmpty()) {
-            final BBox maxBounds = BBox.parseBBoxString(configuration.get("spatial_rules.max_bbox", "-180, 180, -90, 90"));
-            try (final InputStreamReader reader = new InputStreamReader(new FileInputStream(spatialRuleLocation), UTF_CS)) {
-                JsonFeatureCollection jsonFeatureCollection = objectMapper.readValue(reader, JsonFeatureCollection.class);
-                SpatialRuleLookupHelper.buildAndInjectSpatialRuleIntoGH(graphHopper, maxBounds, jsonFeatureCollection);
+            }.forServer();
+        }
+        if (!configuration.getString("spatial_rules.location", "").isEmpty()) {
+            throw new RuntimeException("spatial_rules.location has been deprecated. Please use spatial_rules.borders_directory instead.");
+        }
+        String spatialRuleBordersDirLocation = configuration.getString("spatial_rules.borders_directory", "");
+        if (!spatialRuleBordersDirLocation.isEmpty()) {
+            final BBox maxBounds = BBox.parseBBoxString(configuration.getString("spatial_rules.max_bbox", "-180, 180, -90, 90"));
+            final Path bordersDirectory = Paths.get(spatialRuleBordersDirLocation);
+            List<JsonFeatureCollection> jsonFeatureCollections = new ArrayList<>();
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(bordersDirectory, "*.{geojson,json}")) {
+                for (Path borderFile : stream) {
+                    try (BufferedReader reader = Files.newBufferedReader(borderFile, StandardCharsets.UTF_8)) {
+                        JsonFeatureCollection jsonFeatureCollection = localObjectMapper.readValue(reader, JsonFeatureCollection.class);
+                        jsonFeatureCollections.add(jsonFeatureCollection);
+                    }
+                }
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+            SpatialRuleLookupHelper.buildAndInjectCountrySpatialRules(graphHopper,
+                    new Envelope(maxBounds.minLon, maxBounds.maxLon, maxBounds.minLat, maxBounds.maxLat), jsonFeatureCollections);
         }
+
+        ObjectMapper yamlOM = Jackson.initObjectMapper(new ObjectMapper(new YAMLFactory()));
+        ObjectMapper jsonOM = Jackson.newObjectMapper();
+        List<Profile> newProfiles = new ArrayList<>();
+        for (Profile profile : configuration.getProfiles()) {
+            if (!CustomWeighting.NAME.equals(profile.getWeighting())) {
+                newProfiles.add(profile);
+                continue;
+            }
+            String customModelLocation = profile.getHints().getString("custom_model_file", "");
+            if (customModelLocation.isEmpty())
+                throw new IllegalArgumentException("Missing 'custom_model_file' field in profile '" + profile.getName() + "' if you want an empty custom model set it to 'empty'");
+            if ("empty".equals(customModelLocation))
+                newProfiles.add(new CustomProfile(profile).setCustomModel(new CustomModel()));
+            else
+                try {
+                    CustomModel customModel = (customModelLocation.endsWith(".json") ? jsonOM : yamlOM).readValue(new File(customModelLocation), CustomModel.class);
+                    newProfiles.add(new CustomProfile(profile).setCustomModel(customModel));
+                } catch (Exception ex) {
+                    throw new RuntimeException("Cannot load custom_model from " + customModelLocation + " for profile " + profile.getName(), ex);
+                }
+        }
+        configuration.setProfiles(newProfiles);
+
         graphHopper.setFlagEncoderFactory(new FlagEncoderFactory() {
             private FlagEncoderFactory delegate = new DefaultFlagEncoderFactory();
             @Override
             public FlagEncoder createFlagEncoder(String name, PMap configuration) {
-                if (name.startsWith("car")) {
-                    return new CustomCarFlagEncoder(configuration, name);
-                } else if (name.startsWith("bike")) {
-                    return new BikeFlagEncoder(configuration);
+                if (name.equals("car")) {
+                    return new CustomCarFlagEncoder(configuration);
                 } else if (name.equals("truck")) {
                     return TruckFlagEncoder.createTruck(configuration, "truck");
                 } else {
@@ -100,17 +141,18 @@ public class GraphHopperManaged implements Managed {
                 }
             }
         });
+        graphHopper.setEncodedValueFactory(new EncodedValueFactoryWithStableId());
         graphHopper.init(configuration);
-        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey(graphHopper));
+        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey());
     }
 
     @Override
     public void start() {
         graphHopper.importOrLoad();
-        logger.info("loaded graph at:" + graphHopper.getGraphHopperLocation()
-                + ", data_reader_file:" + graphHopper.getDataReaderFile()
-                + ", encoded values:" + graphHopper.getEncodingManager().toEncodedValuesAsString()
-                + ", " + graphHopper.getGraphHopperStorage().toDetailsString());
+        logger.info("loaded graph at:{}, data_reader_file:{}, encoded values:{}, {}",
+                graphHopper.getGraphHopperLocation(), graphHopper.getDataReaderFile(),
+                graphHopper.getEncodingManager().toEncodedValuesAsString(),
+                graphHopper.getGraphHopperStorage().toDetailsString());
     }
 
     public GraphHopper getGraphHopper() {
@@ -121,6 +163,4 @@ public class GraphHopperManaged implements Managed {
     public void stop() {
         graphHopper.close();
     }
-
-
 }
