@@ -10,6 +10,11 @@ RUN mkdir -p /data && \
 
 COPY . /graphhopper/
 
+# create main.js - only required for JS UI
+WORKDIR /graphhopper/web
+
+RUN npm install && npm run bundleProduction
+
 WORKDIR /graphhopper
 
 RUN ./graphhopper.sh build
