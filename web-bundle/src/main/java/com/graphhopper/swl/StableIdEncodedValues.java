@@ -1,11 +1,14 @@
 package com.graphhopper.swl;
 
 import com.google.common.primitives.Longs;
-import com.graphhopper.reader.gtfs.GtfsStorage;
-import com.graphhopper.reader.gtfs.PtEncodedValues;
 import com.graphhopper.routing.ev.UnsignedIntEncodedValue;
 import com.graphhopper.routing.util.EncodingManager;
-import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.*;
+import com.graphhopper.util.shapes.GHPoint3D;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 public class StableIdEncodedValues {
 
@@ -43,9 +46,9 @@ public class StableIdEncodedValues {
         return Long.toUnsignedString(Longs.fromByteArray(stableId));
     }
 
-    final void setStableId(boolean reverse, EdgeIteratorState edge, String stableId) {
-        long stableIdLong = Long.parseUnsignedLong(stableId);
-        byte[] stableIdBytes = Longs.toByteArray(stableIdLong);
+    public final void setStableId(boolean reverse, EdgeIteratorState edge) {
+        long stableId = calculateStableEdgeId(edge);
+        byte[] stableIdBytes = Longs.toByteArray(stableId);
 
         if (stableIdBytes.length != 8)
             throw new IllegalArgumentException("stable ID must be 8 bytes: " + stableId);
@@ -56,4 +59,29 @@ public class StableIdEncodedValues {
         }
     }
 
+    private static long calculateStableEdgeId(EdgeIteratorState edge) {
+        // todo: how to get type of street?
+        String hashString = "Reference";
+
+        PointList geometry = edge.fetchWayGeometry(FetchMode.ALL);
+        GHPoint3D baseNode = geometry.get(edge.getBaseNode());
+        GHPoint3D adjNode = geometry.get(edge.getAdjNode());
+        double startLat = baseNode.getLat();
+        double startLong = baseNode.getLon();
+        double endLat = adjNode.getLat();
+        double endLong = adjNode.getLon();
+        hashString += String.format(" %.5f %.5f %.5f %.5f", startLong, startLat, endLong, endLat);
+
+        // per https://discuss.graphhopper.com/t/how-to-get-the-heading-clockwise-from-north-given-two-points/1357
+        hashString += String.format(" %d", Math.round(Helper.ANGLE_CALC.calcAzimuth(startLat, startLong, endLat, endLong)));
+        hashString += String.format(" %d", Math.round(geometry.calcDistance(new DistanceCalcEarth())));
+
+        try {
+            MessageDigest md5MessageDigest = MessageDigest.getInstance("MD5");
+            byte[] stableIdBytes = md5MessageDigest.digest(hashString.getBytes(StandardCharsets.UTF_8));
+            return Longs.fromByteArray(stableIdBytes);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Couldn't load MD5 hashing MessageDigest!");
+        }
+    }
 }
