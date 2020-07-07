@@ -1,18 +1,17 @@
 package com.graphhopper.swl;
 
-import com.graphhopper.reader.osm.GraphHopperOSM;
+import com.graphhopper.reader.ReaderWay;
 import com.graphhopper.reader.osm.OSMReader;
-import com.graphhopper.routing.ee.vehicles.CustomCarFlagEncoder;
-import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
-import com.graphhopper.routing.ev.EncodedValueFactory;
-import com.graphhopper.routing.util.*;
+import com.graphhopper.routing.util.AllEdgesIterator;
+import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.DAType;
 import com.graphhopper.storage.GHDirectory;
-import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.GraphHopperStorage;
+import com.graphhopper.util.DistanceCalcEarth;
 import com.graphhopper.util.FetchMode;
-import com.graphhopper.util.PMap;
 import com.graphhopper.util.PointList;
+import com.graphhopper.util.shapes.GHPoint3D;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -43,13 +42,35 @@ public class ExportGraphHopperStreetEdgesFromOsm {
 
         AllEdgesIterator edgesIterator = graphHopperStorage.getAllEdges();
         List<String> outputLines = new ArrayList<>();
-        outputLines.add("gh_edge_id,geometry");
+        outputLines.add("gh_edge_id,geometry"); //todo: update
 
         while(edgesIterator.next()) {
-            String ghEdgeId = "" + edgesIterator.getEdge();
+            int ghEdgeId = edgesIterator.getEdge();
+            String stableEdgeId = ""; //todo: add calculated ID once stable ID function is finalized
+
+            int startVertex = edgesIterator.getBaseNode();
+            int endVertex = edgesIterator.getAdjNode();
             PointList wayGeometry = edgesIterator.fetchWayGeometry(FetchMode.ALL);
-            String lineString = "\"" + wayGeometry.toLineString(false).toString() + "\"";
-            String line = Stream.of(ghEdgeId, lineString).collect(Collectors.joining(","));
+            String geometryString = "\"" + wayGeometry.toLineString(false).toString() + "\"";
+            GHPoint3D baseNode = wayGeometry.get(edgesIterator.getBaseNode());
+            GHPoint3D adjNode = wayGeometry.get(edgesIterator.getAdjNode());
+            double startLat = baseNode.getLat();
+            double startLong = baseNode.getLon();
+            double endLat = adjNode.getLat();
+            double endLong = adjNode.getLon();
+            double distance = Math.round(wayGeometry.calcDistance(new DistanceCalcEarth()));
+
+            // todo: all of below need to be tested, not sure if these are correct
+            ReaderWay way = new ReaderWay(reader.getOsmIdOfInternalEdge(ghEdgeId));
+            long osmId = way.getId();
+            String speed = way.getTag("speed");
+            String flags = edgesIterator.getFlags().toString();
+            String lanes = way.getTag("lanes");
+            String highway = way.getTag("highway");
+            String directionRole = way.getTag("directionRole");
+
+
+            String line = Stream.of("hi").collect(Collectors.joining(",")); //todo: update w/ actual data
             outputLines.add(line);
         }
 
