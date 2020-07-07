@@ -47,19 +47,17 @@ public class StableIdEncodedValues {
     }
 
     public final void setStableId(boolean reverse, EdgeIteratorState edge) {
-        long stableId = calculateStableEdgeId(edge);
-        byte[] stableIdBytes = Longs.toByteArray(stableId);
-
-        if (stableIdBytes.length != 8)
-            throw new IllegalArgumentException("stable ID must be 8 bytes: " + stableId);
+        byte[] stableId = calculateStableEdgeId(edge);
+        if (stableId.length != 8)
+            throw new IllegalArgumentException("stable ID must be 8 bytes: " + new String(stableId));
 
         UnsignedIntEncodedValue[] idBytes = reverse ? reverseStableIdEnc : stableIdEnc;
         for (int i=0; i<8; i++) {
-            edge.set(idBytes[i], Byte.toUnsignedInt(stableIdBytes[i]));
+            edge.set(idBytes[i], Byte.toUnsignedInt(stableId[i]));
         }
     }
 
-    private static long calculateStableEdgeId(EdgeIteratorState edge) {
+    private static byte[] calculateStableEdgeId(EdgeIteratorState edge) {
         // todo: how to get type of street?
         String hashString = "Reference";
 
@@ -78,8 +76,7 @@ public class StableIdEncodedValues {
 
         try {
             MessageDigest md5MessageDigest = MessageDigest.getInstance("MD5");
-            byte[] stableIdBytes = md5MessageDigest.digest(hashString.getBytes(StandardCharsets.UTF_8));
-            return Longs.fromByteArray(stableIdBytes);
+            return md5MessageDigest.digest(hashString.getBytes(StandardCharsets.UTF_8));
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Couldn't load MD5 hashing MessageDigest!");
         }
