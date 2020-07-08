@@ -132,7 +132,7 @@ public class GraphHopperManaged implements Managed {
             private FlagEncoderFactory delegate = new DefaultFlagEncoderFactory();
             @Override
             public FlagEncoder createFlagEncoder(String name, PMap configuration) {
-                if (name.equals("car")) {
+                if (name.startsWith("car")) {
                     return new CustomCarFlagEncoder(configuration);
                 } else if (name.equals("truck")) {
                     return TruckFlagEncoder.createTruck(configuration, "truck");

@@ -108,7 +108,6 @@ public class RouteResource {
 
         StopWatch sw = new StopWatch().start();
         GHRequest request = new GHRequest();
-
         initHints(request.getHints(), uriInfo.getQueryParameters());
         String weightingVehicleLogStr = "weighting: " + request.getHints().getString("weighting", "") + ", vehicle: " + request.getHints().getString("vehicle", "");
         if (Helper.isEmpty(profileName)) {
