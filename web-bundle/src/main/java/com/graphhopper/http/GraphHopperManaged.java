@@ -28,13 +28,13 @@ import com.graphhopper.jackson.Jackson;
 import com.graphhopper.json.geo.JsonFeatureCollection;
 import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.osm.GraphHopperOSM;
-import com.graphhopper.routing.ee.vehicles.CustomCarFlagEncoder;
 import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
 import com.graphhopper.routing.lm.LandmarkStorage;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.custom.CustomProfile;
 import com.graphhopper.routing.weighting.custom.CustomWeighting;
+import com.graphhopper.swl.CustomCarFlagEncoder;
 import com.graphhopper.swl.EncodedValueFactoryWithStableId;
 import com.graphhopper.swl.PathDetailsBuilderFactoryWithEdgeKey;
 import com.graphhopper.swl.StableIdEncodedValues;
@@ -133,7 +133,7 @@ public class GraphHopperManaged implements Managed {
             @Override
             public FlagEncoder createFlagEncoder(String name, PMap configuration) {
                 if (name.startsWith("car")) {
-                    return new CustomCarFlagEncoder(configuration);
+                    return new CustomCarFlagEncoder(configuration, name);
                 } else if (name.equals("truck")) {
                     return TruckFlagEncoder.createTruck(configuration, "truck");
                 } else {
