@@ -21,6 +21,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class ExportGraphHopperStreetEdgesFromOsm {
     private static final Logger LOG = LoggerFactory.getLogger(ExportGraphHopperStreetEdgesFromOsm.class);
@@ -50,7 +51,8 @@ public class ExportGraphHopperStreetEdgesFromOsm {
         GraphHopperStorage graphHopperStorage = graphHopper.getGraphHopperStorage();
         AllEdgesIterator edgeIterator = graphHopperStorage.getAllEdges();
         NodeAccess nodes = graphHopperStorage.getNodeAccess();
-        final EnumEncodedValue<RoadClass> roadClassEnc = encodingManager.getEnumEncodedValue(RoadClass.KEY, RoadClass.class);
+        final EnumEncodedValue<RoadClass> roadClassEnc =
+                encodingManager.getEnumEncodedValue(RoadClass.KEY, RoadClass.class);
         CarFlagEncoder carFlagEncoder = (CarFlagEncoder)encodingManager.getEncoder("car");
         DecimalEncodedValue avgSpeedEnc = carFlagEncoder.getAverageSpeedEnc();
 
@@ -66,6 +68,7 @@ public class ExportGraphHopperStreetEdgesFromOsm {
 
         while (edgeIterator.next()) {
             int ghEdgeId = edgeIterator.getEdge();
+            boolean isReverse = edgeIterator.get(EdgeIteratorState.REVERSE_STATE);
             int startVertex = edgeIterator.getBaseNode();
             int endVertex = edgeIterator.getAdjNode();
             double startLat = nodes.getLat(startVertex);
@@ -75,23 +78,57 @@ public class ExportGraphHopperStreetEdgesFromOsm {
 
             PointList wayGeometry = edgeIterator.fetchWayGeometry(FetchMode.ALL);
             String geometryString = wayGeometry.toLineString(false).toString();
-            long distance = Math.round(wayGeometry.calcDistance(new DistanceCalcEarth()));
+            long distanceMeters = Math.round(wayGeometry.calcDistance(new DistanceCalcEarth()));
             String highwayTag = edgeIterator.get(roadClassEnc).toString();
             String streetName = edgeIterator.getName();
 
             // Convert GH's km/h speed to cm/s to match R5's implementation
             int speedcms = (int)(edgeIterator.get(avgSpeedEnc) / 3.6 * 100);
 
+            // Convert GH's distance in meters to millimeters to match R5's implementation
+            long distanceMillimeters = distanceMeters * 1000;
+
             long osmId = graphHopper.getOsmIdForGhEdge(edgeIterator.getEdge());
-            String flags = graphHopper.getFlagsForGhEdge(ghEdgeId, edgeIterator.get(EdgeIteratorState.REVERSE_STATE));
+            String flags = graphHopper.getFlagsForGhEdge(ghEdgeId, isReverse);
             long stableEdgeId = calculateStableEdgeId(highwayTag, startLat, startLon, endLat, endLon);
-            int lanes = parseLanesTag(osmId, graphHopper);
+
+            // Calculate number of lanes for edge, as done in R5, based on OSM tags + edge direction
+            int overallLanes = parseLanesTag(osmId, graphHopper, "lanes");
+            int forwardLanes = parseLanesTag(osmId, graphHopper, "lanes:forward");
+            int backwardLanes = parseLanesTag(osmId, graphHopper, "lanes:backward");
+
+            if (isReverse) {
+                if (!flags.contains("ALLOWS_CAR")) {
+                    backwardLanes = 0;
+                }
+                if (backwardLanes == -1) {
+                    if (overallLanes != -1) {
+                        if (forwardLanes != -1) {
+                            backwardLanes = overallLanes - forwardLanes;
+                        }
+                    }
+                }
+            } else {
+                if (!flags.contains("ALLOWS_CAR")) {
+                    forwardLanes = 0;
+                }
+                if (forwardLanes == -1) {
+                    if (overallLanes != -1) {
+                        if (backwardLanes != -1) {
+                            forwardLanes = overallLanes - backwardLanes;
+                        } else if (flags.contains("ALLOWS_CAR")) {
+                            forwardLanes = overallLanes / 2;
+                        }
+                    }
+                }
+            }
 
             // Copy R5's logic; filter out edges with unwanted highway tags, negative OSM IDs, and reverse highway links
             if (!HIGHWAY_FILTER_TAGS.contains(highwayTag) && osmId >= 0) {
-                if (!(edgeIterator.get(EdgeIteratorState.REVERSE_STATE) && highwayTag.equals("motorway"))) {
-                    printStream.println(toString(ghEdgeId, stableEdgeId, startVertex, endVertex, startLat, startLon, endLat,
-                            endLon, geometryString, streetName, distance, osmId, speedcms, flags, lanes, highwayTag));
+                if (!(isReverse && highwayTag.equals("motorway"))) {
+                    printStream.println(toString(ghEdgeId, stableEdgeId, startVertex, endVertex, startLat, startLon,
+                            endLat, endLon, geometryString, streetName, distanceMillimeters, osmId, speedcms, flags,
+                            isReverse ? backwardLanes : forwardLanes, highwayTag));
                 }
             }
         }
@@ -111,14 +148,16 @@ public class ExportGraphHopperStreetEdgesFromOsm {
     }
 
     // Taken from R5's lane parsing logic. See EdgeServiceServer.java
-    private static int parseLanesTag(long osmId, CustomGraphHopperOSM graphHopper) {
+    private static int parseLanesTag(long osmId, CustomGraphHopperOSM graphHopper, String laneTag) {
         int result = -1;
-        String lanesTag = graphHopper.getLanesTag(osmId);
-        if (lanesTag != null) {
-            try {
-                return parseLanesTag(lanesTag);
-            } catch (NumberFormatException ex) {
-                LOG.warn("way {}: Unable to parse lanes value as number {}", osmId, lanesTag);
+        Map<String, String> laneTagsOnEdge = graphHopper.getLanesTag(osmId);
+        if (laneTagsOnEdge != null) {
+            if (laneTagsOnEdge.containsKey(laneTag)) {
+                try {
+                    return parseLanesTag(laneTagsOnEdge.get(laneTag));
+                } catch (NumberFormatException ex) {
+                    LOG.warn("way {}: Unable to parse lanes value as number {}", osmId, laneTag);
+                }
             }
         }
         return result;

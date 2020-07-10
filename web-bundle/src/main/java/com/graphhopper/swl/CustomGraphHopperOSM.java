@@ -1,6 +1,7 @@
 package com.graphhopper.swl;
 
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.graphhopper.reader.DataReader;
 import com.graphhopper.reader.ReaderElement;
 import com.graphhopper.reader.ReaderWay;
@@ -13,11 +14,13 @@ import java.io.File;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class CustomGraphHopperOSM extends GraphHopperOSM {
+    private static final Set<String> LANE_TAGS = Sets.newHashSet("lanes", "lanes:forward", "lanes:backward");
 
     private String osmPath;
-    private Map<Long, String> osmIdToLanesTag;
+    private Map<Long, Map<String, String>> osmIdToLanesTag;
     private Map<Integer, Long> ghToOsmIds;
     private Map<Long, String[]> osmIdToOsmTags;
 
@@ -40,9 +43,20 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
                     while((next = input.getNext()) != null) {
                         if (next.isType(ReaderElement.WAY)) {
                             final ReaderWay ghReaderWay = (ReaderWay) next;
+                            long osmId = ghReaderWay.getId();
 
-                            if(ghReaderWay.hasTag("lanes")) {
-                                osmIdToLanesTag.put(ghReaderWay.getId(), ghReaderWay.getTag("lanes"));
+                            for (String laneTag : LANE_TAGS) {
+                                if (ghReaderWay.hasTag(laneTag)) {
+                                    if (osmIdToLanesTag.containsKey(osmId)) {
+                                        Map<String, String> currentLaneTags = osmIdToLanesTag.get(osmId);
+                                        currentLaneTags.put(laneTag, ghReaderWay.getTag(laneTag));
+                                        osmIdToLanesTag.put(osmId, currentLaneTags);
+                                    } else {
+                                        Map<String, String> newLaneTags = Maps.newHashMap();
+                                        newLaneTags.put(laneTag, ghReaderWay.getTag(laneTag));
+                                        osmIdToLanesTag.put(osmId, newLaneTags);
+                                    }
+                                }
                             }
 
                             Map<String, String> wayTagsToConsider = Maps.newHashMap();
@@ -72,7 +86,7 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
         return initDataReader(reader);
     }
 
-    public String getLanesTag(long osmId) {
+    public Map<String, String> getLanesTag(long osmId) {
         return osmIdToLanesTag.containsKey(osmId) ? osmIdToLanesTag.get(osmId) : null;
     }
 
