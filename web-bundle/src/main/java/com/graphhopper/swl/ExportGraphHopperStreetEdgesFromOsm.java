@@ -1,7 +1,9 @@
 package com.graphhopper.swl;
 
+import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Longs;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
 import com.graphhopper.routing.ev.DecimalEncodedValue;
 import com.graphhopper.routing.ev.EnumEncodedValue;
 import com.graphhopper.routing.ev.RoadClass;
@@ -16,9 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -90,7 +89,7 @@ public class ExportGraphHopperStreetEdgesFromOsm {
 
             long osmId = graphHopper.getOsmIdForGhEdge(edgeIterator.getEdge());
             String flags = graphHopper.getFlagsForGhEdge(ghEdgeId, isReverse);
-            long stableEdgeId = calculateStableEdgeId(highwayTag, startLat, startLon, endLat, endLon);
+            String stableEdgeId = calculateStableEdgeId(highwayTag, startLat, startLon, endLat, endLon);
 
             // Calculate number of lanes for edge, as done in R5, based on OSM tags + edge direction
             int overallLanes = parseLanesTag(osmId, graphHopper, "lanes");
@@ -138,10 +137,10 @@ public class ExportGraphHopperStreetEdgesFromOsm {
         assert(outputFile.exists());
     }
 
-    private static String toString(int ghEdgeId, long stableEdgeId, int startVertex, int endVertex, double startLat,
+    private static String toString(int ghEdgeId, String stableEdgeId, int startVertex, int endVertex, double startLat,
                                    double startLon, double endLat, double endLon, String geometry, String streetName,
                                    long distance, long osmId, int speed, String flags, int lanes, String highway) {
-        return String.format("%d,\"%d\",%d,%d,%f,%f,%f,%f,\"%s\",\"%s\",%d,%d,%d,\"%s\",%d,\"%s\"",
+        return String.format("%d,\"%s\",%d,%d,%f,%f,%f,%f,\"%s\",\"%s\",%d,%d,%d,\"%s\",%d,\"%s\"",
                 ghEdgeId, stableEdgeId, startVertex, endVertex, startLat, startLon, endLat, endLon, geometry,
                 streetName, distance, osmId, speed, flags, lanes, highway
         );
@@ -177,7 +176,7 @@ public class ExportGraphHopperStreetEdgesFromOsm {
         return (int) median;
     }
 
-    private static long calculateStableEdgeId(String highwayTag, double startLat, double startLon,
+    private static String calculateStableEdgeId(String highwayTag, double startLat, double startLon,
                                               double endLat, double endLon) {
         int formOfWay = getFormOfWay(highwayTag);
         long bearing = Math.round(Helper.ANGLE_CALC.calcAzimuth(startLat, startLon, endLat, endLon));
@@ -185,13 +184,8 @@ public class ExportGraphHopperStreetEdgesFromOsm {
         String hashString = String.format("Reference %d %.6f %.6f %.6f %.6f %d",
                 formOfWay, startLon, startLat, endLon, endLat, bearing);
 
-        try {
-            MessageDigest md5MessageDigest = MessageDigest.getInstance("MD5");
-            byte[] hash = md5MessageDigest.digest(hashString.getBytes(StandardCharsets.UTF_8));
-            return Longs.fromByteArray(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Couldn't load MD5 hashing MessageDigest!");
-        }
+        HashCode hc = Hashing.farmHashFingerprint64().hashString(hashString, Charsets.UTF_8);
+        return Long.toUnsignedString(hc.asLong());
     }
 
     // Based off of shared streets' definition of "form of way"
