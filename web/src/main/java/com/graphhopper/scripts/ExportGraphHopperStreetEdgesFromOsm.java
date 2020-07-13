@@ -1,4 +1,4 @@
-package com.graphhopper.swl;
+package com.graphhopper.scripts;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
@@ -13,6 +13,7 @@ import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
+import com.graphhopper.swl.CustomGraphHopperOSM;
 import com.graphhopper.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
