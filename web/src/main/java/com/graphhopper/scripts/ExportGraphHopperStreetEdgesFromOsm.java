@@ -68,7 +68,7 @@ public class ExportGraphHopperStreetEdgesFromOsm {
 
         while (edgeIterator.next()) {
             int ghEdgeId = edgeIterator.getEdge();
-            boolean isReverse = edgeIterator.get(EdgeIteratorState.REVERSE_STATE);
+            boolean isReverse = edgeIterator.getReverse(carFlagEncoder.getAccessEnc());
             int startVertex = edgeIterator.getBaseNode();
             int endVertex = edgeIterator.getAdjNode();
             double startLat = nodes.getLat(startVertex);
