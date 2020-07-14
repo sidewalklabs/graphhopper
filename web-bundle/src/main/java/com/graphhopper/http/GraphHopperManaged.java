@@ -30,11 +30,13 @@ import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.ee.vehicles.CustomCarFlagEncoder;
 import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
+import com.graphhopper.routing.ev.UnsignedIntEncodedValue;
 import com.graphhopper.routing.lm.LandmarkStorage;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.custom.CustomProfile;
 import com.graphhopper.routing.weighting.custom.CustomWeighting;
+import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.swl.EncodedValueFactoryWithStableId;
 import com.graphhopper.swl.PathDetailsBuilderFactoryWithEdgeKey;
@@ -166,13 +168,18 @@ public class GraphHopperManaged implements Managed {
         graphHopper.close();
     }
 
-    public static void setStableEdgeIds(GraphHopper graphHopper) {
-        AllEdgesIterator edgesIterator = graphHopper.getGraphHopperStorage().getAllEdges();
-        StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(graphHopper.getEncodingManager());
-        NodeAccess nodes = graphHopper.getGraphHopperStorage().getNodeAccess();
+    public void setStableEdgeIds() {
+        GraphHopperStorage graphHopperStorage = graphHopper.getGraphHopperStorage();
+        AllEdgesIterator edgesIterator = graphHopperStorage.getAllEdges();
+        NodeAccess nodes = graphHopperStorage.getNodeAccess();
+        EncodingManager encodingManager = graphHopper.getEncodingManager();
+        FlagEncoder carFlagEncoder = encodingManager.getEncoder("car");
+        StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(encodingManager);
+
         while (edgesIterator.next()) {
-            boolean reverse = edgesIterator.get(EdgeIteratorState.REVERSE_STATE);
+            boolean reverse = edgesIterator.getReverse(carFlagEncoder.getAccessEnc());
             stableIdEncodedValues.setStableId(reverse, edgesIterator, nodes);
         }
+        graphHopperStorage.flush();
     }
 }

@@ -10,10 +10,7 @@ import com.graphhopper.routing.ev.UnsignedIntEncodedValue;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.FetchMode;
 import com.graphhopper.util.Helper;
-import com.graphhopper.util.PointList;
-import com.graphhopper.util.shapes.GHPoint3D;
 
 public class StableIdEncodedValues {
 

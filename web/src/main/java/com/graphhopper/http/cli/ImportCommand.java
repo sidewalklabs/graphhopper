@@ -36,8 +36,7 @@ public class ImportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         final GraphHopperManaged graphHopper = new GraphHopperManaged(configuration.getGraphHopperConfiguration(), bootstrap.getObjectMapper());
         GraphHopper gh = graphHopper.getGraphHopper();
         gh.importOrLoad();
-        GraphHopperManaged.setStableEdgeIds(gh);
+        graphHopper.setStableEdgeIds();
         gh.close();
     }
-
 }
