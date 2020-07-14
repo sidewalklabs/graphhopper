@@ -18,6 +18,7 @@
 
 package com.graphhopper.http.cli;
 
+import com.graphhopper.GraphHopper;
 import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.http.GraphHopperServerConfiguration;
 import io.dropwizard.cli.ConfiguredCommand;
@@ -33,7 +34,10 @@ public class ImportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
     @Override
     protected void run(Bootstrap<GraphHopperServerConfiguration> bootstrap, Namespace namespace, GraphHopperServerConfiguration configuration) {
         final GraphHopperManaged graphHopper = new GraphHopperManaged(configuration.getGraphHopperConfiguration(), bootstrap.getObjectMapper());
-        graphHopper.getGraphHopper().importAndClose();
+        GraphHopper gh = graphHopper.getGraphHopper();
+        gh.importOrLoad();
+        GraphHopperManaged.setStableEdgeIds(gh);
+        gh.close();
     }
 
 }

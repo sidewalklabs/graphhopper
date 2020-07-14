@@ -8,6 +8,7 @@ import com.graphhopper.routing.ev.EnumEncodedValue;
 import com.graphhopper.routing.ev.RoadClass;
 import com.graphhopper.routing.ev.UnsignedIntEncodedValue;
 import com.graphhopper.routing.util.EncodingManager;
+import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.FetchMode;
 import com.graphhopper.util.Helper;
@@ -52,8 +53,8 @@ public class StableIdEncodedValues {
         return Long.toUnsignedString(Longs.fromByteArray(stableId));
     }
 
-    public final void setStableId(boolean reverse, EdgeIteratorState edge) {
-        byte[] stableId = calculateStableEdgeId(edge, this.roadClassEnc);
+    public final void setStableId(boolean reverse, EdgeIteratorState edge, NodeAccess nodes) {
+        byte[] stableId = calculateStableEdgeId(edge, this.roadClassEnc, nodes);
         if (stableId.length != 8)
             throw new IllegalArgumentException("stable ID must be 8 bytes: " + new String(stableId));
 
@@ -63,16 +64,16 @@ public class StableIdEncodedValues {
         }
     }
 
-    private static byte[] calculateStableEdgeId(EdgeIteratorState edge, EnumEncodedValue<RoadClass> roadClassEnc) {
+    private static byte[] calculateStableEdgeId(EdgeIteratorState edge, EnumEncodedValue<RoadClass> roadClassEnc,
+                                                NodeAccess nodes) {
         String highwayTag = edge.get(roadClassEnc).toString();
-        PointList geometry = edge.fetchWayGeometry(FetchMode.ALL);
-        GHPoint3D baseNode = geometry.get(edge.getBaseNode());
-        GHPoint3D adjNode = geometry.get(edge.getAdjNode());
-        double startLat = baseNode.getLat();
-        double startLon = baseNode.getLon();
-        double endLat = adjNode.getLat();
-        double endLon = adjNode.getLon();
-
+        int startVertex = edge.getBaseNode();
+        int endVertex = edge.getAdjNode();
+        double startLat = nodes.getLat(startVertex);
+        double startLon = nodes.getLon(startVertex);
+        double endLat = nodes.getLat(endVertex);
+        double endLon = nodes.getLon(endVertex);
+        
         return calculateStableEdgeId(highwayTag, startLat, startLon, endLat, endLon);
     }
 

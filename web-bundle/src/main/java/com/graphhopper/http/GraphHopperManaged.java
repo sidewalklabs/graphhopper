@@ -35,6 +35,7 @@ import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.custom.CustomProfile;
 import com.graphhopper.routing.weighting.custom.CustomWeighting;
+import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.swl.EncodedValueFactoryWithStableId;
 import com.graphhopper.swl.PathDetailsBuilderFactoryWithEdgeKey;
 import com.graphhopper.swl.StableIdEncodedValues;
@@ -167,12 +168,13 @@ public class GraphHopperManaged implements Managed {
     }
 
     // todo: deal w/ case when graph is simply being loaded, not imported
-    private static void setStableEdgeIds(GraphHopper graphHopper) {
+    public static void setStableEdgeIds(GraphHopper graphHopper) {
         AllEdgesIterator edgesIterator = graphHopper.getGraphHopperStorage().getAllEdges();
         StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(graphHopper.getEncodingManager());
+        NodeAccess nodes = graphHopper.getGraphHopperStorage().getNodeAccess();
         while (edgesIterator.next()) {
             boolean reverse = edgesIterator.get(EdgeIteratorState.REVERSE_STATE);
-            stableIdEncodedValues.setStableId(reverse, edgesIterator);
+            stableIdEncodedValues.setStableId(reverse, edgesIterator, nodes);
         }
     }
 }
