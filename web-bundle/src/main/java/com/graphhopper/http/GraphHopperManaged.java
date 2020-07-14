@@ -151,7 +151,6 @@ public class GraphHopperManaged implements Managed {
     @Override
     public void start() {
         graphHopper.importOrLoad();
-        setStableEdgeIds(graphHopper);
         logger.info("loaded graph at:{}, data_reader_file:{}, encoded values:{}, {}",
                 graphHopper.getGraphHopperLocation(), graphHopper.getDataReaderFile(),
                 graphHopper.getEncodingManager().toEncodedValuesAsString(),
@@ -167,7 +166,6 @@ public class GraphHopperManaged implements Managed {
         graphHopper.close();
     }
 
-    // todo: deal w/ case when graph is simply being loaded, not imported
     public static void setStableEdgeIds(GraphHopper graphHopper) {
         AllEdgesIterator edgesIterator = graphHopper.getGraphHopperStorage().getAllEdges();
         StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(graphHopper.getEncodingManager());

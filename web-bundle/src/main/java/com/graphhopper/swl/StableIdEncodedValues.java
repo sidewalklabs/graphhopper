@@ -73,7 +73,7 @@ public class StableIdEncodedValues {
         double startLon = nodes.getLon(startVertex);
         double endLat = nodes.getLat(endVertex);
         double endLon = nodes.getLon(endVertex);
-        
+
         return calculateStableEdgeId(highwayTag, startLat, startLon, endLat, endLon);
     }
 
