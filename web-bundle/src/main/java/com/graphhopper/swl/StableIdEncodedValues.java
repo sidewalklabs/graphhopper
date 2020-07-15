@@ -51,7 +51,7 @@ public class StableIdEncodedValues {
     }
 
     public final void setStableId(boolean reverse, EdgeIteratorState edge, NodeAccess nodes) {
-        byte[] stableId = calculateStableEdgeId(edge, this.roadClassEnc, nodes);
+        byte[] stableId = calculateStableEdgeId(reverse, edge, this.roadClassEnc, nodes);
         if (stableId.length != 8)
             throw new IllegalArgumentException("stable ID must be 8 bytes: " + new String(stableId));
 
@@ -61,11 +61,13 @@ public class StableIdEncodedValues {
         }
     }
 
-    private static byte[] calculateStableEdgeId(EdgeIteratorState edge, EnumEncodedValue<RoadClass> roadClassEnc,
-                                                NodeAccess nodes) {
+    private static byte[] calculateStableEdgeId(boolean reverse, EdgeIteratorState edge,
+                                                EnumEncodedValue<RoadClass> roadClassEnc, NodeAccess nodes) {
         String highwayTag = edge.get(roadClassEnc).toString();
-        int startVertex = edge.getBaseNode();
-        int endVertex = edge.getAdjNode();
+
+        // Because GH edges are technically bi-directional, swap start/end nodes if calculating reverse ID
+        int startVertex = reverse ? edge.getAdjNode() : edge.getBaseNode();
+        int endVertex = reverse ? edge.getBaseNode() : edge.getAdjNode();
         double startLat = nodes.getLat(startVertex);
         double startLon = nodes.getLon(startVertex);
         double endLat = nodes.getLat(endVertex);

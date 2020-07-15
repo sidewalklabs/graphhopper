@@ -30,7 +30,6 @@ import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.ee.vehicles.CustomCarFlagEncoder;
 import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
-import com.graphhopper.routing.ev.UnsignedIntEncodedValue;
 import com.graphhopper.routing.lm.LandmarkStorage;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
@@ -41,7 +40,6 @@ import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.swl.EncodedValueFactoryWithStableId;
 import com.graphhopper.swl.PathDetailsBuilderFactoryWithEdgeKey;
 import com.graphhopper.swl.StableIdEncodedValues;
-import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
 import com.graphhopper.util.shapes.BBox;
@@ -173,12 +171,12 @@ public class GraphHopperManaged implements Managed {
         AllEdgesIterator edgesIterator = graphHopperStorage.getAllEdges();
         NodeAccess nodes = graphHopperStorage.getNodeAccess();
         EncodingManager encodingManager = graphHopper.getEncodingManager();
-        FlagEncoder carFlagEncoder = encodingManager.getEncoder("car");
         StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(encodingManager);
 
+        // Set both forward and reverse stable edge IDs for each edge
         while (edgesIterator.next()) {
-            boolean reverse = edgesIterator.getReverse(carFlagEncoder.getAccessEnc());
-            stableIdEncodedValues.setStableId(reverse, edgesIterator, nodes);
+            stableIdEncodedValues.setStableId(true, edgesIterator, nodes);
+            stableIdEncodedValues.setStableId(false, edgesIterator, nodes);
         }
         graphHopperStorage.flush();
     }
