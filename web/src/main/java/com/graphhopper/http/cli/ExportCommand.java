@@ -14,7 +14,6 @@ import com.graphhopper.routing.util.AllEdgesIterator;
 import com.graphhopper.routing.util.CarFlagEncoder;
 import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
 import com.graphhopper.routing.util.EncodingManager;
-import com.graphhopper.scripts.ExportGraphHopperStreetEdgesFromOsm;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.swl.CustomGraphHopperOSM;
@@ -34,13 +33,13 @@ import java.util.List;
 import java.util.Map;
 
 public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfiguration> {
-    private static final Logger LOG = LoggerFactory.getLogger(ExportGraphHopperStreetEdgesFromOsm.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ExportCommand.class);
 
     private static final String FLAG_ENCODERS = "car,bike,foot";
     private static final List<String> HIGHWAY_FILTER_TAGS = Lists.newArrayList("bridleway", "steps");
     private static final String COLUMN_HEADERS = "\"edgeId\",\"stableEdgeId\",\"startVertex\",\"endVertex\"," +
             "\"startLat\",\"startLon\",\"endLat\",\"endLon\",\"geometry\",\"streetName\",\"distance\",\"osmid\"," +
-            "\"speed\",\"flags\",\"lanes\",\"highway\"";
+            "\"speed\",\"forwardFlags\",\"backwardFlags\",\"forwardLanes\",\"backwardLanes\",\"highway\"";
 
 
     public ExportCommand() {
@@ -78,7 +77,9 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         LOG.info("3 " + osmTaggedGraphHopper.getGraphHopperStorage().toDetailsString());
 
         LOG.info("configured has this many edges: " + configuredGraphHopper.getGraphHopperStorage().getEdges());
+        LOG.info("configured edge iterator is this size: " + configuredGraphHopper.getGraphHopperStorage().getAllEdges().length());
         LOG.info("osm has this many edges: " + osmTaggedGraphHopper.getGraphHopperStorage().getEdges());
+        LOG.info("osm edge iterator is this size: " + osmTaggedGraphHopper.getGraphHopperStorage().getAllEdges().length());
 
         GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
         AllEdgesIterator edgeIterator = graphHopperStorage.getAllEdges();
@@ -100,11 +101,15 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             throw new RuntimeException(e);
         }
         PrintStream printStream = new PrintStream(outputStream);
-        printStream.println(COLUMN_HEADERS);;
+        printStream.println(COLUMN_HEADERS);
+
+        int count = 0;
 
         while (edgeIterator.next()) {
+            count++;
+
+            // Fetch starting and ending vertices
             int ghEdgeId = edgeIterator.getEdge();
-            boolean isReverse = edgeIterator.getReverse(carFlagEncoder.getAccessEnc());
             int startVertex = edgeIterator.getBaseNode();
             int endVertex = edgeIterator.getAdjNode();
             double startLat = nodes.getLat(startVertex);
@@ -112,11 +117,16 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             double endLat = nodes.getLat(endVertex);
             double endLon = nodes.getLon(endVertex);
 
+            // Get edge geometry and distance
             PointList wayGeometry = edgeIterator.fetchWayGeometry(FetchMode.ALL);
             String geometryString = wayGeometry.toLineString(false).toString();
             long distanceMeters = Math.round(wayGeometry.calcDistance(new DistanceCalcEarth()));
+
+            // Parse OSM highway type and street name, compute stable IDs in both directions
             String highwayTag = edgeIterator.get(roadClassEnc).toString();
             String streetName = edgeIterator.getName();
+            String forwardStableEdgeId = calculateStableEdgeId(highwayTag, startLat, startLon, endLat, endLon);
+            String backwardStableEdgeId = calculateStableEdgeId(highwayTag, endLat, endLon, startLat, startLon);
 
             // Convert GH's km/h speed to cm/s to match R5's implementation
             int speedcms = (int)(edgeIterator.get(avgSpeedEnc) / 3.6 * 100);
@@ -124,62 +134,66 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             // Convert GH's distance in meters to millimeters to match R5's implementation
             long distanceMillimeters = distanceMeters * 1000;
 
+            // Fetch OSM ID and accessibility flags for each edge direction
+            // Returned flags are from the set {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}
             long osmId = osmTaggedGraphHopper.getOsmIdForGhEdge(edgeIterator.getEdge());
-            String flags = osmTaggedGraphHopper.getFlagsForGhEdge(ghEdgeId, isReverse);
-            String stableEdgeId = calculateStableEdgeId(highwayTag, startLat, startLon, endLat, endLon);
+            String forwardFlags = osmTaggedGraphHopper.getFlagsForGhEdge(ghEdgeId, false);
+            String backwardFlags = osmTaggedGraphHopper.getFlagsForGhEdge(ghEdgeId, true);
 
             // Calculate number of lanes for edge, as done in R5, based on OSM tags + edge direction
             int overallLanes = parseLanesTag(osmId, osmTaggedGraphHopper, "lanes");
             int forwardLanes = parseLanesTag(osmId, osmTaggedGraphHopper, "lanes:forward");
             int backwardLanes = parseLanesTag(osmId, osmTaggedGraphHopper, "lanes:backward");
 
-            if (isReverse) {
-                if (!flags.contains("ALLOWS_CAR")) {
-                    backwardLanes = 0;
-                }
-                if (backwardLanes == -1) {
-                    if (overallLanes != -1) {
-                        if (forwardLanes != -1) {
-                            backwardLanes = overallLanes - forwardLanes;
-                        }
-                    }
-                }
-            } else {
-                if (!flags.contains("ALLOWS_CAR")) {
-                    forwardLanes = 0;
-                }
-                if (forwardLanes == -1) {
-                    if (overallLanes != -1) {
-                        if (backwardLanes != -1) {
-                            forwardLanes = overallLanes - backwardLanes;
-                        } else if (flags.contains("ALLOWS_CAR")) {
-                            forwardLanes = overallLanes / 2;
-                        }
+            if (!backwardFlags.contains("ALLOWS_CAR")) {
+                backwardLanes = 0;
+            }
+            if (backwardLanes == -1) {
+                if (overallLanes != -1) {
+                    if (forwardLanes != -1) {
+                        backwardLanes = overallLanes - forwardLanes;
                     }
                 }
             }
 
-            // Copy R5's logic; filter out edges with unwanted highway tags, negative OSM IDs, and reverse highway links
-            if (!HIGHWAY_FILTER_TAGS.contains(highwayTag) && osmId >= 0) {
-                if (!(isReverse && highwayTag.equals("motorway"))) {
-                    printStream.println(toString(ghEdgeId, stableEdgeId, startVertex, endVertex, startLat, startLon,
-                            endLat, endLon, geometryString, streetName, distanceMillimeters, osmId, speedcms, flags,
-                            isReverse ? backwardLanes : forwardLanes, highwayTag));
+            if (!forwardFlags.contains("ALLOWS_CAR")) {
+                forwardLanes = 0;
+            }
+            if (forwardLanes == -1) {
+                if (overallLanes != -1) {
+                    if (backwardLanes != -1) {
+                        forwardLanes = overallLanes - backwardLanes;
+                    } else if (forwardFlags.contains("ALLOWS_CAR")) {
+                        forwardLanes = overallLanes / 2;
+                    }
                 }
+            }
+
+            // Copy R5's logic; filter out edges with unwanted highway tags and negative OSM IDs
+            // todo: do negative OSM ids happen in GH? This might have been R5-specific
+            if (!HIGHWAY_FILTER_TAGS.contains(highwayTag) && osmId >= 0) {
+                printStream.println(toString(ghEdgeId, forwardStableEdgeId, backwardStableEdgeId, startVertex,
+                        endVertex, startLat, startLon, endLat, endLon, geometryString, streetName, distanceMillimeters,
+                        osmId, speedcms, forwardFlags, backwardFlags, forwardLanes, backwardLanes, highwayTag));
             }
         }
 
         printStream.close();
         LOG.info("Done writing street network to CSV");
+
+        LOG.info("count is " + count);
+
         assert(outputFile.exists());
     }
 
-    private static String toString(int ghEdgeId, String stableEdgeId, int startVertex, int endVertex, double startLat,
-                                   double startLon, double endLat, double endLon, String geometry, String streetName,
-                                   long distance, long osmId, int speed, String flags, int lanes, String highway) {
-        return String.format("%d,\"%s\",%d,%d,%f,%f,%f,%f,\"%s\",\"%s\",%d,%d,%d,\"%s\",%d,\"%s\"",
-                ghEdgeId, stableEdgeId, startVertex, endVertex, startLat, startLon, endLat, endLon, geometry,
-                streetName, distance, osmId, speed, flags, lanes, highway
+    private static String toString(int ghEdgeId, String forwardStableEdgeId, String backwardStableEdgeId,
+                                   int startVertex, int endVertex, double startLat, double startLon,
+                                   double endLat, double endLon, String geometry, String streetName, long distance,
+                                   long osmId, int speed, String forwardFlags, String backwardFlags,
+                                   int forwardLanes, int backwardLanes, String highway) {
+        return String.format("%d,\"%s\",\"%s\",%d,%d,%f,%f,%f,%f,\"%s\",\"%s\",%d,%d,%d,\"%s\",\"%s\",%d,%d,\"%s\"",
+                ghEdgeId, forwardStableEdgeId, backwardStableEdgeId, startVertex, endVertex, startLat, startLon, endLat, endLon, geometry,
+                streetName, distance, osmId, speed, forwardFlags, backwardFlags, forwardLanes, backwardLanes, highway
         );
     }
 
