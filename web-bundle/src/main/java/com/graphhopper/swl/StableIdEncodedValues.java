@@ -1,8 +1,6 @@
 package com.graphhopper.swl;
 
 import com.google.common.primitives.Longs;
-import com.graphhopper.reader.gtfs.GtfsStorage;
-import com.graphhopper.reader.gtfs.PtEncodedValues;
 import com.graphhopper.routing.ev.UnsignedIntEncodedValue;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.EdgeIteratorState;
@@ -34,7 +32,7 @@ public class StableIdEncodedValues {
         }
     }
 
-    final String getStableId(boolean reverse, EdgeIteratorState edge) {
+    public final String getStableId(boolean reverse, EdgeIteratorState edge) {
         byte[] stableId = new byte[8];
         UnsignedIntEncodedValue[] idByte = reverse ? reverseStableIdEnc : stableIdEnc;
         for (int i=0; i<8; i++) {
