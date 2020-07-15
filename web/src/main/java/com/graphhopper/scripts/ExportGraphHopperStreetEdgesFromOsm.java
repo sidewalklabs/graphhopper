@@ -7,10 +7,7 @@ import com.google.common.hash.Hashing;
 import com.graphhopper.routing.ev.DecimalEncodedValue;
 import com.graphhopper.routing.ev.EnumEncodedValue;
 import com.graphhopper.routing.ev.RoadClass;
-import com.graphhopper.routing.util.AllEdgesIterator;
-import com.graphhopper.routing.util.CarFlagEncoder;
-import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
-import com.graphhopper.routing.util.EncodingManager;
+import com.graphhopper.routing.util.*;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.swl.CustomGraphHopperOSM;
@@ -51,6 +48,7 @@ public class ExportGraphHopperStreetEdgesFromOsm {
         GraphHopperStorage graphHopperStorage = graphHopper.getGraphHopperStorage();
         AllEdgesIterator edgeIterator = graphHopperStorage.getAllEdges();
         NodeAccess nodes = graphHopperStorage.getNodeAccess();
+
         final EnumEncodedValue<RoadClass> roadClassEnc =
                 encodingManager.getEnumEncodedValue(RoadClass.KEY, RoadClass.class);
         CarFlagEncoder carFlagEncoder = (CarFlagEncoder)encodingManager.getEncoder("car");

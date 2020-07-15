@@ -8,6 +8,7 @@ import com.graphhopper.reader.ReaderWay;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.reader.osm.OSMInput;
 import com.graphhopper.reader.osm.OSMReader;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.GraphHopperStorage;
 
 import java.io.File;
@@ -30,6 +31,11 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
         this.osmIdToLanesTag = Maps.newHashMap();
         this.ghToOsmIds = Maps.newHashMap();
         this.osmIdToOsmTags = Maps.newHashMap();
+    }
+
+    @Override
+    protected void registerCustomEncodedValues(EncodingManager.Builder emBuilder) {
+        StableIdEncodedValues.createAndAddEncodedValues(emBuilder);
     }
 
     @Override
