@@ -36,7 +36,7 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
     private static final List<String> HIGHWAY_FILTER_TAGS = Lists.newArrayList("bridleway", "steps");
     private static final String COLUMN_HEADERS = "\"edgeId\",\"stableEdgeId\",\"startVertex\",\"endVertex\"," +
             "\"startLat\",\"startLon\",\"endLat\",\"endLon\",\"geometry\",\"streetName\",\"distance\",\"osmid\"," +
-            "\"speed\",\"forwardFlags\",\"backwardFlags\",\"forwardLanes\",\"backwardLanes\",\"highway\"";
+            "\"speed\",\"flags\",\"lanes\",\"highway\"";
 
 
     public ExportCommand() {
@@ -159,9 +159,13 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             // Copy R5's logic; filter out edges with unwanted highway tags and negative OSM IDs
             // todo: do negative OSM ids happen in GH? This might have been R5-specific
             if (!HIGHWAY_FILTER_TAGS.contains(highwayTag) && osmId >= 0) {
-                printStream.println(toString(ghEdgeId, forwardStableEdgeId, backwardStableEdgeId, startVertex,
-                        endVertex, startLat, startLon, endLat, endLon, geometryString, streetName, distanceMillimeters,
-                        osmId, speedcms, forwardFlags, backwardFlags, forwardLanes, backwardLanes, highwayTag));
+                // Print line for each edge direction
+                printStream.println(toString(ghEdgeId, forwardStableEdgeId, startVertex, endVertex,
+                        startLat, startLon, endLat, endLon, geometryString, streetName,
+                        distanceMillimeters, osmId, speedcms, forwardFlags, forwardLanes, highwayTag));
+                printStream.println(toString(ghEdgeId, backwardStableEdgeId, endVertex, startVertex,
+                        endLat, endLon, startLat, startLon, geometryString, streetName,
+                        distanceMillimeters, osmId, speedcms, backwardFlags, backwardLanes, highwayTag));
             }
         }
 
@@ -170,15 +174,12 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         assert(outputFile.exists());
     }
 
-    private static String toString(int ghEdgeId, String forwardStableEdgeId, String backwardStableEdgeId,
-                                   int startVertex, int endVertex, double startLat, double startLon,
-                                   double endLat, double endLon, String geometry, String streetName, long distance,
-                                   long osmId, int speed, String forwardFlags, String backwardFlags,
-                                   int forwardLanes, int backwardLanes, String highway) {
-        return String.format("%d,\"%s\",\"%s\",%d,%d,%f,%f,%f,%f,\"%s\",\"%s\",%d,%d,%d,\"%s\",\"%s\",%d,%d,\"%s\"",
-                ghEdgeId, forwardStableEdgeId, backwardStableEdgeId, startVertex, endVertex, startLat, startLon, endLat,
-                endLon, geometry, streetName, distance, osmId, speed, forwardFlags, backwardFlags, forwardLanes,
-                backwardLanes, highway
+    private static String toString(int ghEdgeId, String stableEdgeId, int startVertex, int endVertex, double startLat,
+                                   double startLon, double endLat, double endLon, String geometry, String streetName,
+                                   long distance, long osmId, int speed, String flags, int lanes, String highway) {
+        return String.format("%d,\"%s\",%d,%d,%f,%f,%f,%f,\"%s\",\"%s\",%d,%d,%d,\"%s\",%d,\"%s\"",
+                ghEdgeId, stableEdgeId, startVertex, endVertex, startLat, startLon, endLat, endLon, geometry,
+                streetName, distance, osmId, speed, flags, lanes, highway
         );
     }
 
