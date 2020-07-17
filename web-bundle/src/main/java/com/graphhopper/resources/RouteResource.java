@@ -102,8 +102,8 @@ public class RouteResource {
             throw new IllegalArgumentException("Elevation not supported!");
 
         // Remove congestion hour from profile name if multiple congestion levels are not being used
-        if (!usesCongestion && profileName.startsWith("fastest_car")) {
-            profileName = "fastest_car";
+        if (!usesCongestion && profileName.startsWith("car")) {
+            profileName = "car";
         }
 
         StopWatch sw = new StopWatch().start();
