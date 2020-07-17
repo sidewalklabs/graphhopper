@@ -1,41 +1,49 @@
+# Configuration file for congestion-enabled GraphHopper routers. 4 separate profiles are declared for autos, each
+# loaded with different speeds, while the default of 1 profile each is declared for bike/ped/truck
+
 graphhopper:
   graph.location: transit_data/graphhopper
   routing.ch.disabling_allowed: true
   routing.max_visited_nodes: 1500000
 
-  # graph.bytes_for_flags: 112
-
   # Uncomment this if the export was done with turn-restriction-aware contraction hierarchies
   # prepare.ch.edge_based: edge_and_node
+  # graph.flag_encoders: car|turn_costs=true
+  # graph.bytes_for_flags: 64
 
-  #  datareader.file: oregon-latest.osm.pbf
-  #  graph.flag_encoders: car|turn_costs=true
-  #  graph.bytes_for_flags: 64
-  #
-  #  prepare.ch.weightings: fastest
-
+  # Profiles specifying vehicle and weightings for each mode type. For each profile, the _X suffix indicates that
+  # custom speeds from hour X will be used for routing.
   profiles:
-    - name: fastest_car_2
+    - name: car_2
       vehicle: car_2
       weighting: fastest
-    - name: fastest_car_8
+    - name: car_8
       vehicle: car_8
       weighting: fastest
-    - name: fastest_car_13
+    - name: car_13
       vehicle: car_13
       weighting: fastest
-    - name: fastest_car_18
+    - name: car_18
       vehicle: car_18
       weighting: fastest
-    - name: best_bike
+    - name: bike
       vehicle: bike
       weighting: fastest
-    - name: fastest_foot
+    - name: foot
       vehicle: foot
       weighting: fastest
-    - name: fastest_truck
+    - name: truck
       vehicle: truck
       weighting: fastest
+
+  profiles_ch:
+    - profile: car_2
+    - profile: car_8
+    - profile: car_13
+    - profile: car_18
+    - profile: bike
+    - profile: foot
+    - profile: truck
 
 server:
   min_threads: 4
