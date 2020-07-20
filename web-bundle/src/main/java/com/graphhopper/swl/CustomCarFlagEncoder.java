@@ -11,6 +11,10 @@ public class CustomCarFlagEncoder extends CarFlagEncoder {
         this.name = name;
     }
 
+    public int getVersion() {
+        return 3;
+    }
+
     @Override
     public String toString() {
         return name;
