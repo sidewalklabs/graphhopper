@@ -120,7 +120,7 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
                 }
             }
 
-            // Hacky override used to populate GH ID -> OSM ID; called during standard GH import process
+            // Hacky override used to populate GH ID -> OSM ID map; called during standard GH import process
             @Override
             protected void storeOsmWayID(int edgeId, long osmWayId) {
                 super.storeOsmWayID(edgeId, osmWayId);
