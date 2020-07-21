@@ -206,7 +206,7 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         Arrays.sort(values);
         double median;
         if (values.length % 2 == 0) {
-            median = values[values.length/2-1];
+            median = values[values.length / 2 - 1];
         } else {
             median = values[values.length / 2];
         }

@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * Stolen from the R5 codebase and modified. Original copy can be found here:
+ * Stolen from the R5 codebase and modified for use in GraphHopper. Original copy can be found here:
  * https://github.com/replicahq/model-r5/blob/swl_master/src/main/java/com/conveyal/r5/labeling/TraversalPermissionLabeler.java
  *
  * Assign traversal permissions to edges based on their tags in OpenStreetMap.
@@ -67,6 +67,7 @@ public abstract class TraversalPermissionLabeler {
         addPermissions("cycleway", "access=no;bicycle=yes");
         addPermissions("footway|steps|platform|public_transport=platform|railway=platform|corridor", "access=no;foot=yes");
 
+        // Complete set of tags required to determine accessibility flags based on R5's original logic
         allConsideredTags = Collections.unmodifiableSet(Sets.newHashSet("access", "foot", "sidewalk",
                 "vehicle", "bicycle", "cycleway", "cycleway:both", "motor_vehicle", "motorcar", "railway",
                 "public_transport", "highway", "junction", "oneway", "oneway:vehicle", "oneway:motorcar",
