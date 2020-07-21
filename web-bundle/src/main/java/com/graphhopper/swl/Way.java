@@ -2,8 +2,14 @@ package com.graphhopper.swl;
 
 import java.util.Map;
 
+/**
+ * Custom class created to store OSM tags for a specific Way, needed for computing columns in the street network
+ * export CSV.
+ */
+
 public class Way {
 
+    // Map of OSM tag name -> tag value for this way, set at object construction time
     private Map<String, String> tags;
 
     public Way(Map<String, String> tags) {

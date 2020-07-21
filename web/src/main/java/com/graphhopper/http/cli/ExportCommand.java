@@ -29,6 +29,19 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Custom command used to export a GraphHopper street network in CSV format. Developed to mimic as possible the logic
+ * from R5's built-in street network export command.
+ *
+ * To run, the command expects an OSM file for the region to be specified with GraphHopper's
+ * -Ddw.graphhopper.datareader.file command line argument, and pre-built graph files (originating from the same OSM)
+ * to be present in the /transit_data/graphhopper subfolder.
+ *
+ * Example of calling this command:
+ * java -Xmx10g -Ddw.graphhopper.datareader.file=./region_cutout.osm.pbf \
+ * -jar web/target/graphhopper-web-1.0-SNAPSHOT.jar export config-usa.yml
+ */
+
 public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfiguration> {
     private static final Logger LOG = LoggerFactory.getLogger(ExportCommand.class);
 
@@ -38,7 +51,6 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             "\"startLat\",\"startLon\",\"endLat\",\"endLon\",\"geometry\",\"streetName\",\"distance\",\"osmid\"," +
             "\"speed\",\"flags\",\"lanes\",\"highway\"";
 
-
     public ExportCommand() {
         super("export", "Generates street network CSV file from a GH graph");
     }
@@ -46,17 +58,19 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
     @Override
     protected void run(Bootstrap<GraphHopperServerConfiguration> bootstrap, Namespace namespace,
                        GraphHopperServerConfiguration configuration) {
-        final GraphHopperManaged graphHopper = new GraphHopperManaged(configuration.getGraphHopperConfiguration(),
-                bootstrap.getObjectMapper());
+        // Read in pre-built GH graph files from /transit_data/graphhopper
+        final GraphHopperManaged graphHopper =
+                new GraphHopperManaged(configuration.getGraphHopperConfiguration(), bootstrap.getObjectMapper());
         GraphHopper configuredGraphHopper = graphHopper.getGraphHopper();
         if (!configuredGraphHopper.load(configuredGraphHopper.getGraphHopperLocation())) {
             throw new RuntimeException("Couldn't load existing GH graph at " +
                     configuredGraphHopper.getGraphHopperLocation());
         }
 
+        // Read and parse tag/ID info from OSM file specified in command line
+        EncodingManager encodingManager = EncodingManager.create(new DefaultFlagEncoderFactory(), FLAG_ENCODERS);
         String osmWorkingDir = configuredGraphHopper.getGraphHopperLocation() + "/osm";
         String osmFileLocation = configuredGraphHopper.getDataReaderFile();
-        EncodingManager encodingManager = EncodingManager.create(new DefaultFlagEncoderFactory(), FLAG_ENCODERS);
 
         CustomGraphHopperOSM osmTaggedGraphHopper = new CustomGraphHopperOSM(osmFileLocation);
         osmTaggedGraphHopper.setGraphHopperLocation(osmWorkingDir);
@@ -66,15 +80,18 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         osmTaggedGraphHopper.importOrLoad();
         osmTaggedGraphHopper.clean();
 
+        // Use loaded graph data to write street network out to CSV
         writeStreetEdgesCsv(configuredGraphHopper, osmTaggedGraphHopper);
     }
 
     private static void writeStreetEdgesCsv(GraphHopper configuredGraphHopper,
                                             CustomGraphHopperOSM osmTaggedGraphHopper) {
+        // Grab edge/node iterators for graph loaded from pre-built GH files
         GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
         AllEdgesIterator edgeIterator = graphHopperStorage.getAllEdges();
         NodeAccess nodes = graphHopperStorage.getNodeAccess();
 
+        // Setup encoders for determining speed and road type info for each edge
         EncodingManager encodingManager = configuredGraphHopper.getEncodingManager();
         StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(encodingManager);
         final EnumEncodedValue<RoadClass> roadClassEnc =
@@ -94,6 +111,8 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         PrintStream printStream = new PrintStream(outputStream);
         printStream.println(COLUMN_HEADERS);
 
+        // For each bidirectional edge in pre-built graph, calculate value of each CSV column
+        // and export new line for each edge direction
         while (edgeIterator.next()) {
             // Fetch starting and ending vertices
             int ghEdgeId = edgeIterator.getEdge();
@@ -183,7 +202,7 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         );
     }
 
-    // Taken from R5's lane parsing logic. See EdgeServiceServer.java
+    // Taken from R5's lane parsing logic. See EdgeServiceServer.java in R5 repo
     private static int parseLanesTag(long osmId, CustomGraphHopperOSM graphHopper, String laneTag) {
         int result = -1;
         Map<String, String> laneTagsOnEdge = graphHopper.getLanesTag(osmId);
