@@ -30,12 +30,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Custom command used to export a GraphHopper street network in CSV format. Developed to mimic as possible the logic
- * from R5's built-in street network export command.
+ * Custom command used to export a GraphHopper street network in CSV format. Developed to mimic as much as possible
+ * the logic from R5's built-in street network export command.
  *
  * To run, the command expects an OSM file for the region to be specified with GraphHopper's
- * -Ddw.graphhopper.datareader.file command line argument, and pre-built graph files (originating from the same OSM)
- * to be present in the /transit_data/graphhopper subfolder.
+ * -Ddw.graphhopper.datareader.file command line argument, and pre-built graph files (built from the same OSM using
+ * GH's import command) to be present in the /transit_data/graphhopper subfolder.
  *
  * Example of calling this command:
  * java -Xmx10g -Ddw.graphhopper.datareader.file=./region_cutout.osm.pbf \
