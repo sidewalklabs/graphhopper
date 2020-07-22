@@ -11,6 +11,13 @@ import java.util.*;
  * Stolen from the R5 codebase and modified for use in GraphHopper. Original copy can be found here:
  * https://github.com/replicahq/model-r5/blob/swl_master/src/main/java/com/conveyal/r5/labeling/TraversalPermissionLabeler.java
  *
+ * The main change made to the original R5 code was the removal of any logic not needed to calculate the three
+ * accessibility flags that are relevant to us (ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN). The code that remains
+ * should be logically identical to the R5 implementation, aside from necessary refactoring to deal with storing OSM
+ * tags via the newly-created Way class.
+ *
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
  * Assign traversal permissions to edges based on their tags in OpenStreetMap.
  * see https://wiki.openstreetmap.org/wiki/Computing_access_restrictions#Algorithm
  * and also prior work by Marko Burjek:
