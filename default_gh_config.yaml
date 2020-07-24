@@ -1,37 +1,36 @@
+# Configuration file for standard GraphHopper routers.
+# 1 profile loaded with default speeds is defined for each vehicle type
+
 graphhopper:
   graph.location: transit_data/graphhopper
-
   routing.ch.disabling_allowed: true
   routing.max_visited_nodes: 1500000
 
   # Uncomment this if the export was done with turn-restriction-aware contraction hierarchies
   # prepare.ch.edge_based: edge_and_node
+  # graph.flag_encoders: car|turn_costs=true
+  # graph.bytes_for_flags: 64
 
-  #  datareader.file: oregon-latest.osm.pbf
-  #  graph.flag_encoders: car|turn_costs=true
-  #  graph.bytes_for_flags: 64
-  #
-  #  prepare.ch.weightings: fastest
-
+  # Profiles specifying vehicle and weightings for each mode type.
   profiles:
-    - name: fastest_car
+    - name: car
       vehicle: car
       weighting: fastest
-    - name: best_bike
+    - name: bike
       vehicle: bike
       weighting: fastest
-    - name: fastest_foot
+    - name: foot
       vehicle: foot
       weighting: fastest
-    - name: fastest_truck
+    - name: truck
       vehicle: truck
       weighting: fastest
 
   profiles_ch:
-    - profile: fastest_car
-    - profile: best_bike
-    - profile: fastest_foot
-    - profile: fastest_truck
+    - profile: car
+    - profile: bike
+    - profile: foot
+    - profile: truck
 
 server:
   min_threads: 4
