@@ -21,6 +21,8 @@ package com.graphhopper.reader.gtfs;
 import com.conveyal.gtfs.GTFSFeed;
 import com.conveyal.gtfs.model.Stop;
 import com.conveyal.gtfs.model.StopTime;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.transit.realtime.GtfsRealtime;
 import com.graphhopper.ResponsePath;
@@ -29,7 +31,9 @@ import com.graphhopper.gtfs.fare.Fares;
 import com.graphhopper.routing.InstructionsFromEdges;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
+import com.graphhopper.swl.StableIdEncodedValues;
 import com.graphhopper.util.*;
+import com.graphhopper.util.details.PathDetail;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -65,10 +69,11 @@ class CustomTripFromLabel {
         public final String trip_headsign;
         public final long travelTime;
         public final List<Trip.Stop> stops;
+        public final List<String> stableEdgeIds;
         public final String trip_id;
         public final String route_id;
 
-        public CustomPtLeg(String feedId, boolean isInSameVehicleAsPrevious, String tripId, String routeId, String headsign, List<Trip.Stop> stops, double distance, long travelTime, Geometry geometry) {
+        public CustomPtLeg(String feedId, boolean isInSameVehicleAsPrevious, String tripId, String routeId, String headsign, List<Trip.Stop> stops, List<String> stableEdgeIds, double distance, long travelTime, Geometry geometry) {
             super("pt", ((Trip.Stop)stops.get(0)).stop_name, geometry, distance);
             this.feed_id = feedId;
             this.isInSameVehicleAsPrevious = isInSameVehicleAsPrevious;
@@ -77,6 +82,7 @@ class CustomTripFromLabel {
             this.trip_headsign = headsign;
             this.travelTime = travelTime;
             this.stops = stops;
+            this.stableEdgeIds = stableEdgeIds;
         }
 
         public Date getDepartureTime() {
@@ -86,18 +92,22 @@ class CustomTripFromLabel {
         public Date getArrivalTime() {
             return ((Trip.Stop)this.stops.get(this.stops.size() - 1)).arrivalTime;
         }
+
+        public List<String> getStableEdgeIds() { return this.stableEdgeIds; }
     }
 
     public static class CustomWalkLeg extends Trip.Leg {
         public final InstructionList instructions;
         private final Date departureTime;
         private final Date arrivalTime;
+        private final List<String> stableEdgeIds;
 
-        public CustomWalkLeg(String departureLocation, Date departureTime, Geometry geometry, double distance, InstructionList instructions, Date arrivalTime) {
+        public CustomWalkLeg(String departureLocation, Date departureTime, Geometry geometry, double distance, InstructionList instructions, List<String> stableEdgeIds, Date arrivalTime) {
             super("walk", departureLocation, geometry, distance);
             this.instructions = instructions;
             this.departureTime = departureTime;
             this.arrivalTime = arrivalTime;
+            this.stableEdgeIds = stableEdgeIds;
         }
 
         public Date getDepartureTime() {
@@ -107,25 +117,42 @@ class CustomTripFromLabel {
         public Date getArrivalTime() {
             return this.arrivalTime;
         }
+
+        public List<String> getStableEdgeIds() { return this.stableEdgeIds; }
     }
 
     ResponsePath createPathWrapper(Translation tr, PointList waypoints, List<Trip.Leg> legs) {
-        if (legs.size() > 1 && legs.get(0) instanceof Trip.WalkLeg) {
-            final Trip.WalkLeg accessLeg = (Trip.WalkLeg) legs.get(0);
-            legs.set(0, new Trip.WalkLeg(accessLeg.departureLocation, new Date(legs.get(1).getDepartureTime().getTime() - (accessLeg.getArrivalTime().getTime() - accessLeg.getDepartureTime().getTime())),
-                    accessLeg.geometry, accessLeg.distance, accessLeg.instructions, legs.get(1).getDepartureTime()));
+        if (legs.size() > 1 && legs.get(0) instanceof CustomWalkLeg) {
+            final CustomWalkLeg accessLeg = (CustomWalkLeg) legs.get(0);
+            legs.set(0, new CustomWalkLeg(accessLeg.departureLocation, new Date(legs.get(1).getDepartureTime().getTime() - (accessLeg.getArrivalTime().getTime() - accessLeg.getDepartureTime().getTime())),
+                    accessLeg.geometry, accessLeg.distance, accessLeg.instructions, accessLeg.stableEdgeIds, legs.get(1).getDepartureTime()));
         }
-        if (legs.size() > 1 && legs.get(legs.size() - 1) instanceof Trip.WalkLeg) {
-            final Trip.WalkLeg egressLeg = (Trip.WalkLeg) legs.get(legs.size() - 1);
-            legs.set(legs.size() - 1, new Trip.WalkLeg(egressLeg.departureLocation, legs.get(legs.size() - 2).getArrivalTime(),
-                    egressLeg.geometry, egressLeg.distance, egressLeg.instructions,
+        if (legs.size() > 1 && legs.get(legs.size() - 1) instanceof CustomWalkLeg) {
+            final CustomWalkLeg egressLeg = (CustomWalkLeg) legs.get(legs.size() - 1);
+            legs.set(legs.size() - 1, new CustomWalkLeg(egressLeg.departureLocation, legs.get(legs.size() - 2).getArrivalTime(),
+                    egressLeg.geometry, egressLeg.distance, egressLeg.instructions, egressLeg.stableEdgeIds,
                     new Date(legs.get(legs.size() - 2).getArrivalTime().getTime() + (egressLeg.getArrivalTime().getTime() - egressLeg.getDepartureTime().getTime()))));
         }
 
         ResponsePath path = new ResponsePath();
         path.setWaypoints(waypoints);
-
         path.getLegs().addAll(legs);
+
+        // Set stable edge IDs for response based on IDs encoded for each leg of trip
+        List<String> pathStableEdgeIds = new ArrayList<>();
+        for (Trip.Leg leg : legs) {
+            if (leg instanceof CustomWalkLeg) {
+                final CustomWalkLeg walkLeg = (CustomWalkLeg) leg;
+                pathStableEdgeIds.addAll(walkLeg.getStableEdgeIds());
+            } else if (leg instanceof CustomPtLeg) {
+                final CustomPtLeg ptLeg = (CustomPtLeg) leg;
+                pathStableEdgeIds.addAll(ptLeg.getStableEdgeIds());
+            }
+        }
+        String stableEdgeIdDetailString = pathStableEdgeIds.stream().collect(Collectors.joining(","));
+        Map<String, List<PathDetail>> pathDetails = Maps.newHashMap();
+        pathDetails.put("stable_edge_ids", Lists.newArrayList(new PathDetail(stableEdgeIdDetailString)));
+        path.addPathDetails(pathDetails);
 
         final InstructionList instructions = getInstructions(tr, path.getLegs());
         path.setInstructions(instructions);
@@ -137,19 +164,19 @@ class CustomTripFromLabel {
         path.setDistance(path.getLegs().stream().mapToDouble(Trip.Leg::getDistance).sum());
         path.setTime((legs.get(legs.size() - 1).getArrivalTime().toInstant().toEpochMilli() - legs.get(0).getDepartureTime().toInstant().toEpochMilli()));
         path.setNumChanges((int) path.getLegs().stream()
-                .filter(l -> l instanceof Trip.PtLeg)
-                .filter(l -> !((Trip.PtLeg) l).isInSameVehicleAsPrevious)
+                .filter(l -> l instanceof CustomPtLeg)
+                .filter(l -> !((CustomPtLeg) l).isInSameVehicleAsPrevious)
                 .count() - 1);
         com.graphhopper.gtfs.fare.Trip faresTrip = new com.graphhopper.gtfs.fare.Trip();
         path.getLegs().stream()
-                .filter(leg -> leg instanceof Trip.PtLeg)
-                .map(leg -> (Trip.PtLeg) leg)
+                .filter(leg -> leg instanceof CustomPtLeg)
+                .map(leg -> (CustomPtLeg) leg)
                 .findFirst()
                 .ifPresent(firstPtLeg -> {
                     LocalDateTime firstPtDepartureTime = GtfsHelper.localDateTimeFromDate(firstPtLeg.getDepartureTime());
                     path.getLegs().stream()
-                            .filter(leg -> leg instanceof Trip.PtLeg)
-                            .map(leg -> (Trip.PtLeg) leg)
+                            .filter(leg -> leg instanceof CustomPtLeg)
+                            .map(leg -> (CustomPtLeg) leg)
                             .map(ptLeg -> {
                                 final GTFSFeed gtfsFeed = gtfsStorage.getGtfsFeeds().get(ptLeg.feed_id);
                                 return new com.graphhopper.gtfs.fare.Trip.Segment(ptLeg.route_id,
@@ -164,9 +191,10 @@ class CustomTripFromLabel {
         return path;
     }
 
-    List<Trip.Leg> getTrip(Translation tr, Graph queryGraph, Weighting weighting, List<Label.Transition> transitions) {
+    List<Trip.Leg> getTrip(Translation tr, Graph queryGraph, Weighting weighting, List<Label.Transition> transitions,
+                           StableIdEncodedValues stableIdEncodedValues) {
         final List<List<Label.Transition>> partitions = getPartitions(transitions);
-        final List<Trip.Leg> legs = getLegs(tr, queryGraph, weighting, partitions);
+        final List<Trip.Leg> legs = getLegs(tr, queryGraph, weighting, partitions, stableIdEncodedValues);
         return legs;
     }
 
@@ -188,19 +216,20 @@ class CustomTripFromLabel {
         return partitions;
     }
 
-    private List<Trip.Leg> getLegs(Translation tr, Graph queryGraph, Weighting weighting, List<List<Label.Transition>> partitions) {
-        return partitions.stream().flatMap(partition -> parsePathIntoLegs(partition, queryGraph, weighting, tr).stream()).collect(Collectors.toList());
+    private List<Trip.Leg> getLegs(Translation tr, Graph queryGraph, Weighting weighting,
+                                   List<List<Label.Transition>> partitions, StableIdEncodedValues stableIdEncodedValues) {
+        return partitions.stream().flatMap(partition -> parsePathIntoLegs(partition, queryGraph, weighting, tr, stableIdEncodedValues).stream()).collect(Collectors.toList());
     }
 
     private InstructionList getInstructions(Translation tr, List<Trip.Leg> legs) {
         final InstructionList instructions = new InstructionList(tr);
         for (int i = 0; i < legs.size(); ++i) {
             Trip.Leg leg = legs.get(i);
-            if (leg instanceof Trip.WalkLeg) {
-                final Trip.WalkLeg walkLeg = ((Trip.WalkLeg) leg);
+            if (leg instanceof CustomWalkLeg) {
+                final CustomWalkLeg walkLeg = ((CustomWalkLeg) leg);
                 instructions.addAll(walkLeg.instructions.subList(0, i < legs.size() - 1 ? walkLeg.instructions.size() - 1 : walkLeg.instructions.size()));
-            } else if (leg instanceof Trip.PtLeg) {
-                final Trip.PtLeg ptLeg = ((Trip.PtLeg) leg);
+            } else if (leg instanceof CustomPtLeg) {
+                final CustomPtLeg ptLeg = ((CustomPtLeg) leg);
                 final PointList pl;
                 if (!ptLeg.isInSameVehicleAsPrevious) {
                     pl = new PointList();
@@ -356,7 +385,7 @@ class CustomTripFromLabel {
     // One could argue that one should never write a parser
     // by hand, because it is always ugly, but use a parser library.
     // The code would then read like a specification of what paths through the graph mean.
-    private List<Trip.Leg> parsePathIntoLegs(List<Label.Transition> path, Graph graph, Weighting weighting, Translation tr) {
+    private List<Trip.Leg> parsePathIntoLegs(List<Label.Transition> path, Graph graph, Weighting weighting, Translation tr, StableIdEncodedValues stableIdEncodedValues) {
         if (path.size() <= 1) {
             return Collections.emptyList();
         }
@@ -390,12 +419,17 @@ class CustomTripFromLabel {
                     stopsFromBoardHopDwellEdges.finish();
                     List<Trip.Stop> stops = stopsFromBoardHopDwellEdges.stops;
 
+                    List<String> stableEdgeIds = edges(partition)
+                            .map(edgeLabel -> stableIdEncodedValues.getStableId(edgeLabel.edgeIteratorState))
+                            .collect(Collectors.toList());
+
                     result.add(new CustomPtLeg(
                             feedIdWithTimezone.feedId, partition.get(0).edge.nTransfers == 0,
                             tripDescriptor.getTripId(),
                             tripDescriptor.getRouteId(),
                             edges(partition).map(edgeLabel -> edgeLabel.edgeIteratorState).collect(Collectors.toList()).get(0).getName(),
                             stops,
+                            stableEdgeIds,
                             partition.stream().mapToDouble(t -> t.edge.distance).sum(),
                             path.get(i - 1).label.currentTime - boardTime,
                             lineString));
@@ -419,12 +453,18 @@ class CustomTripFromLabel {
             instructionsFromEdges.finish();
             final Instant departureTime = Instant.ofEpochMilli(path.get(0).label.currentTime);
             final Instant arrivalTime = Instant.ofEpochMilli(path.get(path.size() - 1).label.currentTime);
+
+            List<String> stableEdgeIds = edges(path)
+                    .map(edgeLabel -> stableIdEncodedValues.getStableId(edgeLabel.edgeIteratorState))
+                    .collect(Collectors.toList());
+
             return Collections.singletonList(new CustomWalkLeg(
                     "Walk",
                     Date.from(departureTime),
                     lineStringFromEdges(path),
                     edges(path).mapToDouble(edgeLabel -> edgeLabel.distance).sum(),
                     instructions,
+                    stableEdgeIds,
                     Date.from(arrivalTime)));
         }
     }

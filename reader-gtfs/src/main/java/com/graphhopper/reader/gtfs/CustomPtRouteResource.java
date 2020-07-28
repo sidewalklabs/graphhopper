@@ -35,6 +35,7 @@ import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.storage.index.QueryResult;
+import com.graphhopper.swl.StableIdEncodedValues;
 import com.graphhopper.util.*;
 import com.graphhopper.util.exceptions.PointNotFoundException;
 import com.graphhopper.util.shapes.GHPoint;
@@ -58,6 +59,7 @@ public final class CustomPtRouteResource {
 
     private final TranslationMap translationMap;
     private final PtEncodedValues ptEncodedValues;
+    private final StableIdEncodedValues stableIdEncodedValues;
     private final Weighting accessEgressWeighting;
     private final GraphHopperStorage graphHopperStorage;
     private final LocationIndex locationIndex;
@@ -68,6 +70,7 @@ public final class CustomPtRouteResource {
     @Inject
     public CustomPtRouteResource(TranslationMap translationMap, GraphHopperStorage graphHopperStorage, LocationIndex locationIndex, GtfsStorage gtfsStorage, RealtimeFeed realtimeFeed) {
         this.ptEncodedValues = PtEncodedValues.fromEncodingManager(graphHopperStorage.getEncodingManager());
+        this.stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(graphHopperStorage.getEncodingManager());
         this.accessEgressWeighting = new FastestWeighting(graphHopperStorage.getEncodingManager().getEncoder("foot"));
         this.translationMap = translationMap;
         this.graphHopperStorage = graphHopperStorage;
@@ -242,11 +245,10 @@ public final class CustomPtRouteResource {
 
         private void parseSolutionsAndAddToResponse(List<List<Label.Transition>> solutions, PointList waypoints) {
             for (List<Label.Transition> solution : solutions) {
-                final List<Trip.Leg> legs = tripFromLabel.getTrip(translation, queryGraph, accessEgressWeighting, solution);
+                final List<Trip.Leg> legs = tripFromLabel.getTrip(translation, queryGraph, accessEgressWeighting, solution, stableIdEncodedValues);
                 final ResponsePath responsePath = tripFromLabel.createPathWrapper(translation, waypoints, legs);
                 responsePath.setImpossible(solution.stream().anyMatch(t -> t.label.impossible));
                 responsePath.setTime((solution.get(solution.size() - 1).label.currentTime - solution.get(0).label.currentTime));
-                responsePath.addPathDetails(); //todo add details here
                 response.add(responsePath);
             }
             Comparator<ResponsePath> c = Comparator.comparingInt(p -> (p.isImpossible() ? 1 : 0));
