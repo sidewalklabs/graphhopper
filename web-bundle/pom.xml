@@ -22,6 +22,12 @@
             <version>1.0-pre42.3</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.graphhopper</groupId>
+            <artifactId>graphhopper-reader-gtfs</artifactId>
+            <version>1.0-pre42</version>
+        </dependency>
+
         <!-- required for JDK9 -->
         <dependency>
             <groupId>javax.xml.ws</groupId>
