@@ -31,7 +31,7 @@ import com.graphhopper.gtfs.fare.Fares;
 import com.graphhopper.routing.InstructionsFromEdges;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
-import com.graphhopper.swl.StableIdEncodedValues;
+import com.graphhopper.stableid.StableIdEncodedValues;
 import com.graphhopper.util.*;
 import com.graphhopper.util.details.PathDetail;
 import org.locationtech.jts.geom.Coordinate;
