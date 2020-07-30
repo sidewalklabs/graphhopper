@@ -19,7 +19,7 @@
 package com.graphhopper;
 
 import com.graphhopper.reader.gtfs.GraphHopperGtfs;
-import com.graphhopper.reader.gtfs.PtRouteResource;
+import com.graphhopper.reader.gtfs.CustomPtRouteResource;
 import com.graphhopper.reader.gtfs.Request;
 import com.graphhopper.util.Helper;
 import com.graphhopper.util.Instruction;
@@ -45,7 +45,7 @@ import static org.junit.Assert.*;
 public class GraphHopperGtfsIT {
 
     private static final String GRAPH_LOC = "target/GraphHopperGtfsIT";
-    private static PtRouteResource ptRouteResource;
+    private static CustomPtRouteResource ptRouteResource;
     private static final ZoneId zoneId = ZoneId.of("America/Los_Angeles");
     private static GraphHopperGtfs graphHopperGtfs;
 
@@ -59,7 +59,7 @@ public class GraphHopperGtfsIT {
         graphHopperGtfs = new GraphHopperGtfs(ghConfig);
         graphHopperGtfs.init(ghConfig);
         graphHopperGtfs.importOrLoad();
-        ptRouteResource = PtRouteResource.createFactory(new TranslationMap().doImport(), graphHopperGtfs, graphHopperGtfs.getLocationIndex(), graphHopperGtfs.getGtfsStorage())
+        ptRouteResource = CustomPtRouteResource.createFactory(new TranslationMap().doImport(), graphHopperGtfs, graphHopperGtfs.getLocationIndex(), graphHopperGtfs.getGtfsStorage())
                 .createWithoutRealtimeFeed();
     }
 
@@ -448,7 +448,7 @@ public class GraphHopperGtfsIT {
     }
 
 
-    private void assertTravelTimeIs(PtRouteResource graphHopper, double FROM_LAT, double FROM_LON, double TO_LAT, double TO_LON, int expectedWeight) {
+    private void assertTravelTimeIs(CustomPtRouteResource graphHopper, double FROM_LAT, double FROM_LON, double TO_LAT, double TO_LON, int expectedWeight) {
         Request ghRequest = new Request(
                 FROM_LAT, FROM_LON,
                 TO_LAT, TO_LON
@@ -461,7 +461,7 @@ public class GraphHopperGtfsIT {
         assertEquals("Expected travel time == scheduled travel time", expectedWeight, route.getBest().getTime());
     }
 
-    private void assertNoRoute(PtRouteResource graphHopper, double from_lat, double from_lon, double to_lat, double to_lon) {
+    private void assertNoRoute(CustomPtRouteResource graphHopper, double from_lat, double from_lon, double to_lat, double to_lon) {
         Request ghRequest = new Request(
                 from_lat, from_lon,
                 to_lat, to_lon

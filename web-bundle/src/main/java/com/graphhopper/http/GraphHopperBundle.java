@@ -52,103 +52,83 @@ import com.graphhopper.util.TranslationMap;
 import io.dropwizard.ConfiguredBundle;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
-import org.glassfish.hk2.api.Factory;
-import org.glassfish.hk2.utilities.binding.AbstractBinder;
+import org.glassfish.jersey.internal.inject.AbstractBinder;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConfiguration> {
 
-    static class TranslationMapFactory implements Factory<TranslationMap> {
+    static class TranslationMapFactory implements Supplier<TranslationMap> {
 
         @Inject
         GraphHopper graphHopper;
 
         @Override
-        public TranslationMap provide() {
+        public TranslationMap get() {
             return graphHopper.getTranslationMap();
         }
 
-        @Override
-        public void dispose(TranslationMap instance) {
-
-        }
     }
 
-    static class GraphHopperStorageFactory implements Factory<GraphHopperStorage> {
+    static class GraphHopperStorageFactory implements Supplier<GraphHopperStorage> {
 
         @Inject
         GraphHopper graphHopper;
 
         @Override
-        public GraphHopperStorage provide() {
+        public GraphHopperStorage get() {
             return graphHopper.getGraphHopperStorage();
         }
 
-        @Override
-        public void dispose(GraphHopperStorage instance) {
-
-        }
     }
 
-    static class GtfsStorageFactory implements Factory<GtfsStorage> {
+    static class GtfsStorageFactory implements Supplier<GtfsStorage> {
 
         @Inject
         GraphHopperGtfs graphHopper;
 
         @Override
-        public GtfsStorage provide() {
+        public GtfsStorage get() {
             return graphHopper.getGtfsStorage();
         }
 
-        @Override
-        public void dispose(GtfsStorage instance) {
-
-        }
     }
 
-    static class EncodingManagerFactory implements Factory<EncodingManager> {
+    static class EncodingManagerFactory implements Supplier<EncodingManager> {
 
         @Inject
         GraphHopper graphHopper;
 
         @Override
-        public EncodingManager provide() {
+        public EncodingManager get() {
             return graphHopper.getEncodingManager();
         }
 
-        @Override
-        public void dispose(EncodingManager instance) {
-
-        }
     }
 
-    static class LocationIndexFactory implements Factory<LocationIndex> {
+    static class LocationIndexFactory implements Supplier<LocationIndex> {
 
         @Inject
         GraphHopper graphHopper;
 
         @Override
-        public LocationIndex provide() {
+        public LocationIndex get() {
             return graphHopper.getLocationIndex();
         }
 
-        @Override
-        public void dispose(LocationIndex instance) {
-
-        }
     }
 
-    static class ProfileResolverFactory implements Factory<ProfileResolver> {
+    static class ProfileResolverFactory implements Supplier<ProfileResolver> {
 
         @Inject
         GraphHopper graphHopper;
 
         @Override
-        public ProfileResolver provide() {
+        public ProfileResolver get() {
             return new ProfileResolver(graphHopper.getEncodingManager(),
                     graphHopper.getProfiles(),
                     graphHopper.getCHPreparationHandler().getCHProfiles(),
@@ -156,41 +136,31 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
             );
         }
 
-        @Override
-        public void dispose(ProfileResolver profileResolver) {
-
-        }
     }
 
-    static class HasElevation implements Factory<Boolean> {
+    static class HasElevation implements Supplier<Boolean> {
 
         @Inject
         GraphHopper graphHopper;
 
         @Override
-        public Boolean provide() {
+        public Boolean get() {
             return graphHopper.hasElevation();
         }
 
-        @Override
-        public void dispose(Boolean instance) {
-
-        }
     }
 
-    static class UsesCongestion implements Factory<Boolean> {
+    static class UsesCongestion implements Supplier<Boolean> {
 
         @Inject
         GraphHopper graphHopper;
 
         // We're using congestion if more than our 4 standard flag encoders are present (auto, bike, ped, truck)
         @Override
-        public Boolean provide() {
+        public Boolean get() {
             return graphHopper.getEncodingManager().fetchEdgeEncoders().size() > 4;
         }
 
-        @Override
-        public void dispose(Boolean instance) {}
     }
 
     @Override

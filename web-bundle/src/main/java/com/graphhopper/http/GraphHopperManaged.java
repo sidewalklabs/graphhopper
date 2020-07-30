@@ -76,7 +76,13 @@ public class GraphHopperManaged implements Managed {
             landmarkSplittingFeatureCollection = null;
         }
         if (configuration.has("gtfs.file")) {
-            graphHopper = new GraphHopperGtfs(configuration);
+            graphHopper = new GraphHopperGtfs(configuration) {
+                @Override
+                protected void registerCustomEncodedValues(EncodingManager.Builder emBuilder) {
+                    super.registerCustomEncodedValues(emBuilder);
+                    StableIdEncodedValues.createAndAddEncodedValues(emBuilder);
+                }
+            };
         } else {
             graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection) {
                 @Override

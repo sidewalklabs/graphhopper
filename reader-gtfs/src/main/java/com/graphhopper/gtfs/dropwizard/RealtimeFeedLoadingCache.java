@@ -30,7 +30,6 @@ import com.graphhopper.reader.gtfs.RealtimeFeed;
 import com.graphhopper.storage.GraphHopperStorage;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
-import org.glassfish.hk2.api.Factory;
 
 import javax.inject.Inject;
 import java.io.IOException;
@@ -41,8 +40,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
-public class RealtimeFeedLoadingCache implements Factory<RealtimeFeed> {
+public class RealtimeFeedLoadingCache implements Supplier<RealtimeFeed> {
 
     private final HttpClient httpClient;
     private final GraphHopperStorage graphHopperStorage;
@@ -75,18 +75,13 @@ public class RealtimeFeedLoadingCache implements Factory<RealtimeFeed> {
     }
 
     @Override
-    public RealtimeFeed provide() {
+    public RealtimeFeed get() {
         try {
             return cache.get("pups");
         } catch (ExecutionException | RuntimeException e) {
             e.printStackTrace();
             return RealtimeFeed.empty(gtfsStorage);
         }
-    }
-
-    @Override
-    public void dispose(RealtimeFeed instance) {
-
     }
 
     private RealtimeFeed fetchFeedsAndCreateGraph() {

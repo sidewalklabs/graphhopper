@@ -1,6 +1,6 @@
 graphhopper:
   datareader.file: transit_data/new_york_city_street_network_nyc_cutout_2019_07.osm.pbf
-  gtfs.file: transit_data/mta_manhattan_gtfs_20190112_20190427.zip,transit_data/mta_nyc_subway_gtfs_20181104_20190427.zip
+  gtfs.file: transit_data/mta_manhattan_gtfs_20190112_20190427.zip
   graph.location: transit_data/graphhopper
   graph.flag_encoders: foot
 
