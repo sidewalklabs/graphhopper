@@ -34,12 +34,12 @@ import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.custom.CustomProfile;
 import com.graphhopper.routing.weighting.custom.CustomWeighting;
+import com.graphhopper.stableid.EncodedValueFactoryWithStableId;
+import com.graphhopper.stableid.PathDetailsBuilderFactoryWithEdgeKey;
+import com.graphhopper.stableid.StableIdEncodedValues;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.swl.CustomCarFlagEncoder;
-import com.graphhopper.swl.EncodedValueFactoryWithStableId;
-import com.graphhopper.swl.PathDetailsBuilderFactoryWithEdgeKey;
-import com.graphhopper.swl.StableIdEncodedValues;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
 import com.graphhopper.util.shapes.BBox;
@@ -76,7 +76,13 @@ public class GraphHopperManaged implements Managed {
             landmarkSplittingFeatureCollection = null;
         }
         if (configuration.has("gtfs.file")) {
-            graphHopper = new GraphHopperGtfs(configuration);
+            graphHopper = new GraphHopperGtfs(configuration) {
+                @Override
+                protected void registerCustomEncodedValues(EncodingManager.Builder emBuilder) {
+                    super.registerCustomEncodedValues(emBuilder);
+                    StableIdEncodedValues.createAndAddEncodedValues(emBuilder);
+                }
+            };
         } else {
             graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection) {
                 @Override

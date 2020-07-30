@@ -36,9 +36,9 @@ import com.graphhopper.jackson.Jackson;
 import com.graphhopper.matrix.http.MatrixCalculationExceptionMapper;
 import com.graphhopper.matrix.model.MatrixQueue;
 import com.graphhopper.matrix.model.MatrixSerializer;
+import com.graphhopper.reader.gtfs.CustomPtRouteResource;
 import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.gtfs.GtfsStorage;
-import com.graphhopper.reader.gtfs.PtRouteResource;
 import com.graphhopper.resources.*;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
@@ -291,7 +291,7 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
             // These are pt-specific implementations of /route and /isochrone, but the same API.
             // We serve them under different paths (/route-pt and /isochrone-pt), and forward
             // requests for ?vehicle=pt there.
-            environment.jersey().register(PtRouteResource.class);
+            environment.jersey().register(CustomPtRouteResource.class);
             environment.jersey().register(PtIsochroneResource.class);
             environment.jersey().register(PtRedirectFilter.class);
         }

@@ -20,6 +20,7 @@ package com.graphhopper.swl;
 
 import com.csvreader.CsvReader;
 import com.graphhopper.routing.util.FlagEncoder;
+import com.graphhopper.stableid.EdgeKeys;
 import com.graphhopper.util.EdgeIteratorState;
 import org.slf4j.LoggerFactory;
 

@@ -16,6 +16,8 @@
     <modules>
         <module>web-bundle</module>
         <module>web</module>
+        <module>reader-gtfs</module>
+        <module>replica-common</module>
     </modules>
     <build>
         <plugins>
