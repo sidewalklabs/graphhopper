@@ -36,9 +36,7 @@ import com.graphhopper.jackson.Jackson;
 import com.graphhopper.matrix.http.MatrixCalculationExceptionMapper;
 import com.graphhopper.matrix.model.MatrixQueue;
 import com.graphhopper.matrix.model.MatrixSerializer;
-import com.graphhopper.reader.gtfs.CustomPtRouteResource;
-import com.graphhopper.reader.gtfs.GraphHopperGtfs;
-import com.graphhopper.reader.gtfs.GtfsStorage;
+import com.graphhopper.reader.gtfs.*;
 import com.graphhopper.resources.*;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
@@ -97,7 +95,7 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
     static class GtfsStorageFactory implements Factory<GtfsStorage> {
 
         @Inject
-        GraphHopperGtfs graphHopper;
+        CustomGraphHopperGtfs graphHopper;
 
         @Override
         public GtfsStorage provide() {
