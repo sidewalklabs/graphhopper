@@ -54,6 +54,12 @@ import java.util.stream.Collectors;
 import static java.util.Comparator.comparingLong;
 import static java.util.stream.Collectors.toList;
 
+/**
+ * Custom version of PtRouteResource, which stores a StableIdEncodedValues object that gets passed to
+ * CustomTripFromLabel.getTrip() when called in parseSolutionsAndAddToResponse(), to ensure that stable edge IDs are
+ * encoded for each leg of the returned trip.
+ */
+
 @Path("route-pt")
 public final class CustomPtRouteResource {
 

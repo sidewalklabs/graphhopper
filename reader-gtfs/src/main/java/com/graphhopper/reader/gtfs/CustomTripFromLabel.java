@@ -50,6 +50,13 @@ import java.util.stream.StreamSupport;
 
 import static java.time.temporal.ChronoUnit.SECONDS;
 
+/**
+ * Custom version of TripFromLabel that handles the inclusion of stable edge IDs when computing legs of public
+ * transit trips. In particular, this class provides custom implementations of classes extending Trip.Leg that store
+ * lists of stable edge IDs covered by each trip leg, adds stable edge IDs to each leg when parsing the edges in
+ * each leg in parsePathIntoLegs(), and adds all relevant stable edge IDs to the PT response in createPathWrapper().
+ */
+
 class CustomTripFromLabel {
 
     private static final Logger logger = LoggerFactory.getLogger(CustomTripFromLabel.class);
@@ -138,7 +145,7 @@ class CustomTripFromLabel {
         path.setWaypoints(waypoints);
         path.getLegs().addAll(legs);
 
-        // Set stable edge IDs for response based on IDs encoded for each leg of trip
+        // Add stable edge IDs for entire trip to response based on IDs encoded for each leg of trip
         List<String> pathStableEdgeIds = new ArrayList<>();
         for (Trip.Leg leg : legs) {
             if (leg instanceof CustomWalkLeg) {
@@ -419,6 +426,7 @@ class CustomTripFromLabel {
                     stopsFromBoardHopDwellEdges.finish();
                     List<Trip.Stop> stops = stopsFromBoardHopDwellEdges.stops;
 
+                    // Collect stable edge IDs for each edge in this leg of the trip
                     List<String> stableEdgeIds = edges(partition)
                             .map(edgeLabel -> stableIdEncodedValues.getStableId(edgeLabel.edgeIteratorState))
                             .collect(Collectors.toList());
