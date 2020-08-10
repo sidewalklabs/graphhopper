@@ -1,4 +1,4 @@
-package com.graphhopper.swl;
+package com.graphhopper.stableid;
 
 import com.google.common.base.Charsets;
 import com.google.common.hash.HashCode;

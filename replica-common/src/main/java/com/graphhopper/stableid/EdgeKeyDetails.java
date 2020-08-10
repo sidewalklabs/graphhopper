@@ -16,22 +16,31 @@
  *  limitations under the License.
  */
 
-package com.graphhopper.swl;
+package com.graphhopper.stableid;
 
-import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.details.AbstractPathDetailsBuilder;
 
-public class DefaultSpeedCalculator implements SpeedCalculator {
+public class EdgeKeyDetails extends AbstractPathDetailsBuilder {
+    private int edgeKey;
+
+    public EdgeKeyDetails() {
+        super("edge_key");
+        edgeKey = -1;
+    }
 
     @Override
-    public double getSpeed(EdgeIteratorState edgeState, boolean reverse, int durationSeconds, FlagEncoder encoder) {
+    public boolean isEdgeDifferentToLastEdge(EdgeIteratorState edge) {
+        int newEdgeKey = EdgeKeys.getEdgeKey(edge);
+        if (newEdgeKey != edgeKey) {
+            edgeKey = newEdgeKey;
+            return true;
+        }
+        return false;
+    }
 
-        double decimal = encoder.getAverageSpeedEnc().getDecimal(reverse, edgeState.getFlags());
-
-        if (!edgeState.get(encoder.getAccessEnc()))
-            throw new IllegalStateException("Calculating time should not require to read speed from edge in wrong direction. ");
-
-
-        return decimal;
+    @Override
+    public Object getCurrentValue() {
+        return this.edgeKey;
     }
 }

@@ -16,7 +16,7 @@
  *  limitations under the License.
  */
 
-package com.graphhopper.swl;
+package com.graphhopper.stableid;
 
 import com.graphhopper.routing.ev.EncodedValueLookup;
 import com.graphhopper.routing.querygraph.VirtualEdgeIteratorState;

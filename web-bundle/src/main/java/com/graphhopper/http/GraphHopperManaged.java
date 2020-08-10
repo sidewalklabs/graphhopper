@@ -18,33 +18,48 @@
 
 package com.graphhopper.http;
 
+import com.conveyal.gtfs.GTFSFeed;
+import com.conveyal.gtfs.model.Route;
+import com.conveyal.gtfs.model.Stop;
+import com.conveyal.gtfs.model.StopTime;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.google.common.collect.*;
+import com.graphhopper.GHRequest;
+import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.GraphHopperConfig;
 import com.graphhopper.config.Profile;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.json.geo.JsonFeatureCollection;
+import com.graphhopper.reader.gtfs.CustomGraphHopperGtfs;
 import com.graphhopper.reader.gtfs.GraphHopperGtfs;
+import com.graphhopper.reader.gtfs.GtfsStorage;
 import com.graphhopper.reader.osm.GraphHopperOSM;
+import com.graphhopper.replica.CustomCarFlagEncoder;
 import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
 import com.graphhopper.routing.lm.LandmarkStorage;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.custom.CustomProfile;
 import com.graphhopper.routing.weighting.custom.CustomWeighting;
+import com.graphhopper.stableid.EncodedValueFactoryWithStableId;
+import com.graphhopper.stableid.PathDetailsBuilderFactoryWithEdgeKey;
+import com.graphhopper.stableid.StableIdEncodedValues;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
-import com.graphhopper.swl.CustomCarFlagEncoder;
-import com.graphhopper.swl.EncodedValueFactoryWithStableId;
-import com.graphhopper.swl.PathDetailsBuilderFactoryWithEdgeKey;
-import com.graphhopper.swl.StableIdEncodedValues;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
+import com.graphhopper.util.details.PathDetail;
 import com.graphhopper.util.shapes.BBox;
 import io.dropwizard.lifecycle.Managed;
+import org.apache.commons.lang3.tuple.Pair;
 import org.locationtech.jts.geom.Envelope;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.HTreeMap;
+import org.mapdb.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,8 +69,8 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.graphhopper.util.Helper.UTF_CS;
 
@@ -76,7 +91,7 @@ public class GraphHopperManaged implements Managed {
             landmarkSplittingFeatureCollection = null;
         }
         if (configuration.has("gtfs.file")) {
-            graphHopper = new GraphHopperGtfs(configuration);
+            graphHopper = new CustomGraphHopperGtfs(configuration);
         } else {
             graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection) {
                 @Override
@@ -175,10 +190,151 @@ public class GraphHopperManaged implements Managed {
         StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(encodingManager);
 
         // Set both forward and reverse stable edge IDs for each edge
+        int assignedIdCount = 0;
         while (edgesIterator.next()) {
-            stableIdEncodedValues.setStableId(true, edgesIterator, nodes);
-            stableIdEncodedValues.setStableId(false, edgesIterator, nodes);
+            // Ignore setting stable IDs for transit edges, which have a distance of 0
+            if (edgesIterator.getDistance() != 0) {
+                stableIdEncodedValues.setStableId(true, edgesIterator, nodes);
+                stableIdEncodedValues.setStableId(false, edgesIterator, nodes);
+                assignedIdCount++;
+            }
         }
         graphHopperStorage.flush();
+        logger.info("Total number of bidirectional edges assigned with stable edge IDs: " + assignedIdCount);
+    }
+
+    public void setGtfsLinkMappings() {
+        logger.info("Starting GTFS link mapping process");
+        GtfsStorage gtfsStorage = ((GraphHopperGtfs) graphHopper).getGtfsStorage();
+        Map<String, GTFSFeed> gtfsFeedMap = gtfsStorage.getGtfsFeeds();
+        final Set<Integer> streetRouteTypes = Sets.newHashSet(Route.BUS, Route.TRAM, Route.CABLE_CAR);
+
+        // Initialize mapdb database to store link mappings; create in-memory hashmap to store partial results
+        logger.info("Initializing new mapdb file to store link mappings");
+        DB db = DBMaker.newFileDB(new File("gtfs_link_mappings.db")).make();
+        HTreeMap<String, String> gtfsLinkMappings = db
+                .createHashMap("gtfsLinkMappings")
+                .keySerializer(Serializer.STRING)
+                .valueSerializer(Serializer.STRING)
+                .make();
+        Map<String, String> gtfsLinkMappingsInMem = Maps.newHashMap();
+
+        // For each GTFS feed, pull out all stops for trips on GTFS routes that travel on the street network,
+        // and then for each trip, route via car between each stop pair in sequential order, storing the returned IDs
+        for (String feedId : gtfsFeedMap.keySet()) {
+            GTFSFeed feed = gtfsFeedMap.get(feedId);
+            logger.info("Processing GTFS feed " + feedId);
+
+            // Only look at routes for transit types that travel on the street network
+            Set<String> validRouteIdsForFeed = feed.routes.values().stream()
+                    .filter(route -> streetRouteTypes.contains(route.route_type))
+                    .map(route -> route.route_id)
+                    .collect(Collectors.toSet());
+
+            // Find all GTFS trips for each route
+            Set<String> tripsForValidRoutes = feed.trips.values().stream()
+                    .filter(trip -> validRouteIdsForFeed.contains(trip.route_id))
+                    .map(trip -> trip.trip_id)
+                    .collect(Collectors.toSet());
+
+            // Find all stops for each trip
+            SetMultimap<String, StopTime> tripIdToStopsInTrip = HashMultimap.create();
+            feed.stop_times.values().stream()
+                    .filter(stopTime -> tripsForValidRoutes.contains(stopTime.trip_id))
+                    .forEach(stopTime -> tripIdToStopsInTrip.put(stopTime.trip_id, stopTime));
+
+            Set<String> stopIdsForAllTrips = tripIdToStopsInTrip.values().stream()
+                    .map(stopTime -> stopTime.stop_id)
+                    .collect(Collectors.toSet());
+
+            Map<String, Stop> stopsForAllTrips = feed.stops.values().stream()
+                    .filter(stop -> stopIdsForAllTrips.contains(stop.stop_id))
+                    .collect(Collectors.toMap(stop -> stop.stop_id, stop -> stop));
+
+            logger.info("There are " + validRouteIdsForFeed.size() + " GTFS routes containing "
+                    + tripsForValidRoutes.size() + " total trips to process for this feed. Routes to be computed for "
+                    + stopIdsForAllTrips.size() + "/" + feed.stops.values().size() + " stop->stop pairs");
+
+            int processedTripCount = 0;
+            int odStopCount = 0;
+            int nonUniqueODPairs = 0;
+            int routeNotFoundCount = 0;
+            // For each trip, route with auto between all O/D stop pairs,
+            // and store returned stable edge IDs for each route in mapdb file
+            for (String tripId : tripIdToStopsInTrip.keySet()) {
+                if (processedTripCount % (tripIdToStopsInTrip.keySet().size() / 10) == 0) {
+                    logger.info(processedTripCount + "/" + tripIdToStopsInTrip.keySet().size() + " trips for feed "
+                            + feedId + " processed so far; " + nonUniqueODPairs + "/" + odStopCount
+                            + " O/D stop pairs were non-unique, and were not routed between.");
+                }
+
+                // Fetch all sequentially-ordered stop->stop pairs for this trip
+                Set<Pair<Stop, Stop>> odStopsForTrip = getODStopsForTrip(tripIdToStopsInTrip.get(tripId), stopsForAllTrips);
+
+                // Route a car between each stop->stop pair, and store the returned stable edge IDs in in-mem map
+                for (Pair<Stop, Stop> odStopPair : odStopsForTrip) {
+                    odStopCount++;
+
+                    // Create String from the ID of each stop in pair, to use as key for map
+                    String stopPairString = odStopPair.getLeft().stop_id + "," + odStopPair.getRight().stop_id;
+
+                    // Don't route for any stop->stop pairs we've already routed between
+                    if (gtfsLinkMappingsInMem.containsKey(stopPairString)) {
+                        nonUniqueODPairs++;
+                        continue;
+                    }
+
+                    // Form stop->stop auto routing requests and request a route
+                    GHRequest odRequest = new GHRequest(
+                            odStopPair.getLeft().stop_lat, odStopPair.getLeft().stop_lon,
+                            odStopPair.getRight().stop_lat, odStopPair.getRight().stop_lon
+                    );
+                    odRequest.setProfile("car");
+                    odRequest.setPathDetails(Lists.newArrayList("r5_edge_id"));
+                    GHResponse response = graphHopper.route(odRequest);
+                    assert(response.getAll().size() == 1);
+
+                    // Parse all stable edge IDs from response, and merge into String to use as value for map
+                    List<PathDetail> responsePathDetails = response.getAll().get(0).getPathDetails().get("r5_edge_id");
+
+                    // If stop->stop path couldn't be found by GH, don't store anything
+                    if (responsePathDetails == null) {
+                        routeNotFoundCount++;
+                        continue;
+                    }
+                    List<String> pathStableEdgeIds = responsePathDetails.stream()
+                            .map(pathDetail -> (String) pathDetail.getValue())
+                            .collect(Collectors.toList());
+                    String pathStableEdgeIdString = pathStableEdgeIds.stream().collect(Collectors.joining(","));
+
+                    // Add entry to in-memory map
+                    gtfsLinkMappingsInMem.put(stopPairString, pathStableEdgeIdString);
+                }
+                processedTripCount++;
+            }
+            logger.info("Done processing GTFS feed " + feedId + "; " + tripIdToStopsInTrip.keySet().size() +
+                    " total trips processed; " + nonUniqueODPairs + "/" + odStopCount
+                    + " O/D stop pairs were non-unique; routes for " + routeNotFoundCount + "/" + odStopCount
+                    + " stop->stop pairs were not found");
+        }
+        // Copy all entries from in-memory map into file-based mapdb database
+        gtfsLinkMappings.putAll(gtfsLinkMappingsInMem);
+        gtfsLinkMappings.close();
+        logger.info("Done creating GTFS link mappings for " + gtfsFeedMap.size() + " GTFS feeds");
+    }
+
+    // Given a set of StopTimes for a trip, and an overall mapping of stop IDs->Stop,
+    // return a set of sequentially-ordered stop->stop pairs that make up the trip
+    private Set<Pair<Stop, Stop>> getODStopsForTrip(Set<StopTime> stopsInTrip, Map<String, Stop> allStops) {
+        StopTime[] sortedStopsArray = new StopTime[stopsInTrip.size()];
+        Arrays.sort(stopsInTrip.toArray(sortedStopsArray), (a, b) -> a.stop_sequence < b.stop_sequence ? -1 : 1);
+
+        Set<Pair<Stop, Stop>> odStopsForTrip = Sets.newHashSet();
+        for (int i = 0; i < sortedStopsArray.length - 1; i++) {
+            Stop startStop = allStops.get(sortedStopsArray[i].stop_id);
+            Stop endStop = allStops.get(sortedStopsArray[i + 1].stop_id);
+            odStopsForTrip.add(Pair.of(startStop, endStop));
+        }
+        return odStopsForTrip;
     }
 }
