@@ -209,15 +209,14 @@ public class GraphHopperManaged implements Managed {
         Map<String, GTFSFeed> gtfsFeedMap = gtfsStorage.getGtfsFeeds();
         final Set<Integer> streetRouteTypes = Sets.newHashSet(Route.BUS, Route.TRAM, Route.CABLE_CAR);
 
-        // Initialize mapdb database to store link mappings; create in-memory hashmap to store partial results
+        // Initialize mapdb database to store link mappings
         logger.info("Initializing new mapdb file to store link mappings");
-        DB db = DBMaker.newFileDB(new File("gtfs_link_mappings.db")).make();
+        DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
         HTreeMap<String, String> gtfsLinkMappings = db
                 .createHashMap("gtfsLinkMappings")
                 .keySerializer(Serializer.STRING)
                 .valueSerializer(Serializer.STRING)
                 .make();
-        Map<String, String> gtfsLinkMappingsInMem = Maps.newHashMap();
 
         // For each GTFS feed, pull out all stops for trips on GTFS routes that travel on the street network,
         // and then for each trip, route via car between each stop pair in sequential order, storing the returned IDs
@@ -279,7 +278,7 @@ public class GraphHopperManaged implements Managed {
                     String stopPairString = odStopPair.getLeft().stop_id + "," + odStopPair.getRight().stop_id;
 
                     // Don't route for any stop->stop pairs we've already routed between
-                    if (gtfsLinkMappingsInMem.containsKey(stopPairString)) {
+                    if (gtfsLinkMappings.containsKey(stopPairString)) {
                         nonUniqueODPairs++;
                         continue;
                     }
@@ -308,7 +307,7 @@ public class GraphHopperManaged implements Managed {
                     String pathStableEdgeIdString = pathStableEdgeIds.stream().collect(Collectors.joining(","));
 
                     // Add entry to in-memory map
-                    gtfsLinkMappingsInMem.put(stopPairString, pathStableEdgeIdString);
+                    gtfsLinkMappings.put(stopPairString, pathStableEdgeIdString);
                 }
                 processedTripCount++;
             }
@@ -317,9 +316,8 @@ public class GraphHopperManaged implements Managed {
                     + " O/D stop pairs were non-unique; routes for " + routeNotFoundCount + "/" + odStopCount
                     + " stop->stop pairs were not found");
         }
-        // Copy all entries from in-memory map into file-based mapdb database
-        gtfsLinkMappings.putAll(gtfsLinkMappingsInMem);
-        gtfsLinkMappings.close();
+        db.commit();
+        db.close();
         logger.info("Done creating GTFS link mappings for " + gtfsFeedMap.size() + " GTFS feeds");
     }
 

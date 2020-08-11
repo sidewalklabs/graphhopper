@@ -17,7 +17,7 @@ public class GtfsLinkMapperCommand extends ConfiguredCommand<GraphHopperServerCo
     protected void run(Bootstrap<GraphHopperServerConfiguration> bootstrap, Namespace namespace, GraphHopperServerConfiguration configuration) {
         final GraphHopperManaged graphHopper = new GraphHopperManaged(configuration.getGraphHopperConfiguration(), bootstrap.getObjectMapper());
         GraphHopper gh = graphHopper.getGraphHopper();
-        gh.importOrLoad();
+        gh.load(gh.getGraphHopperLocation());
         graphHopper.setGtfsLinkMappings();
         gh.close();
     }
