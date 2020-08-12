@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 
@@ -37,6 +38,7 @@ public class CustomPtRouteResource {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final PtRouteResource ptRouteResource;
     private Map<String, String> gtfsLinkMappings;
+    private Map<String, String> gtfsRouteInfo;
 
     @Inject
     public CustomPtRouteResource(TranslationMap translationMap, GraphHopperStorage graphHopperStorage, LocationIndex locationIndex, GtfsStorage gtfsStorage, RealtimeFeed realtimeFeed) {
@@ -44,7 +46,8 @@ public class CustomPtRouteResource {
         DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
         logger.info(db.toString());
         gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
-        logger.info("Done loading GTFS link mappings. Total number of mappings: " + gtfsLinkMappings.size());
+        gtfsRouteInfo = db.getHashMap("gtfsRouteInfo");
+        logger.info("Done loading GTFS link mappings and route info. Total number of mappings: " + gtfsLinkMappings.size());
     }
 
     @GET
@@ -96,25 +99,29 @@ public class CustomPtRouteResource {
     // Create new version of PtLeg class that stores stable edge IDs in class var;
     // this var will automatically get added to JSON response
     public static class CustomPtLeg extends Trip.PtLeg {
-        public final List<String> stableEdgeIds;
+        public final String stableEdgeIds;
+        public final String routeInfo;
 
-        public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds) {
+        public CustomPtLeg(Trip.PtLeg leg, String stableEdgeIds, String routeInfo) {
             super("pt", leg.isInSameVehicleAsPrevious, leg.trip_id, leg.route_id, leg.trip_headsign,
                     leg.stops, leg.distance, leg.travelTime, leg.geometry);
             this.stableEdgeIds = stableEdgeIds;
+            this.routeInfo = routeInfo;
         }
     }
 
     private CustomPtLeg getCustomPtLeg(Trip.PtLeg leg) {
         List<Trip.Stop> stops = leg.stops;
 
-        List<String> stableEdgeIds = Lists.newArrayList();
+        List<String> stableEdgeIdSegments = Lists.newArrayList();
         for (int i = 0; i < stops.size() - 1; i++) {
             String stopPair = stops.get(i).stop_id + "," + stops.get(i + 1).stop_id;
             if (gtfsLinkMappings.containsKey(stopPair)) {
-                stableEdgeIds.add(gtfsLinkMappings.get(stopPair));
+                if (!gtfsLinkMappings.get(stopPair).isEmpty()) {
+                    stableEdgeIdSegments.add(gtfsLinkMappings.get(stopPair));
+                }
             }
         }
-        return new CustomPtLeg(leg, stableEdgeIds);
+        return new CustomPtLeg(leg, stableEdgeIdSegments.stream().collect(Collectors.joining(",")), gtfsRouteInfo.get(leg.route_id));
     }
 }

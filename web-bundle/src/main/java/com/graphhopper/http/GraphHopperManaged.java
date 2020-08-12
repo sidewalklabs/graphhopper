@@ -209,11 +209,17 @@ public class GraphHopperManaged implements Managed {
         Map<String, GTFSFeed> gtfsFeedMap = gtfsStorage.getGtfsFeeds();
         final Set<Integer> streetRouteTypes = Sets.newHashSet(Route.BUS, Route.TRAM, Route.CABLE_CAR);
 
-        // Initialize mapdb database to store link mappings
+        // Initialize mapdb database to store link mappings and route info
         logger.info("Initializing new mapdb file to store link mappings");
         DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
         HTreeMap<String, String> gtfsLinkMappings = db
                 .createHashMap("gtfsLinkMappings")
+                .keySerializer(Serializer.STRING)
+                .valueSerializer(Serializer.STRING)
+                .make();
+
+        HTreeMap<String, String> gtfsRouteInfo = db
+                .createHashMap("gtfsRouteInfo")
                 .keySerializer(Serializer.STRING)
                 .valueSerializer(Serializer.STRING)
                 .make();
@@ -229,6 +235,16 @@ public class GraphHopperManaged implements Managed {
                     .filter(route -> streetRouteTypes.contains(route.route_type))
                     .map(route -> route.route_id)
                     .collect(Collectors.toSet());
+
+            // Store route information in db for every valid route
+            Map<String, String> routeInfoMap = feed.routes.keySet().stream()
+                    .filter(routeId -> validRouteIdsForFeed.contains(routeId))
+                    .map(routeId -> feed.routes.get(routeId))
+                    .collect(Collectors.toMap(
+                            route -> route.route_id,
+                            route -> getRouteInfoString(route, feed.agency.get(route.agency_id).agency_name)
+                    ));
+            gtfsRouteInfo.putAll(routeInfoMap);
 
             // Find all GTFS trips for each route
             Set<String> tripsForValidRoutes = feed.trips.values().stream()
@@ -304,9 +320,15 @@ public class GraphHopperManaged implements Managed {
                     List<String> pathStableEdgeIds = responsePathDetails.stream()
                             .map(pathDetail -> (String) pathDetail.getValue())
                             .collect(Collectors.toList());
-                    String pathStableEdgeIdString = pathStableEdgeIds.stream().collect(Collectors.joining(","));
 
-                    // Add entry to in-memory map
+                    // Remove first and last IDs, which are IDs of virtual GH edges
+                    if (pathStableEdgeIds.size() <= 2) {
+                        pathStableEdgeIds.clear();
+                    } else {
+                        pathStableEdgeIds.remove(pathStableEdgeIds.size() - 1);
+                        pathStableEdgeIds.remove(0);
+                    }
+                    String pathStableEdgeIdString = pathStableEdgeIds.stream().collect(Collectors.joining(","));
                     gtfsLinkMappings.put(stopPairString, pathStableEdgeIdString);
                 }
                 processedTripCount++;
@@ -334,5 +356,10 @@ public class GraphHopperManaged implements Managed {
             odStopsForTrip.add(Pair.of(startStop, endStop));
         }
         return odStopsForTrip;
+    }
+
+    private static String getRouteInfoString(Route route, String agencyName) {
+        return "agency_name:" + agencyName + ",route_short_name:" + route.route_short_name +
+                ",route_long_name:" + route.route_long_name + ",route_type:" + route.route_type;
     }
 }
