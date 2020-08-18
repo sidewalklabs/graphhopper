@@ -25,10 +25,10 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import java.io.File;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 
@@ -99,14 +99,21 @@ public class CustomPtRouteResource {
     // Create new version of PtLeg class that stores stable edge IDs in class var;
     // this var will automatically get added to JSON response
     public static class CustomPtLeg extends Trip.PtLeg {
-        public final String stableEdgeIds;
-        public final String routeInfo;
+        public final List<String> stableEdgeIds;
+        public final String agencyName;
+        public final String routeShortName;
+        public final String routeLongName;
+        public final String routeType;
 
-        public CustomPtLeg(Trip.PtLeg leg, String stableEdgeIds, String routeInfo) {
+        public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds, String agencyName, String routeShortName,
+                           String routeLongName, String routeType) {
             super("pt", leg.isInSameVehicleAsPrevious, leg.trip_id, leg.route_id, leg.trip_headsign,
                     leg.stops, leg.distance, leg.travelTime, leg.geometry);
             this.stableEdgeIds = stableEdgeIds;
-            this.routeInfo = routeInfo;
+            this.agencyName = agencyName;
+            this.routeShortName = routeShortName;
+            this.routeLongName = routeLongName;
+            this.routeType = routeType;
         }
     }
 
@@ -122,6 +129,14 @@ public class CustomPtRouteResource {
                 }
             }
         }
-        return new CustomPtLeg(leg, stableEdgeIdSegments.stream().collect(Collectors.joining(",")), gtfsRouteInfo.get(leg.route_id));
+
+        List<String> stableEdgeIdsList = stableEdgeIdSegments.stream()
+                .flatMap(segment -> Arrays.stream(segment.split(",")))
+                .collect(toList());
+
+        // Split comma-separated string of agency_name,route_short_name,route_long_name,route_type
+        String[] routeInfo = gtfsRouteInfo.get(leg.route_id).split(",");
+
+        return new CustomPtLeg(leg, stableEdgeIdsList, routeInfo[0], routeInfo[1], routeInfo[2], routeInfo[3]);
     }
 }

@@ -358,8 +358,8 @@ public class GraphHopperManaged implements Managed {
         return odStopsForTrip;
     }
 
+    // Returns comma-separated string of agency_name,route_short_name,route_long_name,route_type
     private static String getRouteInfoString(Route route, String agencyName) {
-        return "agency_name:" + agencyName + ",route_short_name:" + route.route_short_name +
-                ",route_long_name:" + route.route_long_name + ",route_type:" + route.route_type;
+        return agencyName + "," + route.route_short_name + "," + route.route_long_name + "," + route.route_type;
     }
 }

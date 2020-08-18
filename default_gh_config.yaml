@@ -2,10 +2,12 @@
 # 1 profile loaded with default speeds is defined for each vehicle type
 
 graphhopper:
+  datareader.file:
+  gtfs.file:
   graph.location: transit_data/graphhopper
   routing.ch.disabling_allowed: true
   routing.max_visited_nodes: 1500000
-
+  graph.flag_encoders: car,bike,foot,truck
   # Uncomment this if the export was done with turn-restriction-aware contraction hierarchies
   # prepare.ch.edge_based: edge_and_node
   # graph.flag_encoders: car|turn_costs=true
