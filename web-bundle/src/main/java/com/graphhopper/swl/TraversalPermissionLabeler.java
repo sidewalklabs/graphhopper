@@ -75,17 +75,17 @@ public abstract class TraversalPermissionLabeler {
         addPermissions("footway|steps|platform|public_transport=platform|railway=platform|corridor", "access=no;foot=yes");
 
         // Complete set of tags required to determine accessibility flags based on R5's original logic
-        allConsideredTags = Collections.unmodifiableSet(Sets.newHashSet("access", "foot", "sidewalk",
+        allConsideredTags = Sets.newHashSet("access", "foot", "sidewalk",
                 "vehicle", "bicycle", "cycleway", "cycleway:both", "motor_vehicle", "motorcar", "railway",
                 "public_transport", "highway", "junction", "oneway", "oneway:vehicle", "oneway:motorcar",
-                "oneway:bicycle", "bicycle:forward", "bicycle:backward", "oneway:foot"));
+                "oneway:bicycle", "bicycle:forward", "bicycle:backward", "oneway:foot");
     }
 
-    public Set<String> getAllConsideredTags() {
+    public static Set<String> getAllConsideredTags() {
         return allConsideredTags;
     }
 
-    public List<EnumSet<EdgeFlag>> getPermissions(Way way) {
+    public static List<EnumSet<EdgeFlag>> getPermissions(Way way) {
         EnumMap<Node, Label> tree = getTreeForWay(way);
         applySpecificPermissions(tree, way);
         EnumSet<EdgeFlag> ret = EnumSet.noneOf(EdgeFlag.class);
@@ -147,7 +147,7 @@ public abstract class TraversalPermissionLabeler {
      * @param way
      * @param backward
      */
-    private void applyOppositeBicyclePermissions(Way way, EnumSet<EdgeFlag> backward) {
+    private static void applyOppositeBicyclePermissions(Way way, EnumSet<EdgeFlag> backward) {
         String cyclewayLeftTagValue = way.getTag("cycleway:left");
         String cyclewayRightTagValue = way.getTag("cycleway:right");
         String cyclewayTagValue = way.getTag("cycleway");
@@ -177,7 +177,7 @@ public abstract class TraversalPermissionLabeler {
      * @param forward
      * @param backward
      */
-    private void applyDirectionalPermissions(Way way, EnumSet<EdgeFlag> forward,
+    private static void applyDirectionalPermissions(Way way, EnumSet<EdgeFlag> forward,
                                              EnumSet<EdgeFlag> backward) {
         String cyclewayLeftTagValue = way.getTag("cycleway:left");
         String cyclewayRightTagValue = way.getTag("cycleway:right");
@@ -198,7 +198,7 @@ public abstract class TraversalPermissionLabeler {
     }
 
     /** returns whether this node is permitted traversal anywhere in the hierarchy */
-    private Label walk (EnumMap<Node, Label> tree, Node node) {
+    private static Label walk (EnumMap<Node, Label> tree, Node node) {
         do {
             //We need to return first labeled node not first yes node
             //Otherwise access=yes bicycle=no returns true for bicycle
@@ -212,7 +212,7 @@ public abstract class TraversalPermissionLabeler {
     }
 
     /** apply any specific permissions that may exist */
-    private void applySpecificPermissions (EnumMap<Node, Label> tree, Way way) {
+    private static void applySpecificPermissions (EnumMap<Node, Label> tree, Way way) {
         // start from the root of the tree
         if (way.hasTag("access")) applyLabel(Node.ACCESS, Label.fromTag(way.getTag("access")), tree);
         if (way.hasTag("foot")) applyLabel(Node.FOOT, Label.fromTag(way.getTag("foot")), tree);
@@ -241,7 +241,7 @@ public abstract class TraversalPermissionLabeler {
     }
 
     /**  we want access=no to not override default cycling permissions, for example. */
-    protected <T> void applyLabel(Node node, T label, EnumMap<Node, T> tree) {
+    protected static <T> void applyLabel(Node node, T label, EnumMap<Node, T> tree) {
         if (label instanceof Label && label.equals(Label.UNKNOWN))
             return;
 
@@ -249,7 +249,7 @@ public abstract class TraversalPermissionLabeler {
     }
 
     /** apply oneway hierarchically.  */
-    private void applyOnewayHierarchically(Node node, OneWay oneWay, EnumMap<Node, OneWay> tree) {
+    private static void applyOnewayHierarchically(Node node, OneWay oneWay, EnumMap<Node, OneWay> tree) {
         tree.put(node, oneWay);
 
         Node[] children = node.getChildren();
@@ -262,7 +262,7 @@ public abstract class TraversalPermissionLabeler {
     }
 
     /** Label a sub-tree of modes with the defaults for a highway tag for a particular country */
-    protected EnumMap<Node, Label> getTreeForWay (Way way) {
+    protected static EnumMap<Node, Label> getTreeForWay (Way way) {
         String highway = way.getTag("highway");
         EnumMap<Node, Label> tree = getDefaultTree();
         if (highway != null) {
@@ -355,7 +355,7 @@ public abstract class TraversalPermissionLabeler {
     }
 
     /** Get a tree where every node is labeled unknown */
-    protected EnumMap<Node, Label> getDefaultTree () {
+    protected static EnumMap<Node, Label> getDefaultTree () {
         // TODO localize
         EnumMap<Node, Label> tree = new EnumMap<>(Node.class);
 
@@ -368,7 +368,7 @@ public abstract class TraversalPermissionLabeler {
     }
 
     /** Get a directional tree (for use when labeling one-way streets) where every node is labeled bidirectional */
-    private EnumMap<Node, OneWay> getDirectionalTree (Way way) {
+    private static EnumMap<Node, OneWay> getDirectionalTree (Way way) {
         EnumMap<Node, OneWay> tree = new EnumMap<>(Node.class);
 
         // label all nodes as unknown

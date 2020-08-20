@@ -113,7 +113,12 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
 
         // For each bidirectional edge in pre-built graph, calculate value of each CSV column
         // and export new line for each edge direction
+        int noGhNameCount = 0;
+        int noLabelerNameCount = 0;
+        int totalEdgeCount = 0;
+        int skippedEdgeCount = 0;
         while (edgeIterator.next()) {
+            totalEdgeCount++;
             // Fetch starting and ending vertices
             int ghEdgeId = edgeIterator.getEdge();
             int startVertex = edgeIterator.getBaseNode();
@@ -130,7 +135,20 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
 
             // Parse OSM highway type and street name, and grab encoded stable IDs for both edge directions
             String highwayTag = edgeIterator.get(roadClassEnc).toString();
-            String streetName = edgeIterator.getName();
+            String forwardStreetName = edgeIterator.getName();
+            String backwardStreetName = forwardStreetName;
+
+            if (forwardStreetName == null) {
+                noGhNameCount++;
+                forwardStreetName = osmTaggedGraphHopper.getNameForGhEdge(ghEdgeId, false);
+                backwardStreetName = osmTaggedGraphHopper.getNameForGhEdge(ghEdgeId, true);
+                if (forwardStreetName == null || backwardStreetName == null) {
+                    noLabelerNameCount++;
+                    forwardStreetName = "";
+                    backwardStreetName = "";
+                }
+            }
+
             String forwardStableEdgeId = stableIdEncodedValues.getStableId(false, edgeIterator);
             String backwardStableEdgeId = stableIdEncodedValues.getStableId(true, edgeIterator);
 
@@ -140,9 +158,15 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             // Convert GH's distance in meters to millimeters to match R5's implementation
             long distanceMillimeters = distanceMeters * 1000;
 
-            // Fetch OSM ID and accessibility flags for each edge direction
-            // Returned flags are from the set {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}
+            // Fetch OSM ID, skipping edges from PT meta-graph that have no IDs set (getOsmIdForGhEdge returns -1)
             long osmId = osmTaggedGraphHopper.getOsmIdForGhEdge(edgeIterator.getEdge());
+            if (osmId == -1L) {
+                skippedEdgeCount++;
+                continue;
+            }
+
+            // Set accessibility flags for each edge direction
+            // Returned flags are from the set {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}
             String forwardFlags = osmTaggedGraphHopper.getFlagsForGhEdge(ghEdgeId, false);
             String backwardFlags = osmTaggedGraphHopper.getFlagsForGhEdge(ghEdgeId, true);
 
@@ -180,16 +204,18 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             if (!HIGHWAY_FILTER_TAGS.contains(highwayTag) && osmId >= 0) {
                 // Print line for each edge direction
                 printStream.println(toString(forwardStableEdgeId, startVertex, endVertex,
-                        startLat, startLon, endLat, endLon, geometryString, streetName,
+                        startLat, startLon, endLat, endLon, geometryString, forwardStreetName,
                         distanceMillimeters, osmId, speedcms, forwardFlags, forwardLanes, highwayTag));
                 printStream.println(toString(backwardStableEdgeId, endVertex, startVertex,
-                        endLat, endLon, startLat, startLon, geometryString, streetName,
+                        endLat, endLon, startLat, startLon, geometryString, backwardStreetName,
                         distanceMillimeters, osmId, speedcms, backwardFlags, backwardLanes, highwayTag));
             }
         }
 
         printStream.close();
         LOG.info("Done writing street network to CSV");
+        LOG.info("A total of " + totalEdgeCount + " edges were considered; " + skippedEdgeCount + " edges were skipped");
+        LOG.info("GH names that were blank: " + noGhNameCount + "; labeler names that were blank: " + noLabelerNameCount);
         assert(outputFile.exists());
     }
 
