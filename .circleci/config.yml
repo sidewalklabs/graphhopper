@@ -16,6 +16,9 @@ jobs:
             echo ${GCLOUD_SERVICE_KEY} | base64 -d > ${HOME}/gcp-key.json
             gcloud auth activate-service-account --key-file ${HOME}/gcp-key.json
             gcloud --quiet config set project model-159019
+      - run:
+          name: Create local.properties file
+          command: printf “gpr.usr=$GIT_USER_ID\ngpr.key=$GIT_PERSONAL_ACCESS” >> ~/code/local.properties
       - setup_remote_docker
       - run:
           name: Choose a tag
