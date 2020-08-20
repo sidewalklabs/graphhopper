@@ -16,6 +16,7 @@
     <modules>
         <module>web-bundle</module>
         <module>web</module>
+        <module>grpc</module>
     </modules>
     <build>
         <plugins>

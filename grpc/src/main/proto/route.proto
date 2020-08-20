@@ -1,0 +1,21 @@
+service Router {
+  rpc Route (RouteRequest) returns (RouteReply) {}
+}
+
+message RouteRequest {
+  required string profile = 1;
+  repeated Point points = 2;
+}
+
+message RouteReply {
+  repeated Path paths = 1;
+}
+
+message Point {
+  required double lat = 1;
+  required double lon = 2;
+}
+
+message Path {
+  optional int64 time = 1;
+}
