@@ -28,13 +28,15 @@ import com.graphhopper.jackson.Jackson;
 import com.graphhopper.json.geo.JsonFeatureCollection;
 import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.osm.GraphHopperOSM;
-import com.graphhopper.routing.ee.vehicles.CustomCarFlagEncoder;
 import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
 import com.graphhopper.routing.lm.LandmarkStorage;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.custom.CustomProfile;
 import com.graphhopper.routing.weighting.custom.CustomWeighting;
+import com.graphhopper.storage.GraphHopperStorage;
+import com.graphhopper.storage.NodeAccess;
+import com.graphhopper.swl.CustomCarFlagEncoder;
 import com.graphhopper.swl.EncodedValueFactoryWithStableId;
 import com.graphhopper.swl.PathDetailsBuilderFactoryWithEdgeKey;
 import com.graphhopper.swl.StableIdEncodedValues;
@@ -130,19 +132,21 @@ public class GraphHopperManaged implements Managed {
 
         graphHopper.setFlagEncoderFactory(new FlagEncoderFactory() {
             private FlagEncoderFactory delegate = new DefaultFlagEncoderFactory();
+
             @Override
             public FlagEncoder createFlagEncoder(String name, PMap configuration) {
-                if (name.equals("car")) {
-                    return new CustomCarFlagEncoder(configuration);
+                if (name.startsWith("car")) {
+                    return new CustomCarFlagEncoder(configuration, name);
                 } else if (name.equals("truck")) {
                     return TruckFlagEncoder.createTruck(configuration, "truck");
+                } else {
+                    return delegate.createFlagEncoder(name, configuration);
                 }
-                return delegate.createFlagEncoder(name, configuration);
             }
         });
         graphHopper.setEncodedValueFactory(new EncodedValueFactoryWithStableId());
         graphHopper.init(configuration);
-        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey(graphHopper));
+        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey());
     }
 
     @Override
@@ -163,5 +167,18 @@ public class GraphHopperManaged implements Managed {
         graphHopper.close();
     }
 
+    public void setStableEdgeIds() {
+        GraphHopperStorage graphHopperStorage = graphHopper.getGraphHopperStorage();
+        AllEdgesIterator edgesIterator = graphHopperStorage.getAllEdges();
+        NodeAccess nodes = graphHopperStorage.getNodeAccess();
+        EncodingManager encodingManager = graphHopper.getEncodingManager();
+        StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(encodingManager);
 
+        // Set both forward and reverse stable edge IDs for each edge
+        while (edgesIterator.next()) {
+            stableIdEncodedValues.setStableId(true, edgesIterator, nodes);
+            stableIdEncodedValues.setStableId(false, edgesIterator, nodes);
+        }
+        graphHopperStorage.flush();
+    }
 }

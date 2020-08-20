@@ -59,12 +59,15 @@ public class RouteResource {
     private final GraphHopperAPI graphHopper;
     private final ProfileResolver profileResolver;
     private final Boolean hasElevation;
+    private final Boolean usesCongestion;
 
     @Inject
-    public RouteResource(GraphHopperAPI graphHopper, ProfileResolver profileResolver, @Named("hasElevation") Boolean hasElevation) {
+    public RouteResource(GraphHopperAPI graphHopper, ProfileResolver profileResolver,
+                         @Named("hasElevation") Boolean hasElevation, @Named("usesCongestion") Boolean usesCongestion) {
         this.graphHopper = graphHopper;
         this.profileResolver = profileResolver;
         this.hasElevation = hasElevation;
+        this.usesCongestion = usesCongestion;
     }
 
     @GET
@@ -97,6 +100,11 @@ public class RouteResource {
         instructions = writeGPX || instructions;
         if (enableElevation && !hasElevation)
             throw new IllegalArgumentException("Elevation not supported!");
+
+        // Remove congestion hour from profile name if multiple congestion levels are not being used
+        if (!usesCongestion && profileName.startsWith("car")) {
+            profileName = "car";
+        }
 
         StopWatch sw = new StopWatch().start();
         GHRequest request = new GHRequest();

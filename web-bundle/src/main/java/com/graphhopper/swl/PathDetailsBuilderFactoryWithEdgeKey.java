@@ -16,7 +16,6 @@ package com.graphhopper.swl;/*
  *  limitations under the License.
  */
 
-import com.graphhopper.GraphHopper;
 import com.graphhopper.coll.MapEntry;
 import com.graphhopper.routing.ev.*;
 import com.graphhopper.routing.weighting.Weighting;
@@ -31,12 +30,6 @@ import static com.graphhopper.routing.util.EncodingManager.getKey;
 import static com.graphhopper.util.Parameters.Details.*;
 
 public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFactory {
-
-    private final GraphHopper graphHopper;
-
-    public PathDetailsBuilderFactoryWithEdgeKey(GraphHopper graphHopper) {
-        this.graphHopper = graphHopper;
-    }
 
     @Override
     public List<PathDetailsBuilder> createPathDetailsBuilders(List<String> requestedPathDetails, EncodedValueLookup evl, Weighting weighting) {
