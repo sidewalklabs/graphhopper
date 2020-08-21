@@ -18,14 +18,13 @@ jobs:
             gcloud --quiet config set project model-159019
       - setup_remote_docker
       - run:
-          name: Authenticate github
-          command: echo ${GIT_PERSONAL_ACCESS}| docker login https://docker.pkg.github.com -u ${GIT_USER_ID} --password-stdin
-      - run:
           name: Choose a tag
           command: git rev-parse --short=8 HEAD > /tmp/tag
       - run:
           name: Build image
-          command: docker build --build-arg GRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN . -f Dockerfile.model -t us.gcr.io/model-159019/gh:$(cat /tmp/tag)
+          command: docker build --build-arg GRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN \
+          --build-arg GIT_USER_ID=$GIT_USER_ID --build-arg GIT_PERSONAL_ACCESS=$GIT_PERSONAL_ACCESS \
+          . -f Dockerfile.model -t us.gcr.io/model-159019/gh:$(cat /tmp/tag)
       - run:
           name: Push image
           command: gcloud docker -- push us.gcr.io/model-159019/gh:$(cat /tmp/tag)
