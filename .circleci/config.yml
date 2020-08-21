@@ -22,9 +22,7 @@ jobs:
           command: git rev-parse --short=8 HEAD > /tmp/tag
       - run:
           name: Build image
-          command: docker build --build-arg GRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN \
-          --build-arg GIT_USER_ID=$GIT_USER_ID --build-arg GIT_PERSONAL_ACCESS=$GIT_PERSONAL_ACCESS \
-          . -f Dockerfile.model -t us.gcr.io/model-159019/gh:$(cat /tmp/tag)
+          command: docker build --build-arg GRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN --build-arg GIT_USER_ID=$GIT_USER_ID --build-arg GIT_PERSONAL_ACCESS=$GIT_PERSONAL_ACCESS . -f Dockerfile.model -t us.gcr.io/model-159019/gh:$(cat /tmp/tag)
       - run:
           name: Push image
           command: gcloud docker -- push us.gcr.io/model-159019/gh:$(cat /tmp/tag)
