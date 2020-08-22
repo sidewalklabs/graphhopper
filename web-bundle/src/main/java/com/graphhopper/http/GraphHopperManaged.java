@@ -24,9 +24,9 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.GraphHopperConfig;
 import com.graphhopper.config.Profile;
+import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.json.geo.JsonFeatureCollection;
-import com.graphhopper.reader.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.ee.vehicles.TruckFlagEncoder;
 import com.graphhopper.routing.lm.LandmarkStorage;
@@ -76,7 +76,13 @@ public class GraphHopperManaged implements Managed {
             landmarkSplittingFeatureCollection = null;
         }
         if (configuration.has("gtfs.file")) {
-            graphHopper = new GraphHopperGtfs(configuration);
+            graphHopper = new GraphHopperGtfs(configuration) {
+                @Override
+                protected void registerCustomEncodedValues(EncodingManager.Builder emBuilder) {
+                    super.registerCustomEncodedValues(emBuilder);
+                    StableIdEncodedValues.createAndAddEncodedValues(emBuilder);
+                }
+            };
         } else {
             graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection) {
                 @Override
