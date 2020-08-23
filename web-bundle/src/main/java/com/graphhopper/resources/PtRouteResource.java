@@ -1,16 +1,23 @@
-package com.graphhopper.reader.gtfs;
+//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by FernFlower decompiler)
+//
+
+package com.graphhopper.resources;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.Lists;
 import com.graphhopper.GHResponse;
 import com.graphhopper.ResponsePath;
 import com.graphhopper.Trip;
+import com.graphhopper.gtfs.GHLocation;
+import com.graphhopper.gtfs.PtRouter;
+import com.graphhopper.gtfs.Request;
+import com.graphhopper.http.DurationParam;
+import com.graphhopper.http.GHLocationParam;
 import com.graphhopper.http.WebHelper;
-import com.graphhopper.storage.GraphHopperStorage;
-import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.util.Helper;
 import com.graphhopper.util.StopWatch;
-import com.graphhopper.util.TranslationMap;
 import io.dropwizard.jersey.params.AbstractParam;
 import io.dropwizard.jersey.params.InstantParam;
 import org.mapdb.DB;
@@ -18,31 +25,34 @@ import org.mapdb.DBMaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
 import java.io.File;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import javax.inject.Inject;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 
 import static java.util.stream.Collectors.toList;
 
 @Path("route-pt")
-public class CustomPtRouteResource {
-
+public class PtRouteResource {
     private final Logger logger = LoggerFactory.getLogger(getClass());
-    private final PtRouteResource ptRouteResource;
+    private final PtRouter ptRouter;
     private Map<String, String> gtfsLinkMappings;
     private Map<String, String> gtfsRouteInfo;
 
     @Inject
-    public CustomPtRouteResource(TranslationMap translationMap, GraphHopperStorage graphHopperStorage, LocationIndex locationIndex, GtfsStorage gtfsStorage, RealtimeFeed realtimeFeed) {
-        ptRouteResource = new PtRouteResource(translationMap, graphHopperStorage, locationIndex, gtfsStorage, realtimeFeed);
+    public PtRouteResource(PtRouter ptRouter) {
+        this.ptRouter = ptRouter;
         DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
         logger.info(db.toString());
         gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
@@ -51,8 +61,8 @@ public class CustomPtRouteResource {
     }
 
     @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    public ObjectNode route(@QueryParam("point") @Size(min=2,max=2) List<GHLocationParam> requestPoints,
+    @Produces({"application/json"})
+    public ObjectNode route(@QueryParam("point") @Size(min = 2,max = 2) List<GHLocationParam> requestPoints,
                             @QueryParam("pt.earliest_departure_time") @NotNull InstantParam departureTimeParam,
                             @QueryParam("pt.profile_duration") DurationParam profileDuration,
                             @QueryParam("pt.arrive_by") @DefaultValue("false") boolean arriveBy,
@@ -60,21 +70,22 @@ public class CustomPtRouteResource {
                             @QueryParam("pt.ignore_transfers") Boolean ignoreTransfers,
                             @QueryParam("pt.profile") Boolean profileQuery,
                             @QueryParam("pt.limit_solutions") Integer limitSolutions,
-                            @QueryParam("pt.limit_street_time") DurationParam limitStreetTime) {
-        StopWatch stopWatch = new StopWatch().start();
-        List<GHLocation> points = requestPoints.stream().map(AbstractParam::get).collect(toList());
+                            @QueryParam("pt.limit_street_time") DurationParam limitStreetTime,
+                            @QueryParam("details") List<String> pathDetails) {
+        StopWatch stopWatch = (new StopWatch()).start();
+        List<GHLocation> points = requestPoints.stream().map(AbstractParam::get).collect(Collectors.toList());
         Instant departureTime = departureTimeParam.get();
-
         Request request = new Request(points, departureTime);
         request.setArriveBy(arriveBy);
         Optional.ofNullable(profileQuery).ifPresent(request::setProfileQuery);
         Optional.ofNullable(profileDuration.get()).ifPresent(request::setMaxProfileDuration);
         Optional.ofNullable(ignoreTransfers).ifPresent(request::setIgnoreTransfers);
-        Optional.ofNullable(localeStr).ifPresent(s -> request.setLocale(Helper.getLocale(s)));
+        Optional.ofNullable(localeStr).ifPresent((s) -> {request.setLocale(Helper.getLocale(s));});
         Optional.ofNullable(limitSolutions).ifPresent(request::setLimitSolutions);
         Optional.ofNullable(limitStreetTime.get()).ifPresent(request::setLimitStreetTime);
+        Optional.ofNullable(pathDetails).ifPresent(request::setPathDetails);
 
-        GHResponse route = ptRouteResource.route(request);
+        GHResponse route = this.ptRouter.route(request);
 
         List<ResponsePath> pathsWithStableIds = Lists.newArrayList();
         for (ResponsePath path : route.getAll()) {
@@ -91,9 +102,7 @@ public class CustomPtRouteResource {
         routeWithStableIds.addErrors(route.getErrors());
         pathsWithStableIds.forEach(path -> routeWithStableIds.add(path));
 
-        ObjectNode jsonResponse = WebHelper.jsonObject(routeWithStableIds, true, true, false, false, stopWatch.stop().getMillis());
-
-        return jsonResponse;
+        return WebHelper.jsonObject(routeWithStableIds, true, true, false, false, stopWatch.stop().getMillis());
     }
 
     // Create new version of PtLeg class that stores stable edge IDs in class var;

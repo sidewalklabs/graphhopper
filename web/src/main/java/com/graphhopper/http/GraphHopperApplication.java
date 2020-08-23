@@ -17,7 +17,6 @@
  */
 package com.graphhopper.http;
 
-import com.graphhopper.gtfs.dropwizard.RealtimeBundle;
 import com.graphhopper.http.cli.GtfsLinkMapperCommand;
 import com.graphhopper.http.cli.ExportCommand;
 import com.graphhopper.http.cli.ImportCommand;

@@ -129,7 +129,11 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             // Get edge geometry and distance
             PointList wayGeometry = edgeIterator.fetchWayGeometry(FetchMode.ALL);
             String geometryString = wayGeometry.toLineString(false).toString();
-            long distanceMeters = Math.round(wayGeometry.calcDistance(new DistanceCalcEarth()));
+
+            //todo : which distance calc to use?
+            // edgeIterator.getDistance();
+            // DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon);
+            long distanceMeters = Math.round(DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon));
 
             // Parse OSM highway type and street name, and grab encoded stable IDs for both edge directions
             String highwayTag = edgeIterator.get(roadClassEnc).toString();

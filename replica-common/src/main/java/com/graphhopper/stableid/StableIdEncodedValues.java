@@ -9,8 +9,8 @@ import com.graphhopper.routing.ev.RoadClass;
 import com.graphhopper.routing.ev.UnsignedIntEncodedValue;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.NodeAccess;
+import com.graphhopper.util.AngleCalc;
 import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.Helper;
 
 public class StableIdEncodedValues {
 
@@ -79,7 +79,7 @@ public class StableIdEncodedValues {
     private static byte[] calculateStableEdgeId(String highwayTag, double startLat, double startLon,
                                                 double endLat, double endLon) {
         int formOfWay = getFormOfWay(highwayTag);
-        long bearing = Math.round(Helper.ANGLE_CALC.calcAzimuth(startLat, startLon, endLat, endLon));
+        long bearing = Math.round(AngleCalc.ANGLE_CALC.calcAzimuth(startLat, startLon, endLat, endLon));
 
         String hashString = String.format("Reference %d %.6f %.6f %.6f %.6f %d",
                 formOfWay, startLon, startLat, endLon, endLat, bearing);
