@@ -25,6 +25,10 @@ import org.mapdb.DBMaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.inject.Inject;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+import javax.ws.rs.*;
 import java.io.File;
 import java.time.Instant;
 import java.util.Arrays;
@@ -32,14 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.inject.Inject;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 
 import static java.util.stream.Collectors.toList;
 
@@ -54,7 +50,6 @@ public class PtRouteResource {
     public PtRouteResource(PtRouter ptRouter) {
         this.ptRouter = ptRouter;
         DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
-        logger.info(db.toString());
         gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
         gtfsRouteInfo = db.getHashMap("gtfsRouteInfo");
         logger.info("Done loading GTFS link mappings and route info. Total number of mappings: " + gtfsLinkMappings.size());
@@ -89,11 +84,45 @@ public class PtRouteResource {
 
         List<ResponsePath> pathsWithStableIds = Lists.newArrayList();
         for (ResponsePath path : route.getAll()) {
-            List<Trip.Leg> legsWithStableIds = path.getLegs().stream()
-                    .map(leg -> leg.type.equals("pt") ? getCustomPtLeg((Trip.PtLeg)leg) : leg)
+            // Ignore walking-only responses, because we route those separately from PT
+            if (path.getLegs().size() == 1 && path.getLegs().get(0).type.equals("walk")) {
+                continue;
+            }
+
+            // Add stable edge IDs to PT legs
+            List<Trip.Leg> ptLegs = path.getLegs().stream()
+                    .filter(leg -> leg.type.equals("pt"))
+                    .map(leg -> getCustomPtLeg((Trip.PtLeg)leg))
                     .collect(toList());
+
+            // Add stable edge IDs to walk legs
+            List<Trip.Leg> walkLegs = path.getLegs().stream()
+                    .filter(leg -> leg.type.equals("walk"))
+                    .collect(toList());
+
+            assert walkLegs.size() == 2;
+            Trip.WalkLeg firstLeg = (Trip.WalkLeg) walkLegs.get(0);
+            Trip.WalkLeg lastLeg = (Trip.WalkLeg) walkLegs.get(1);
+
+            List<String> lastLegStableIds = lastLeg.details.get("r5_edge_id").stream()
+                    .map(idPathDetail -> (String) idPathDetail.getValue())
+                    .filter(id -> id.length() == 20)
+                    .collect(toList());
+
+            // The first leg contains stable IDs for both walking legs for some reason,
+            // so we remove the IDs from the last leg
+            List<String> firstLegStableIds = firstLeg.details.get("r5_edge_id").stream()
+                    .map(idPathDetail -> (String) idPathDetail.getValue())
+                    .filter(id -> id.length() == 20)
+                    .collect(toList());
+            firstLegStableIds.removeAll(lastLegStableIds);
+
+            // Replace the path's legs with newly-constructed legs containing stable edge IDs
             path.getLegs().clear();
-            path.getLegs().addAll(legsWithStableIds);
+            path.getLegs().add(new CustomWalkLeg(firstLeg, firstLegStableIds));
+            path.getLegs().addAll(ptLegs);
+            path.getLegs().add(new CustomWalkLeg(lastLeg, lastLegStableIds));
+            path.getPathDetails().clear();
             pathsWithStableIds.add(path);
         }
 
@@ -103,6 +132,17 @@ public class PtRouteResource {
         pathsWithStableIds.forEach(path -> routeWithStableIds.add(path));
 
         return WebHelper.jsonObject(routeWithStableIds, true, true, false, false, stopWatch.stop().getMillis());
+    }
+
+    public static class CustomWalkLeg extends Trip.WalkLeg {
+        public final List<String> stableEdgeIds;
+
+        public CustomWalkLeg(Trip.WalkLeg leg, List<String> stableEdgeIds) {
+            super(leg.departureLocation, leg.getDepartureTime(), leg.geometry,
+            leg.distance, leg.instructions, leg.details, leg.getArrivalTime());
+            this.stableEdgeIds = stableEdgeIds;
+            this.details.clear();
+        }
     }
 
     // Create new version of PtLeg class that stores stable edge IDs in class var;
@@ -116,8 +156,8 @@ public class PtRouteResource {
 
         public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds, String agencyName, String routeShortName,
                            String routeLongName, String routeType) {
-            super("pt", leg.isInSameVehicleAsPrevious, leg.trip_id, leg.route_id, leg.trip_headsign,
-                    leg.stops, leg.distance, leg.travelTime, leg.geometry);
+            super(leg.feed_id, leg.isInSameVehicleAsPrevious, leg.trip_id, leg.route_id,
+                    leg.trip_headsign, leg.stops, leg.distance, leg.travelTime, leg.geometry);
             this.stableEdgeIds = stableEdgeIds;
             this.agencyName = agencyName;
             this.routeShortName = routeShortName;
@@ -144,7 +184,13 @@ public class PtRouteResource {
                 .collect(toList());
 
         // Split comma-separated string of agency_name,route_short_name,route_long_name,route_type
-        String[] routeInfo = gtfsRouteInfo.get(leg.route_id).split(",");
+        String[] routeInfo = gtfsRouteInfo.containsKey(leg.route_id)
+                ? gtfsRouteInfo.get(leg.route_id).split(",")
+                : new String[]{"", "", "", ""};
+
+        if (!gtfsRouteInfo.containsKey(leg.route_id)) {
+            logger.info("Failed to find route info for route " + leg.route_id + " for PT trip leg " + leg.toString());
+        }
 
         return new CustomPtLeg(leg, stableEdgeIdsList, routeInfo[0], routeInfo[1], routeInfo[2], routeInfo[3]);
     }
