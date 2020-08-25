@@ -233,7 +233,7 @@ public class GraphHopperManaged implements Managed {
         // and then for each trip, route via car between each stop pair in sequential order, storing the returned IDs
         for (String feedId : gtfsFeedMap.keySet()) {
             GTFSFeed feed = gtfsFeedMap.get(feedId);
-            logger.info("Processing GTFS feed " + feedId);
+            logger.info("Processing GTFS feed " + feedId + " " + feed.feedId);
 
             // Only look at routes for transit types that travel on the street network
             Set<String> validRouteIdsForFeed = feed.routes.values().stream()
@@ -312,16 +312,16 @@ public class GraphHopperManaged implements Managed {
                     odRequest.setProfile("car");
                     odRequest.setPathDetails(Lists.newArrayList("r5_edge_id"));
                     GHResponse response = graphHopper.route(odRequest);
-                    assert(response.getAll().size() == 1);
+
+                    // If stop->stop path couldn't be found by GH, don't store anything
+                    if (response.getAll().size() != 1) {
+                        routeNotFoundCount++;
+                        continue;
+                    }
 
                     // Parse all stable edge IDs from response, and merge into String to use as value for map
                     List<PathDetail> responsePathDetails = response.getAll().get(0).getPathDetails().get("r5_edge_id");
 
-                    // If stop->stop path couldn't be found by GH, don't store anything
-                    if (responsePathDetails == null) {
-                        routeNotFoundCount++;
-                        continue;
-                    }
                     List<String> pathStableEdgeIds = responsePathDetails.stream()
                             .map(pathDetail -> (String) pathDetail.getValue())
                             .collect(Collectors.toList());
