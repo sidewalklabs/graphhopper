@@ -204,7 +204,9 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         printStream.close();
         LOG.info("Done writing street network to CSV");
         LOG.info("A total of " + totalEdgeCount + " edges were considered; " + skippedEdgeCount + " edges were skipped");
-        assert(outputFile.exists());
+        if (!outputFile.exists()) {
+            LOG.error("Output file can't be found! Export may not have completed successfully");
+        }
     }
 
     private static String toString(String stableEdgeId, int startVertex, int endVertex, double startLat,

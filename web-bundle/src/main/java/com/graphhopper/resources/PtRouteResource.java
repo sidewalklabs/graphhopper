@@ -41,18 +41,21 @@ import static java.util.stream.Collectors.toList;
 
 @Path("route-pt")
 public class PtRouteResource {
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger logger = LoggerFactory.getLogger(PtRouteResource.class);
     private final PtRouter ptRouter;
-    private Map<String, String> gtfsLinkMappings;
-    private Map<String, String> gtfsRouteInfo;
+    private static Map<String, String> gtfsLinkMappings;
+    private static Map<String, String> gtfsRouteInfo;
 
-    @Inject
-    public PtRouteResource(PtRouter ptRouter) {
-        this.ptRouter = ptRouter;
+    static {
         DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
         gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
         gtfsRouteInfo = db.getHashMap("gtfsRouteInfo");
         logger.info("Done loading GTFS link mappings and route info. Total number of mappings: " + gtfsLinkMappings.size());
+    }
+
+    @Inject
+    public PtRouteResource(PtRouter ptRouter) {
+        this.ptRouter = ptRouter;
     }
 
     @GET
@@ -100,7 +103,6 @@ public class PtRouteResource {
                     .filter(leg -> leg.type.equals("walk"))
                     .collect(toList());
 
-            assert walkLegs.size() == 2;
             Trip.WalkLeg firstLeg = (Trip.WalkLeg) walkLegs.get(0);
             Trip.WalkLeg lastLeg = (Trip.WalkLeg) walkLegs.get(1);
 
