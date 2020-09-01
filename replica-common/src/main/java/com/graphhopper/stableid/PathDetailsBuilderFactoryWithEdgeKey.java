@@ -73,6 +73,10 @@ public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFact
             builders.add(new R5EdgeIdPathDetailsBuilder(evl));
         }
 
+        if (requestedPathDetails.contains("adj_node")) {
+            builders.add(new AdjNodePathDetailsBuilder());
+        }
+
         for (Map.Entry entry : Arrays.asList(new MapEntry<>(RoadClass.KEY, RoadClass.class),
                 new MapEntry<>(RoadEnvironment.KEY, RoadEnvironment.class), new MapEntry<>(Surface.KEY, Surface.class),
                 new MapEntry<>(RoadAccess.KEY, RoadAccess.class), new MapEntry<>(Toll.KEY, Toll.class),

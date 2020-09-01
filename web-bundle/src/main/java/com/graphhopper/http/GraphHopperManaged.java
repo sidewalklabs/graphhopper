@@ -25,7 +25,10 @@ import com.conveyal.gtfs.model.StopTime;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.google.common.collect.*;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
@@ -48,6 +51,7 @@ import com.graphhopper.stableid.PathDetailsBuilderFactoryWithEdgeKey;
 import com.graphhopper.stableid.StableIdEncodedValues;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
+import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
 import com.graphhopper.util.details.PathDetail;
@@ -188,6 +192,10 @@ public class GraphHopperManaged implements Managed {
     }
 
     public void setStableEdgeIds() {
+        setStableEdgeIds(graphHopper);
+    }
+
+    public void setStableEdgeIds(GraphHopper graphHopper) {
         GraphHopperStorage graphHopperStorage = graphHopper.getGraphHopperStorage();
         AllEdgesIterator edgesIterator = graphHopperStorage.getAllEdges();
         NodeAccess nodes = graphHopperStorage.getNodeAccess();
@@ -228,6 +236,9 @@ public class GraphHopperManaged implements Managed {
                 .keySerializer(Serializer.STRING)
                 .valueSerializer(Serializer.STRING)
                 .make();
+
+        // For testing
+        // Set<String> allStableIds = Sets.newHashSet();
 
         // For each GTFS feed, pull out all stops for trips on GTFS routes that travel on the street network,
         // and then for each trip, route via car between each stop pair in sequential order, storing the returned IDs
@@ -279,6 +290,7 @@ public class GraphHopperManaged implements Managed {
             int odStopCount = 0;
             int nonUniqueODPairs = 0;
             int routeNotFoundCount = 0;
+            int singleEdgeReturnedCount = 0;
             // For each trip, route with auto between all O/D stop pairs,
             // and store returned stable edge IDs for each route in mapdb file
             for (String tripId : tripIdToStopsInTrip.keySet()) {
@@ -289,9 +301,9 @@ public class GraphHopperManaged implements Managed {
                 }
 
                 // Fetch all sequentially-ordered stop->stop pairs for this trip
-                Set<Pair<Stop, Stop>> odStopsForTrip = getODStopsForTrip(tripIdToStopsInTrip.get(tripId), stopsForAllTrips);
+                List<Pair<Stop, Stop>> odStopsForTrip = getODStopsForTrip(tripIdToStopsInTrip.get(tripId), stopsForAllTrips);
 
-                // Route a car between each stop->stop pair, and store the returned stable edge IDs in in-mem map
+                // Route a car between each stop->stop pair, and store the returned stable edge IDs in mapdb map
                 for (Pair<Stop, Stop> odStopPair : odStopsForTrip) {
                     odStopCount++;
 
@@ -310,7 +322,7 @@ public class GraphHopperManaged implements Managed {
                             odStopPair.getRight().stop_lat, odStopPair.getRight().stop_lon
                     );
                     odRequest.setProfile("car");
-                    odRequest.setPathDetails(Lists.newArrayList("r5_edge_id"));
+                    odRequest.setPathDetails(Lists.newArrayList("r5_edge_id", "adj_node"));
                     GHResponse response = graphHopper.route(odRequest);
 
                     // If stop->stop path couldn't be found by GH, don't store anything
@@ -319,21 +331,54 @@ public class GraphHopperManaged implements Managed {
                         continue;
                     }
 
-                    // Parse all stable edge IDs from response, and merge into String to use as value for map
-                    List<PathDetail> responsePathDetails = response.getAll().get(0).getPathDetails().get("r5_edge_id");
-
-                    List<String> pathStableEdgeIds = responsePathDetails.stream()
+                    // Parse stable IDs and adjacent nodes for each edge from response
+                    List<PathDetail> responsePathEdgeIdDetails = response.getAll().get(0).getPathDetails().get("r5_edge_id");
+                    List<String> pathEdgeIds = responsePathEdgeIdDetails.stream()
                             .map(pathDetail -> (String) pathDetail.getValue())
                             .collect(Collectors.toList());
 
-                    // Remove first and last IDs, which are IDs of virtual GH edges
-                    if (pathStableEdgeIds.size() <= 2) {
-                        pathStableEdgeIds.clear();
-                    } else {
-                        pathStableEdgeIds.remove(pathStableEdgeIds.size() - 1);
-                        pathStableEdgeIds.remove(0);
+                    List<PathDetail> responsePathAdjNodeDetails = response.getAll().get(0).getPathDetails().get("adj_node");
+                    List<Integer> pathAdjNodes = responsePathAdjNodeDetails.stream()
+                            .map(pathDetail -> (Integer) pathDetail.getValue())
+                            .collect(Collectors.toList());
+
+                    EncodingManager encodingManager = graphHopper.getEncodingManager();
+                    StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(encodingManager);
+
+                    // Find indexes of edges in path that don't have stable edge IDs
+                    List<Integer> ghEdgeIdIndexesToConvert = Lists.newArrayList();
+                    for (int i = 0; i < pathEdgeIds.size(); i++) {
+                        // Check if edge has a GH edge ID by checking if it fits into Integer.MAX_VALUE;
+                        // IDs that are stable edge IDs will be >> Integer.MAX_VALUE
+                        try {
+                            // If the ID is a standard Java int, it's a gh edge ID
+                            Integer.parseInt(pathEdgeIds.get(i));
+                            ghEdgeIdIndexesToConvert.add(i);
+                        } catch (NumberFormatException e) {
+                            // ID must be > Integer.MAX_VALUE, so it's already a stable ID
+                        }
                     }
-                    String pathStableEdgeIdString = pathStableEdgeIds.stream().collect(Collectors.joining(","));
+
+                    // Replace GH edge ID with stable edge ID for edges found above
+                    // todo: figure out how to do n=1 case. Can't seem to correctly link to proper GH edge in this case
+                    if (pathEdgeIds.size() == 1) {
+                        singleEdgeReturnedCount++;
+                        pathEdgeIds.clear();
+                    } else {
+                        for (int i : ghEdgeIdIndexesToConvert) {
+                            // todo: make sure this logic makes sense for adjacent node index for last virtual edge!
+                            int adjacentNodeIndex = (i == pathAdjNodes.size() - 1 && pathAdjNodes.size() != 1 ? pathAdjNodes.size() - 2 : i);
+
+                            int ghEdgeId = Integer.parseInt(pathEdgeIds.get(i));
+                            int adjacentNode = pathAdjNodes.get(adjacentNodeIndex);
+                            EdgeIteratorState nonVirtualEdge = graphHopper.getGraphHopperStorage().getEdgeIteratorState(ghEdgeId, adjacentNode);
+                            pathEdgeIds.set(i, stableIdEncodedValues.getStableId(nonVirtualEdge.get(EdgeIteratorState.REVERSE_STATE), nonVirtualEdge));
+                        }
+                    }
+                    // allStableIds.addAll(pathEdgeIds);
+
+                    // Merge all path IDs into String to use as value for gtfs link map
+                    String pathStableEdgeIdString = pathEdgeIds.stream().collect(Collectors.joining(","));
                     gtfsLinkMappings.put(stopPairString, pathStableEdgeIdString);
                 }
                 processedTripCount++;
@@ -342,19 +387,24 @@ public class GraphHopperManaged implements Managed {
                     " total trips processed; " + nonUniqueODPairs + "/" + odStopCount
                     + " O/D stop pairs were non-unique; routes for " + routeNotFoundCount + "/" + odStopCount
                     + " stop->stop pairs were not found");
+            logger.info("number of returned paths that only had 1 virtual edge: " + singleEdgeReturnedCount);
         }
         db.commit();
         db.close();
         logger.info("Done creating GTFS link mappings for " + gtfsFeedMap.size() + " GTFS feeds");
+
+        // For testing
+        // logger.info("All stable edge IDs: ");
+        // logger.info(allStableIds.stream().collect(Collectors.joining(",")));
     }
 
     // Given a set of StopTimes for a trip, and an overall mapping of stop IDs->Stop,
     // return a set of sequentially-ordered stop->stop pairs that make up the trip
-    private Set<Pair<Stop, Stop>> getODStopsForTrip(Set<StopTime> stopsInTrip, Map<String, Stop> allStops) {
+    private List<Pair<Stop, Stop>> getODStopsForTrip(Set<StopTime> stopsInTrip, Map<String, Stop> allStops) {
         StopTime[] sortedStopsArray = new StopTime[stopsInTrip.size()];
         Arrays.sort(stopsInTrip.toArray(sortedStopsArray), (a, b) -> a.stop_sequence < b.stop_sequence ? -1 : 1);
 
-        Set<Pair<Stop, Stop>> odStopsForTrip = Sets.newHashSet();
+        List<Pair<Stop, Stop>> odStopsForTrip = Lists.newArrayList();
         for (int i = 0; i < sortedStopsArray.length - 1; i++) {
             Stop startStop = allStops.get(sortedStopsArray[i].stop_id);
             Stop endStop = allStops.get(sortedStopsArray[i + 1].stop_id);

@@ -7,6 +7,7 @@ package com.graphhopper.resources;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.graphhopper.GHResponse;
 import com.graphhopper.ResponsePath;
 import com.graphhopper.Trip;
@@ -31,10 +32,7 @@ import javax.validation.constraints.Size;
 import javax.ws.rs.*;
 import java.io.File;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
@@ -46,6 +44,7 @@ public class PtRouteResource {
     private static Map<String, String> gtfsLinkMappings;
     private static Map<String, String> gtfsRouteInfo;
 
+    // Statically load GTFS link mapping and GTFS route info maps for use in building responses
     static {
         DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
         gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
@@ -171,6 +170,7 @@ public class PtRouteResource {
     private CustomPtLeg getCustomPtLeg(Trip.PtLeg leg) {
         List<Trip.Stop> stops = leg.stops;
 
+        // Retrieve stable edge IDs for each stop->stop segment of leg
         List<String> stableEdgeIdSegments = Lists.newArrayList();
         for (int i = 0; i < stops.size() - 1; i++) {
             String stopPair = stops.get(i).stop_id + "," + stops.get(i + 1).stop_id;
@@ -185,7 +185,13 @@ public class PtRouteResource {
                 .flatMap(segment -> Arrays.stream(segment.split(",")))
                 .collect(toList());
 
-        // Split comma-separated string of agency_name,route_short_name,route_long_name,route_type
+        // Remove duplicates from stable ID list while retaining order;
+        // needed because start/end of sequential segments overlap by 1 edge
+        Set<String> stableEdgeIdsWithoutDuplicates = Sets.newLinkedHashSet(stableEdgeIdsList);
+        stableEdgeIdsList.clear();
+        stableEdgeIdsList.addAll(stableEdgeIdsWithoutDuplicates);
+
+        // Split comma-separated GTFS route info string of agency_name,route_short_name,route_long_name,route_type
         String[] routeInfo = gtfsRouteInfo.containsKey(leg.route_id)
                 ? gtfsRouteInfo.get(leg.route_id).split(",")
                 : new String[]{"", "", "", ""};
