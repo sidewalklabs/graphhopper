@@ -42,7 +42,7 @@ public class StableIdEncodedValues {
         }
     }
 
-    final String getStableId(boolean reverse, EdgeIteratorState edge) {
+    public final String getStableId(boolean reverse, EdgeIteratorState edge) {
         byte[] stableId = new byte[8];
         UnsignedIntEncodedValue[] idByte = reverse ? reverseStableIdEnc : stableIdEnc;
         for (int i=0; i<8; i++) {
