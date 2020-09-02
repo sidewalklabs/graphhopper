@@ -43,15 +43,12 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
     // edge direction, in order [forward, backward]
     private Map<Long, String[]> osmIdToAccessFlags;
 
-    private Map<Long, String[]> osmIdToEdgeName;
-
     public CustomGraphHopperOSM(String osmPath) {
         super();
         this.osmPath = osmPath;
         this.osmIdToLaneTags = Maps.newHashMap();
         this.ghIdToOsmId = Maps.newHashMap();
         this.osmIdToAccessFlags = Maps.newHashMap();
-        this.osmIdToEdgeName = Maps.newHashMap();
     }
 
     @Override
@@ -77,6 +74,7 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
                 LOG.info("Creating custom OSM reader; reading file and parsing lane tag info.");
                 int readCount = 0;
                 try (OSMInput input = this.openOsmInputFile(new File(osmPath))){
+                    TraversalPermissionLabeler flagLabeler = new USTraversalPermissionLabeler();
                     ReaderElement next;
                     while((next = input.getNext()) != null) {
                         if (next.isType(ReaderElement.WAY)) {
@@ -101,30 +99,23 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
                                 }
                             }
 
+                            // Parse all tags that will be considered for determining accessibility flags for edge
+                            Map<String, String> wayTagsToConsider = Maps.newHashMap();
+                            for (String consideredTag : flagLabeler.getAllConsideredTags()) {
+                                if (ghReaderWay.hasTag(consideredTag)) {
+                                    wayTagsToConsider.put(consideredTag, ghReaderWay.getTag(consideredTag));
+                                }
+                            }
+
                             // Compute accessibility flags for edge in both directions
-                            Way way = new Way(ghReaderWay);
-                            List<EnumSet<TraversalPermissionLabeler.EdgeFlag>> flags =
-                                    USTraversalPermissionLabeler.getPermissions(way);
+                            Way way = new Way(wayTagsToConsider);
+                            List<EnumSet<TraversalPermissionLabeler.EdgeFlag>> flags = flagLabeler.getPermissions(way);
                             String[] flagStrings = {flags.get(0).toString(), flags.get(1).toString()};
                             osmIdToAccessFlags.put(ghReaderWay.getId(), flagStrings);
-
-
-                            // Parse tags and compute names for edges that are stairs, street crossings,
-                            // bike paths, or sidewalks
-                            List<String> alternativeEdgeNames = TypeOfEdgeLabeler.getEdgeNames(way);
-                            osmIdToEdgeName.put(ghReaderWay.getId(), alternativeEdgeNames.toArray(new String[2]));
                         }
-                        /*
-                        else if (next.isType(ReaderElement.RELATION)) {
-                            // todo: deal w/ relations. Might need to store them all, _then_ loop over ways somehow to call
-                            // todo: TypeOfEdgeLabeler.getNameFromTags. Should I just ditch using getNameFromTags for now, and see how things look?
-                            // todo: can add counts to figure out how many additional names would actually be filled in using that method
-                        }
-                         */
                     }
                     LOG.info("Finished parsing lane tag info from OSM ways. " + readCount + " total ways were parsed.");
                 } catch (Exception e) {
-                    LOG.error(e.getMessage());
                     throw new RuntimeException("Can't open OSM file provided at " + osmPath + "!");
                 }
             }
@@ -151,10 +142,5 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
     public String getFlagsForGhEdge(int ghEdgeId, boolean reverse) {
         int flagIndex = reverse ? 1 : 0;
         return osmIdToAccessFlags.get(getOsmIdForGhEdge(ghEdgeId))[flagIndex];
-    }
-
-    public String getNameForGhEdge(int ghEdgeId, boolean reverse) {
-        int flagIndex = reverse ? 1 : 0;
-        return osmIdToEdgeName.get(getOsmIdForGhEdge(ghEdgeId))[flagIndex];
     }
 }
