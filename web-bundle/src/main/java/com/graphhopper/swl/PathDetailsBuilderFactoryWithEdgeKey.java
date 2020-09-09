@@ -70,7 +70,7 @@ public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFact
         }
 
         if (requestedPathDetails.contains("r5_edge_id")) {
-            builders.add(new R5EdgeIdPathDetailsBuilder(evl));
+            builders.add(new StableEdgeIdPathDetailsBuilder(evl));
         }
 
         for (Map.Entry entry : Arrays.asList(new MapEntry<>(RoadClass.KEY, RoadClass.class),

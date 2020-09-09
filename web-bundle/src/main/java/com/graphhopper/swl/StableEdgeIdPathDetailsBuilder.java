@@ -23,11 +23,11 @@ import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.details.AbstractPathDetailsBuilder;
 
-public class R5EdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
+public class StableEdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
     private final StableIdEncodedValues originalDirectionFlagEncoder;
     private String edgeId;
 
-    public R5EdgeIdPathDetailsBuilder(EncodedValueLookup originalDirectionFlagEncoder) {
+    public StableEdgeIdPathDetailsBuilder(EncodedValueLookup originalDirectionFlagEncoder) {
         super("r5_edge_id");
         this.originalDirectionFlagEncoder = StableIdEncodedValues.fromEncodingManager((EncodingManager) originalDirectionFlagEncoder);
         edgeId = "";
