@@ -120,9 +120,9 @@ public class PtRouteResource {
 
             // Replace the path's legs with newly-constructed legs containing stable edge IDs
             path.getLegs().clear();
-            path.getLegs().add(new CustomWalkLeg(firstLeg, firstLegStableIds));
+            path.getLegs().add(new CustomWalkLeg(firstLeg, firstLegStableIds, "ACCESS"));
             path.getLegs().addAll(ptLegs);
-            path.getLegs().add(new CustomWalkLeg(lastLeg, lastLegStableIds));
+            path.getLegs().add(new CustomWalkLeg(lastLeg, lastLegStableIds, "EGRESS"));
             path.getPathDetails().clear();
             pathsWithStableIds.add(path);
         }
@@ -137,12 +137,16 @@ public class PtRouteResource {
 
     public static class CustomWalkLeg extends Trip.WalkLeg {
         public final List<String> stableEdgeIds;
+        public final String type;
+        public final String travelSegmentType;
 
-        public CustomWalkLeg(Trip.WalkLeg leg, List<String> stableEdgeIds) {
+        public CustomWalkLeg(Trip.WalkLeg leg, List<String> stableEdgeIds, String travelSegmentType) {
             super(leg.departureLocation, leg.getDepartureTime(), leg.geometry,
             leg.distance, leg.instructions, leg.details, leg.getArrivalTime());
             this.stableEdgeIds = stableEdgeIds;
             this.details.clear();
+            this.type = "foot";
+            this.travelSegmentType = travelSegmentType;
         }
     }
 
