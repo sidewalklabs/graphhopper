@@ -19,10 +19,8 @@
 package com.graphhopper.swl;
 
 import com.graphhopper.routing.ev.EncodedValueLookup;
-import com.graphhopper.routing.querygraph.VirtualEdgeIteratorState;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.GHUtility;
 import com.graphhopper.util.details.AbstractPathDetailsBuilder;
 
 public class R5EdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
@@ -46,12 +44,8 @@ public class R5EdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
     }
 
     private String getR5EdgeId(EdgeIteratorState edge) {
-        if (edge instanceof VirtualEdgeIteratorState) {
-            return String.valueOf(GHUtility.getEdgeFromEdgeKey(((VirtualEdgeIteratorState) edge).getOriginalEdgeKey()));
-        } else {
-            boolean reverse = edge.get(EdgeIteratorState.REVERSE_STATE);
-            return originalDirectionFlagEncoder.getStableId(reverse, edge);
-        }
+        boolean reverse = edge.get(EdgeIteratorState.REVERSE_STATE);
+        return originalDirectionFlagEncoder.getStableId(reverse, edge);
     }
 
     @Override
