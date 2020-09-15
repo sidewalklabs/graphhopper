@@ -220,7 +220,10 @@ public class GraphHopperManaged implements Managed {
         logger.info("Starting GTFS link mapping process");
         GtfsStorage gtfsStorage = ((GraphHopperGtfs) graphHopper).getGtfsStorage();
         Map<String, GTFSFeed> gtfsFeedMap = gtfsStorage.getGtfsFeeds();
-        final Set<Integer> streetRouteTypes = Sets.newHashSet(Route.BUS, Route.TRAM, Route.CABLE_CAR);
+
+        // Define GTFS route types we care about linking to street edges: tram, bus, and cable car
+        // Taken from Google's GTFS spec: https://developers.google.com/transit/gtfs/reference#routestxt
+        final Set<Integer> streetRouteTypes = Sets.newHashSet(0, 3, 5);
 
         // Initialize mapdb database to store link mappings and route info
         logger.info("Initializing new mapdb file to store link mappings");
