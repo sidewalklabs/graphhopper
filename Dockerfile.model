@@ -7,7 +7,7 @@ ARG GIT_PERSONAL_ACCESS
 ENV JETTY_PORT 11111
 ENV JAVA_OPTS "-server -Xmx1g -Xms1g -XX:+UseG1GC -XX:MetaspaceSize=100M"
 
-RUN apt-get install -y wget
+RUN apt-get update && apt-get install -y wget
 
 WORKDIR /graphhopper
 
