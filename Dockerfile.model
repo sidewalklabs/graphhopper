@@ -1,4 +1,4 @@
-FROM maven:3.6.3-jdk-14 as build
+FROM maven:3.6.3-adoptopenjdk-14 as build
 
 ARG GRAPHHOPPER_TOKEN
 ARG GIT_USER_ID
