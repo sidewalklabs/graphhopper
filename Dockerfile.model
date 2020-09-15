@@ -1,11 +1,11 @@
-FROM maven:3.6.3-jdk-8 as build
+FROM maven:3.6.3-jdk-14 as build
 
 ARG GRAPHHOPPER_TOKEN
 ARG GIT_USER_ID
 ARG GIT_PERSONAL_ACCESS
 
 ENV JETTY_PORT 11111
-ENV JAVA_OPTS "-server -Xconcurrentio -Xmx1g -Xms1g -XX:+UseG1GC -XX:MetaspaceSize=100M"
+ENV JAVA_OPTS "-server -Xmx1g -Xms1g -XX:+UseG1GC -XX:MetaspaceSize=100M"
 
 RUN apt-get install -y wget
 
