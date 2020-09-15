@@ -325,7 +325,7 @@ public class GraphHopperManaged implements Managed {
                             odStopPair.getRight().stop_lat, odStopPair.getRight().stop_lon
                     );
                     odRequest.setProfile("car");
-                    odRequest.setPathDetails(Lists.newArrayList("r5_edge_id", "adj_node"));
+                    odRequest.setPathDetails(Lists.newArrayList("r5_edge_id"));
                     GHResponse response = graphHopper.route(odRequest);
 
                     // If stop->stop path couldn't be found by GH, don't store anything
@@ -339,45 +339,6 @@ public class GraphHopperManaged implements Managed {
                     List<String> pathEdgeIds = responsePathEdgeIdDetails.stream()
                             .map(pathDetail -> (String) pathDetail.getValue())
                             .collect(Collectors.toList());
-
-                    List<PathDetail> responsePathAdjNodeDetails = response.getAll().get(0).getPathDetails().get("adj_node");
-                    List<Integer> pathAdjNodes = responsePathAdjNodeDetails.stream()
-                            .map(pathDetail -> (Integer) pathDetail.getValue())
-                            .collect(Collectors.toList());
-
-                    EncodingManager encodingManager = graphHopper.getEncodingManager();
-                    StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(encodingManager);
-
-                    // Find indexes of edges in path that don't have stable edge IDs
-                    List<Integer> ghEdgeIdIndexesToConvert = Lists.newArrayList();
-                    for (int i = 0; i < pathEdgeIds.size(); i++) {
-                        // Check if edge has a GH edge ID by checking if it fits into Integer.MAX_VALUE;
-                        // IDs that are stable edge IDs will be >> Integer.MAX_VALUE
-                        try {
-                            // If the ID is a standard Java int, it's a gh edge ID
-                            Integer.parseInt(pathEdgeIds.get(i));
-                            ghEdgeIdIndexesToConvert.add(i);
-                        } catch (NumberFormatException e) {
-                            // ID must be > Integer.MAX_VALUE, so it's already a stable ID
-                        }
-                    }
-
-                    // Replace GH edge ID with stable edge ID for edges found above
-                    // todo: figure out how to do n=1 case. Can't seem to correctly link to proper GH edge in this case
-                    if (pathEdgeIds.size() == 1) {
-                        singleEdgeReturnedCount++;
-                        pathEdgeIds.clear();
-                    } else {
-                        for (int i : ghEdgeIdIndexesToConvert) {
-                            // todo: make sure this logic makes sense for adjacent node index for last virtual edge!
-                            int adjacentNodeIndex = (i == pathAdjNodes.size() - 1 && pathAdjNodes.size() != 1 ? pathAdjNodes.size() - 2 : i);
-
-                            int ghEdgeId = Integer.parseInt(pathEdgeIds.get(i));
-                            int adjacentNode = pathAdjNodes.get(adjacentNodeIndex);
-                            EdgeIteratorState nonVirtualEdge = graphHopper.getGraphHopperStorage().getEdgeIteratorState(ghEdgeId, adjacentNode);
-                            pathEdgeIds.set(i, stableIdEncodedValues.getStableId(nonVirtualEdge.get(EdgeIteratorState.REVERSE_STATE), nonVirtualEdge));
-                        }
-                    }
                     // allStableIds.addAll(pathEdgeIds);
 
                     // Merge all path IDs into String to use as value for gtfs link map

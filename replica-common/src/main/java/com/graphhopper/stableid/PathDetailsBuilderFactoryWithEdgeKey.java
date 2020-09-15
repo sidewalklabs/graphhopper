@@ -70,7 +70,7 @@ public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFact
         }
 
         if (requestedPathDetails.contains("r5_edge_id")) {
-            builders.add(new R5EdgeIdPathDetailsBuilder(evl));
+            builders.add(new StableEdgeIdPathDetailsBuilder(evl));
         }
 
         if (requestedPathDetails.contains("adj_node")) {
