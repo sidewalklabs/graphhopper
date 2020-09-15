@@ -16,7 +16,7 @@
  *  limitations under the License.
  */
 
-package com.graphhopper.swl;
+package com.graphhopper.replica;
 
 import com.graphhopper.routing.ev.DefaultEncodedValueFactory;
 import com.graphhopper.routing.ev.EncodedValue;

@@ -1,4 +1,4 @@
-package com.graphhopper.swl;
+package com.graphhopper.replica;
 
 import java.util.Map;
 

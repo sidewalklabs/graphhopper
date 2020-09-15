@@ -16,7 +16,7 @@
  *  limitations under the License.
  */
 
-package com.graphhopper.swl;
+package com.graphhopper.replica;
 
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.util.EdgeIteratorState;

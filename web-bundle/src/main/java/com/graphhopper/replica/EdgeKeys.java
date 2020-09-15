@@ -16,12 +16,22 @@
  *  limitations under the License.
  */
 
-package com.graphhopper.swl;
+package com.graphhopper.replica;
 
-import com.graphhopper.routing.util.FlagEncoder;
+import com.graphhopper.routing.querygraph.VirtualEdgeIteratorState;
 import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.GHUtility;
 
-public interface SpeedCalculator {
-    double getSpeed(EdgeIteratorState edgeState, boolean reverse, int durationSeconds, FlagEncoder encoder);
+public class EdgeKeys {
+
+    static int getEdgeKey(EdgeIteratorState edge) {
+        final int edgeIndex;
+        if (edge instanceof VirtualEdgeIteratorState) {
+            edgeIndex = GHUtility.getEdgeFromEdgeKey(((VirtualEdgeIteratorState) edge).getOriginalEdgeKey());
+        } else {
+            edgeIndex = edge.getEdge();
+        }
+        return edgeIndex * 2 + (!edge.get(EdgeIteratorState.REVERSE_STATE) ? 0 : 1);
+    }
 
 }

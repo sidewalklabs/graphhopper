@@ -16,7 +16,7 @@
  *  limitations under the License.
  */
 
-package com.graphhopper.swl;
+package com.graphhopper.replica;
 
 import com.csvreader.CsvReader;
 import com.graphhopper.routing.util.FlagEncoder;

@@ -1,4 +1,4 @@
-package com.graphhopper.swl;
+package com.graphhopper.replica;
 
 /**
  * Traversal permission labeler for the United States, adding things that differ from the base TraversalPermissionLabeler.

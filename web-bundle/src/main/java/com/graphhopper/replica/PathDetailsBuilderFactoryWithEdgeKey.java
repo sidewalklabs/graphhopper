@@ -1,4 +1,4 @@
-package com.graphhopper.swl;/*
+package com.graphhopper.replica;/*
  *  Licensed to GraphHopper GmbH under one or more contributor
  *  license agreements. See the NOTICE file distributed with this work for
  *  additional information regarding copyright ownership.
