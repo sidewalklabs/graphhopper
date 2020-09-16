@@ -24,7 +24,7 @@ import com.graphhopper.util.GHUtility;
 
 public class EdgeKeys {
 
-    static int getEdgeKey(EdgeIteratorState edge) {
+    public static int getEdgeKey(EdgeIteratorState edge) {
         final int edgeIndex;
         if (edge instanceof VirtualEdgeIteratorState) {
             edgeIndex = GHUtility.getEdgeFromEdgeKey(((VirtualEdgeIteratorState) edge).getOriginalEdgeKey());
