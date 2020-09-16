@@ -1,4 +1,4 @@
-package com.graphhopper.swl;
+package com.graphhopper.stableid;
 
 import com.google.common.base.Charsets;
 import com.google.common.hash.HashCode;
@@ -11,7 +11,6 @@ import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.util.AngleCalc;
 import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.Helper;
 
 public class StableIdEncodedValues {
 

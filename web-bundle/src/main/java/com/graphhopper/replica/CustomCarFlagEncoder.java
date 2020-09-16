@@ -1,4 +1,4 @@
-package com.graphhopper.swl;
+package com.graphhopper.replica;
 
 import com.graphhopper.routing.util.CarFlagEncoder;
 import com.graphhopper.util.PMap;
