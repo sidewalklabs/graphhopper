@@ -62,7 +62,7 @@ public class GtfsLinkMapper {
                 .make();
 
         // For testing
-        Set<String> allStableIds = Sets.newHashSet();
+        // Set<String> allStableIds = Sets.newHashSet();
 
         // For each GTFS feed, pull out all stops for trips on GTFS routes that travel on the street network,
         // and then for each trip, route via car between each stop pair in sequential order, storing the returned IDs
@@ -160,7 +160,7 @@ public class GtfsLinkMapper {
                     List<String> pathEdgeIds = responsePathEdgeIdDetails.stream()
                             .map(pathDetail -> (String) pathDetail.getValue())
                             .collect(Collectors.toList());
-                    allStableIds.addAll(pathEdgeIds);
+                    // allStableIds.addAll(pathEdgeIds);
 
                     // Merge all path IDs into String to use as value for gtfs link map
                     String pathStableEdgeIdString = pathEdgeIds.stream().collect(Collectors.joining(","));
@@ -179,8 +179,8 @@ public class GtfsLinkMapper {
         logger.info("Done creating GTFS link mappings for " + gtfsFeedMap.size() + " GTFS feeds");
 
         // For testing
-        logger.info("All stable edge IDs: ");
-        logger.info(allStableIds.stream().collect(Collectors.joining(",")));
+        // logger.info("All stable edge IDs: ");
+        // logger.info(allStableIds.stream().collect(Collectors.joining(",")));
     }
 
     // Given a set of StopTimes for a trip, and an overall mapping of stop IDs->Stop,
