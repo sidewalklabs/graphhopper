@@ -1,4 +1,4 @@
-package export;
+package com.graphhopper.export;
 
 /**
  * Traversal permission labeler for the United States, adding things that differ from the base TraversalPermissionLabeler.

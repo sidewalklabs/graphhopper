@@ -1,4 +1,4 @@
-package export;
+package com.graphhopper.export;
 
 import java.util.Map;
 

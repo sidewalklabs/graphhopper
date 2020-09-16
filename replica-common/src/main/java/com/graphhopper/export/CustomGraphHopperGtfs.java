@@ -1,11 +1,13 @@
-package export;
+package com.graphhopper.export;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.graphhopper.GraphHopperConfig;
+import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.DataReader;
 import com.graphhopper.reader.ReaderElement;
 import com.graphhopper.reader.ReaderWay;
-import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.reader.osm.OSMInput;
 import com.graphhopper.reader.osm.OSMReader;
 import com.graphhopper.routing.util.EncodingManager;
@@ -29,8 +31,8 @@ import java.util.Set;
  * data about a particular region's GH street network.
  */
 
-public class CustomGraphHopperOSM extends GraphHopperOSM {
-    private static final Logger LOG = LoggerFactory.getLogger(CustomGraphHopperOSM.class);
+public class CustomGraphHopperGtfs extends GraphHopperGtfs {
+    private static final Logger LOG = LoggerFactory.getLogger(CustomGraphHopperGtfs.class);
 
     // Tags considered by R5 when calculating the value of the `lanes` column
     private static final Set<String> LANE_TAGS = Sets.newHashSet("lanes", "lanes:forward", "lanes:backward");
@@ -40,13 +42,13 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
     private Map<Long, Map<String, String>> osmIdToLaneTags;
     // Map of GH edge ID to OSM way ID
     private Map<Integer, Long> ghIdToOsmId;
-    // Map of OSM way ID to String[] of access flags (from set {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}) for each
-    // edge direction, in order [forward, backward]
-    private Map<Long, String[]> osmIdToAccessFlags;
+    // Map of OSM way ID to access flags for each edge direction (each created from set
+    // {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}), stored in list in order [forward, backward]
+    private Map<Long, List<String>> osmIdToAccessFlags;
 
-    public CustomGraphHopperOSM(String osmPath) {
-        super();
-        this.osmPath = osmPath;
+    public CustomGraphHopperGtfs(GraphHopperConfig ghConfig) {
+        super(ghConfig);
+        this.osmPath = ghConfig.getString("datareader.file", "");
         this.osmIdToLaneTags = Maps.newHashMap();
         this.ghIdToOsmId = Maps.newHashMap();
         this.osmIdToAccessFlags = Maps.newHashMap();
@@ -54,6 +56,7 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
 
     @Override
     protected void registerCustomEncodedValues(EncodingManager.Builder emBuilder) {
+        super.registerCustomEncodedValues(emBuilder);
         StableIdEncodedValues.createAndAddEncodedValues(emBuilder);
     }
 
@@ -111,7 +114,7 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
                             // Compute accessibility flags for edge in both directions
                             Way way = new Way(wayTagsToConsider);
                             List<EnumSet<TraversalPermissionLabeler.EdgeFlag>> flags = flagLabeler.getPermissions(way);
-                            String[] flagStrings = {flags.get(0).toString(), flags.get(1).toString()};
+                            List<String> flagStrings = Lists.newArrayList(flags.get(0).toString(), flags.get(1).toString());
                             osmIdToAccessFlags.put(ghReaderWay.getId(), flagStrings);
                         }
                     }
@@ -131,17 +134,15 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
         return initDataReader(reader);
     }
 
-    public Map<String, String> getLanesTag(long osmId) {
-        return osmIdToLaneTags.getOrDefault(osmId, null);
+    public Map<Long, Map<String, String>> getOsmIdToLaneTags() {
+        return osmIdToLaneTags;
     }
 
-    public long getOsmIdForGhEdge(int ghEdgeId) {
-        return ghIdToOsmId.getOrDefault(ghEdgeId, -1L);
+    public Map<Integer, Long> getGhIdToOsmId() {
+        return ghIdToOsmId;
     }
 
-    // Sets of flags are returned for each edge direction, stored in a String[] ordered [forward, backward]
-    public String getFlagsForGhEdge(int ghEdgeId, boolean reverse) {
-        int flagIndex = reverse ? 1 : 0;
-        return osmIdToAccessFlags.get(getOsmIdForGhEdge(ghEdgeId))[flagIndex];
+    public Map<Long, List<String>> getOsmIdToAccessFlags() {
+        return osmIdToAccessFlags;
     }
 }
