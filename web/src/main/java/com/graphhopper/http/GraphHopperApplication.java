@@ -18,6 +18,7 @@
 package com.graphhopper.http;
 
 import com.graphhopper.http.cli.ExportCommand;
+import com.graphhopper.http.cli.GtfsLinkMapperCommand;
 import com.graphhopper.http.cli.ImportCommand;
 import com.graphhopper.http.resources.RootResource;
 import io.dropwizard.Application;
@@ -41,6 +42,7 @@ public final class GraphHopperApplication extends Application<GraphHopperServerC
         bootstrap.addBundle(new GraphHopperBundle());
         bootstrap.addBundle(new RealtimeBundle());
         bootstrap.addCommand(new ImportCommand());
+        bootstrap.addCommand(new GtfsLinkMapperCommand());
         bootstrap.addCommand(new ExportCommand());
 
         Map<String, String> resourceToURIMappings = new HashMap<>();

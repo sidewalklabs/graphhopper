@@ -41,7 +41,7 @@ import com.graphhopper.routing.ProfileResolver;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.index.LocationIndex;
-import com.graphhopper.swl.MatrixResourceFactory;
+import com.graphhopper.replica.MatrixResourceFactory;
 import com.graphhopper.util.TranslationMap;
 import com.graphhopper.util.details.PathDetailsBuilderFactory;
 import io.dropwizard.ConfiguredBundle;

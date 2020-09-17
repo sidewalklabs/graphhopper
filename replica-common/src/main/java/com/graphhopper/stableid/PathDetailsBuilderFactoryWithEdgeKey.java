@@ -1,4 +1,4 @@
-package com.graphhopper.swl;/*
+package com.graphhopper.stableid;/*
  *  Licensed to GraphHopper GmbH under one or more contributor
  *  license agreements. See the NOTICE file distributed with this work for
  *  additional information regarding copyright ownership.
@@ -19,6 +19,7 @@ package com.graphhopper.swl;/*
 import com.graphhopper.coll.MapEntry;
 import com.graphhopper.routing.ev.*;
 import com.graphhopper.routing.weighting.Weighting;
+import com.graphhopper.stableid.EdgeKeyDetails;
 import com.graphhopper.util.details.*;
 
 import java.util.ArrayList;

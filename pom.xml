@@ -14,6 +14,7 @@
     </properties>
 
     <modules>
+        <module>replica-common</module>
         <module>web-bundle</module>
         <module>web</module>
     </modules>

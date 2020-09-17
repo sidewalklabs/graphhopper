@@ -16,31 +16,12 @@
  *  limitations under the License.
  */
 
-package com.graphhopper.swl;
+package com.graphhopper.replica;
 
+import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.details.AbstractPathDetailsBuilder;
 
-public class EdgeKeyDetails extends AbstractPathDetailsBuilder {
-    private int edgeKey;
+public interface SpeedCalculator {
+    double getSpeed(EdgeIteratorState edgeState, boolean reverse, int durationSeconds, FlagEncoder encoder);
 
-    public EdgeKeyDetails() {
-        super("edge_key");
-        edgeKey = -1;
-    }
-
-    @Override
-    public boolean isEdgeDifferentToLastEdge(EdgeIteratorState edge) {
-        int newEdgeKey = EdgeKeys.getEdgeKey(edge);
-        if (newEdgeKey != edgeKey) {
-            edgeKey = newEdgeKey;
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public Object getCurrentValue() {
-        return this.edgeKey;
-    }
 }

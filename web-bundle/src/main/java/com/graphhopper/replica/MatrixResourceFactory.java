@@ -16,10 +16,9 @@
  *  limitations under the License.
  */
 
-package com.graphhopper.swl;
+package com.graphhopper.replica;
 
 import com.graphhopper.GraphHopperConfig;
-import com.graphhopper.http.GraphHopperBundleConfiguration;
 import com.graphhopper.matrix.http.MatrixResource;
 import com.graphhopper.matrix.model.MatrixQueue;
 import com.graphhopper.matrix.model.MatrixSerializer;

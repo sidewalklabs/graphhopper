@@ -1,4 +1,4 @@
-package com.graphhopper.swl;
+package com.graphhopper.export;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -9,6 +9,7 @@ import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.reader.osm.OSMInput;
 import com.graphhopper.reader.osm.OSMReader;
 import com.graphhopper.routing.util.EncodingManager;
+import com.graphhopper.stableid.StableIdEncodedValues;
 import com.graphhopper.storage.GraphHopperStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
