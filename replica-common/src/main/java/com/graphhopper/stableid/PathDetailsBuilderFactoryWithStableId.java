@@ -19,7 +19,6 @@ package com.graphhopper.stableid;/*
 import com.graphhopper.coll.MapEntry;
 import com.graphhopper.routing.ev.*;
 import com.graphhopper.routing.weighting.Weighting;
-import com.graphhopper.stableid.EdgeKeyDetails;
 import com.graphhopper.util.details.*;
 
 import java.util.ArrayList;
@@ -30,7 +29,7 @@ import java.util.Map;
 import static com.graphhopper.routing.util.EncodingManager.getKey;
 import static com.graphhopper.util.Parameters.Details.*;
 
-public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFactory {
+public class PathDetailsBuilderFactoryWithStableId extends PathDetailsBuilderFactory {
 
     @Override
     public List<PathDetailsBuilder> createPathDetailsBuilders(List<String> requestedPathDetails, EncodedValueLookup evl, Weighting weighting) {
@@ -71,7 +70,7 @@ public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFact
         }
 
         if (requestedPathDetails.contains("r5_edge_id")) {
-            builders.add(new StableEdgeIdPathDetailsBuilder(evl));
+            builders.add(new StableIdPathDetailsBuilder(evl));
         }
 
         for (Map.Entry entry : Arrays.asList(new MapEntry<>(RoadClass.KEY, RoadClass.class),
