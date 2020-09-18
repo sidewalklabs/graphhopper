@@ -4,23 +4,24 @@ import com.google.common.collect.Lists;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.http.GraphHopperServerConfiguration;
+import com.graphhopper.replica.OsmHelper;
 import com.graphhopper.routing.ev.DecimalEncodedValue;
 import com.graphhopper.routing.ev.EnumEncodedValue;
 import com.graphhopper.routing.ev.RoadClass;
 import com.graphhopper.routing.util.AllEdgesIterator;
 import com.graphhopper.routing.util.CarFlagEncoder;
-import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
 import com.graphhopper.routing.util.EncodingManager;
+import com.graphhopper.stableid.StableIdEncodedValues;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
-import com.graphhopper.export.CustomGraphHopperOSM;
-import com.graphhopper.stableid.StableIdEncodedValues;
 import com.graphhopper.util.DistanceCalcEarth;
 import com.graphhopper.util.FetchMode;
 import com.graphhopper.util.PointList;
 import io.dropwizard.cli.ConfiguredCommand;
 import io.dropwizard.setup.Bootstrap;
 import net.sourceforge.argparse4j.inf.Namespace;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,9 +44,8 @@ import java.util.Map;
  */
 
 public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfiguration> {
-    private static final Logger LOG = LoggerFactory.getLogger(ExportCommand.class);
+    private static final Logger logger = LoggerFactory.getLogger(ExportCommand.class);
 
-    private static final String FLAG_ENCODERS = "car,bike,foot";
     private static final List<String> HIGHWAY_FILTER_TAGS = Lists.newArrayList("bridleway", "steps");
     private static final String COLUMN_HEADERS = "\"stableEdgeId\",\"startVertex\",\"endVertex\"," +
             "\"startLat\",\"startLon\",\"endLat\",\"endLon\",\"geometry\",\"streetName\",\"distance\",\"osmid\"," +
@@ -67,25 +67,23 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                     configuredGraphHopper.getGraphHopperLocation());
         }
 
-        // Read and parse tag/ID info from OSM file specified in command line
-        EncodingManager encodingManager = EncodingManager.create(new DefaultFlagEncoderFactory(), FLAG_ENCODERS);
-        String osmWorkingDir = configuredGraphHopper.getGraphHopperLocation() + "/osm";
-        String osmFileLocation = configuredGraphHopper.getDataReaderFile();
-
-        CustomGraphHopperOSM osmTaggedGraphHopper = new CustomGraphHopperOSM(osmFileLocation);
-        osmTaggedGraphHopper.setGraphHopperLocation(osmWorkingDir);
-        osmTaggedGraphHopper.setEncodingManager(encodingManager);
-        osmTaggedGraphHopper.setInMemory();
-        osmTaggedGraphHopper.setDataReaderFile(osmFileLocation);
-        osmTaggedGraphHopper.importOrLoad();
-        osmTaggedGraphHopper.clean();
+        // Load OSM info needed for export from MapDB database file
+        DB db = DBMaker.newFileDB(new File("transit_data/osm_info.db")).make();
+        Map<Long, Map<String, String>> osmIdToLaneTags = db.getHashMap("osmIdToLaneTags");
+        Map<Integer, Long> ghIdToOsmId = db.getHashMap("ghIdToOsmId");
+        Map<Long, List<String>> osmIdToAccessFlags = db.getHashMap("osmIdToAccessFlags");
+        logger.info("Done loading OSM info needed for CSV export from MapDB file.");
 
         // Use loaded graph data to write street network out to CSV
-        writeStreetEdgesCsv(configuredGraphHopper, osmTaggedGraphHopper);
+        writeStreetEdgesCsv(configuredGraphHopper, osmIdToLaneTags, ghIdToOsmId, osmIdToAccessFlags);
+        db.close();
     }
 
     private static void writeStreetEdgesCsv(GraphHopper configuredGraphHopper,
-                                            CustomGraphHopperOSM osmTaggedGraphHopper) {
+                                            Map<Long, Map<String, String>> osmIdToLaneTags,
+                                            Map<Integer, Long> ghIdToOsmId,
+                                            Map<Long, List<String>> osmIdToAccessFlags) {
+
         // Grab edge/node iterators for graph loaded from pre-built GH files
         GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
         AllEdgesIterator edgeIterator = graphHopperStorage.getAllEdges();
@@ -101,7 +99,7 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
 
         File outputFile = new File(configuredGraphHopper.getGraphHopperLocation() + "/street_edges.csv");
 
-        LOG.info("Writing street edges...");
+        logger.info("Writing street edges...");
         OutputStream outputStream;
         try {
             outputStream = new BufferedOutputStream(new FileOutputStream(outputFile));
@@ -113,7 +111,10 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
 
         // For each bidirectional edge in pre-built graph, calculate value of each CSV column
         // and export new line for each edge direction
+        int totalEdgeCount = 0;
+        int skippedEdgeCount = 0;
         while (edgeIterator.next()) {
+            totalEdgeCount++;
             // Fetch starting and ending vertices
             int ghEdgeId = edgeIterator.getEdge();
             int startVertex = edgeIterator.getBaseNode();
@@ -127,9 +128,9 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             PointList wayGeometry = edgeIterator.fetchWayGeometry(FetchMode.ALL);
             String geometryString = wayGeometry.toLineString(false).toString();
 
-            //todo: which distance calc to use?
-            // 1) edgeIterator.getDistance();
-            // 2) DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon);
+            //todo : which distance calc to use?
+            // edgeIterator.getDistance();
+            // DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon);
             long distanceMeters = Math.round(DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon));
 
             // Parse OSM highway type and street name, and grab encoded stable IDs for both edge directions
@@ -144,16 +145,22 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             // Convert GH's distance in meters to millimeters to match R5's implementation
             long distanceMillimeters = distanceMeters * 1000;
 
-            // Fetch OSM ID and accessibility flags for each edge direction
+            // Fetch OSM ID, skipping edges from PT meta-graph that have no IDs set (getOsmIdForGhEdge returns -1)
+            long osmId = OsmHelper.getOsmIdForGhEdge(edgeIterator.getEdge(), ghIdToOsmId);
+            if (osmId == -1L) {
+                skippedEdgeCount++;
+                continue;
+            }
+
+            // Set accessibility flags for each edge direction
             // Returned flags are from the set {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}
-            long osmId = osmTaggedGraphHopper.getOsmIdForGhEdge(edgeIterator.getEdge());
-            String forwardFlags = osmTaggedGraphHopper.getFlagsForGhEdge(ghEdgeId, false);
-            String backwardFlags = osmTaggedGraphHopper.getFlagsForGhEdge(ghEdgeId, true);
+            String forwardFlags = OsmHelper.getFlagsForGhEdge(ghEdgeId, false, osmIdToAccessFlags, ghIdToOsmId);
+            String backwardFlags = OsmHelper.getFlagsForGhEdge(ghEdgeId, true, osmIdToAccessFlags, ghIdToOsmId);
 
             // Calculate number of lanes for edge, as done in R5, based on OSM tags + edge direction
-            int overallLanes = parseLanesTag(osmId, osmTaggedGraphHopper, "lanes");
-            int forwardLanes = parseLanesTag(osmId, osmTaggedGraphHopper, "lanes:forward");
-            int backwardLanes = parseLanesTag(osmId, osmTaggedGraphHopper, "lanes:backward");
+            int overallLanes = parseLanesTag(osmId, osmIdToLaneTags, "lanes");
+            int forwardLanes = parseLanesTag(osmId, osmIdToLaneTags, "lanes:forward");
+            int backwardLanes = parseLanesTag(osmId, osmIdToLaneTags, "lanes:backward");
 
             if (!backwardFlags.contains("ALLOWS_CAR")) {
                 backwardLanes = 0;
@@ -193,8 +200,11 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         }
 
         printStream.close();
-        LOG.info("Done writing street network to CSV");
-        assert(outputFile.exists());
+        logger.info("Done writing street network to CSV");
+        logger.info("A total of " + totalEdgeCount + " edges were considered; " + skippedEdgeCount + " edges were skipped");
+        if (!outputFile.exists()) {
+            logger.error("Output file can't be found! Export may not have completed successfully");
+        }
     }
 
     private static String toString(String stableEdgeId, int startVertex, int endVertex, double startLat,
@@ -207,15 +217,15 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
     }
 
     // Taken from R5's lane parsing logic. See EdgeServiceServer.java in R5 repo
-    private static int parseLanesTag(long osmId, CustomGraphHopperOSM graphHopper, String laneTag) {
+    private static int parseLanesTag(long osmId, Map<Long, Map<String, String>> osmIdToLaneTags, String laneTag) {
         int result = -1;
-        Map<String, String> laneTagsOnEdge = graphHopper.getLanesTag(osmId);
+        Map<String, String> laneTagsOnEdge = OsmHelper.getLanesTag(osmId, osmIdToLaneTags);
         if (laneTagsOnEdge != null) {
             if (laneTagsOnEdge.containsKey(laneTag)) {
                 try {
                     return parseLanesTag(laneTagsOnEdge.get(laneTag));
                 } catch (NumberFormatException ex) {
-                    LOG.warn("way {}: Unable to parse lanes value as number {}", osmId, laneTag);
+                    logger.warn("way {}: Unable to parse lanes value as number {}", osmId, laneTag);
                 }
             }
         }
