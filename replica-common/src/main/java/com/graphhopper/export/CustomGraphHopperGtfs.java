@@ -9,6 +9,7 @@ import com.graphhopper.reader.DataReader;
 import com.graphhopper.reader.ReaderElement;
 import com.graphhopper.reader.ReaderWay;
 import com.graphhopper.reader.osm.OSMInput;
+import com.graphhopper.reader.osm.OSMInputFile;
 import com.graphhopper.reader.osm.OSMReader;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.stableid.StableIdEncodedValues;
@@ -73,57 +74,6 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
     @Override
     protected DataReader createReader(GraphHopperStorage ghStorage) {
         OSMReader reader = new OSMReader(ghStorage) {
-            // Static code that runs during object creation; parses OSM tags needed for lane counts and access flags
-            {
-                LOG.info("Creating custom OSM reader; reading file and parsing lane tag info.");
-                int readCount = 0;
-                try (OSMInput input = this.openOsmInputFile(new File(osmPath))){
-                    TraversalPermissionLabeler flagLabeler = new USTraversalPermissionLabeler();
-                    ReaderElement next;
-                    while((next = input.getNext()) != null) {
-                        if (next.isType(ReaderElement.WAY)) {
-                            if (++readCount % 10000 == 0) {
-                                LOG.info("Parsing tag info from OSM ways. " + readCount + " read so far.");
-                            }
-                            final ReaderWay ghReaderWay = (ReaderWay) next;
-                            long osmId = ghReaderWay.getId();
-
-                            // Parse all tags needed for determining lane counts on edge
-                            for (String laneTag : LANE_TAGS) {
-                                if (ghReaderWay.hasTag(laneTag)) {
-                                    if (osmIdToLaneTags.containsKey(osmId)) {
-                                        Map<String, String> currentLaneTags = osmIdToLaneTags.get(osmId);
-                                        currentLaneTags.put(laneTag, ghReaderWay.getTag(laneTag));
-                                        osmIdToLaneTags.put(osmId, currentLaneTags);
-                                    } else {
-                                        Map<String, String> newLaneTags = Maps.newHashMap();
-                                        newLaneTags.put(laneTag, ghReaderWay.getTag(laneTag));
-                                        osmIdToLaneTags.put(osmId, newLaneTags);
-                                    }
-                                }
-                            }
-
-                            // Parse all tags that will be considered for determining accessibility flags for edge
-                            Map<String, String> wayTagsToConsider = Maps.newHashMap();
-                            for (String consideredTag : flagLabeler.getAllConsideredTags()) {
-                                if (ghReaderWay.hasTag(consideredTag)) {
-                                    wayTagsToConsider.put(consideredTag, ghReaderWay.getTag(consideredTag));
-                                }
-                            }
-
-                            // Compute accessibility flags for edge in both directions
-                            Way way = new Way(wayTagsToConsider);
-                            List<EnumSet<TraversalPermissionLabeler.EdgeFlag>> flags = flagLabeler.getPermissions(way);
-                            List<String> flagStrings = Lists.newArrayList(flags.get(0).toString(), flags.get(1).toString());
-                            osmIdToAccessFlags.put(ghReaderWay.getId(), flagStrings);
-                        }
-                    }
-                    LOG.info("Finished parsing lane tag info from OSM ways. " + readCount + " total ways were parsed.");
-                } catch (Exception e) {
-                    throw new RuntimeException("Can't open OSM file provided at " + osmPath + "!");
-                }
-            }
-
             // Hacky override used to populate GH ID -> OSM ID map; called during standard GH import process
             @Override
             protected void storeOsmWayID(int edgeId, long osmWayId) {
@@ -132,6 +82,56 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
             }
         };
         return initDataReader(reader);
+    }
+
+    public void collectOsmInfo() {
+        LOG.info("Creating custom OSM reader; reading file and parsing lane tag info.");
+        int readCount = 0;
+        try (OSMInput input = new OSMInputFile(new File(osmPath)).setWorkerThreads(2).open()) {
+            TraversalPermissionLabeler flagLabeler = new USTraversalPermissionLabeler();
+            ReaderElement next;
+            while((next = input.getNext()) != null) {
+                if (next.isType(ReaderElement.WAY)) {
+                    if (++readCount % 10000 == 0) {
+                        LOG.info("Parsing tag info from OSM ways. " + readCount + " read so far.");
+                    }
+                    final ReaderWay ghReaderWay = (ReaderWay) next;
+                    long osmId = ghReaderWay.getId();
+
+                    // Parse all tags needed for determining lane counts on edge
+                    for (String laneTag : LANE_TAGS) {
+                        if (ghReaderWay.hasTag(laneTag)) {
+                            if (osmIdToLaneTags.containsKey(osmId)) {
+                                Map<String, String> currentLaneTags = osmIdToLaneTags.get(osmId);
+                                currentLaneTags.put(laneTag, ghReaderWay.getTag(laneTag));
+                                osmIdToLaneTags.put(osmId, currentLaneTags);
+                            } else {
+                                Map<String, String> newLaneTags = Maps.newHashMap();
+                                newLaneTags.put(laneTag, ghReaderWay.getTag(laneTag));
+                                osmIdToLaneTags.put(osmId, newLaneTags);
+                            }
+                        }
+                    }
+
+                    // Parse all tags that will be considered for determining accessibility flags for edge
+                    Map<String, String> wayTagsToConsider = Maps.newHashMap();
+                    for (String consideredTag : flagLabeler.getAllConsideredTags()) {
+                        if (ghReaderWay.hasTag(consideredTag)) {
+                            wayTagsToConsider.put(consideredTag, ghReaderWay.getTag(consideredTag));
+                        }
+                    }
+
+                    // Compute accessibility flags for edge in both directions
+                    Way way = new Way(wayTagsToConsider);
+                    List<EnumSet<TraversalPermissionLabeler.EdgeFlag>> flags = flagLabeler.getPermissions(way);
+                    List<String> flagStrings = Lists.newArrayList(flags.get(0).toString(), flags.get(1).toString());
+                    osmIdToAccessFlags.put(ghReaderWay.getId(), flagStrings);
+                }
+            }
+            LOG.info("Finished parsing lane tag info from OSM ways. " + readCount + " total ways were parsed.");
+        } catch (Exception e) {
+            throw new RuntimeException("Can't open OSM file provided at " + osmPath + "!");
+        }
     }
 
     public Map<Long, Map<String, String>> getOsmIdToLaneTags() {

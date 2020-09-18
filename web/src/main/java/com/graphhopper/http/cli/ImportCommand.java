@@ -40,6 +40,7 @@ public class ImportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         GraphHopper gh = graphHopper.getGraphHopper();
         gh.importOrLoad();
         if (gh instanceof CustomGraphHopperGtfs) {
+            ((CustomGraphHopperGtfs) gh).collectOsmInfo();
             OsmHelper.writeOsmInfoToMapDb((CustomGraphHopperGtfs) gh);
         }
         StableEdgeIdManager stableEdgeIdManager = new StableEdgeIdManager(gh);
