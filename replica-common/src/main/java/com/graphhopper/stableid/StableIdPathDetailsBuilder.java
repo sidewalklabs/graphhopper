@@ -23,11 +23,11 @@ import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.details.AbstractPathDetailsBuilder;
 
-public class StableEdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
+public class StableIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
     private final StableIdEncodedValues originalDirectionFlagEncoder;
     private String edgeId;
 
-    public StableEdgeIdPathDetailsBuilder(EncodedValueLookup originalDirectionFlagEncoder) {
+    public StableIdPathDetailsBuilder(EncodedValueLookup originalDirectionFlagEncoder) {
         super("r5_edge_id");
         this.originalDirectionFlagEncoder = StableIdEncodedValues.fromEncodingManager((EncodingManager) originalDirectionFlagEncoder);
         edgeId = "";
@@ -35,7 +35,7 @@ public class StableEdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
 
     @Override
     public boolean isEdgeDifferentToLastEdge(EdgeIteratorState edge) {
-        String newEdgeId = getR5EdgeId(edge);
+        String newEdgeId = getStableId(edge);
         if (newEdgeId.equals(edgeId)) {
             return false;
         }
@@ -43,7 +43,7 @@ public class StableEdgeIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
         return true;
     }
 
-    private String getR5EdgeId(EdgeIteratorState edge) {
+    private String getStableId(EdgeIteratorState edge) {
         boolean reverse = edge.get(EdgeIteratorState.REVERSE_STATE);
         return originalDirectionFlagEncoder.getStableId(reverse, edge);
     }

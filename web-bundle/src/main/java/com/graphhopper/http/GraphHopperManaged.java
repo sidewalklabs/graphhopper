@@ -36,7 +36,7 @@ import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.custom.CustomProfile;
 import com.graphhopper.routing.weighting.custom.CustomWeighting;
 import com.graphhopper.stableid.EncodedValueFactoryWithStableId;
-import com.graphhopper.stableid.PathDetailsBuilderFactoryWithEdgeKey;
+import com.graphhopper.stableid.PathDetailsBuilderFactoryWithStableId;
 import com.graphhopper.stableid.StableIdEncodedValues;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
@@ -144,7 +144,7 @@ public class GraphHopperManaged implements Managed {
         });
         graphHopper.setEncodedValueFactory(new EncodedValueFactoryWithStableId());
         graphHopper.init(configuration);
-        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey());
+        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithStableId());
     }
 
     @Override

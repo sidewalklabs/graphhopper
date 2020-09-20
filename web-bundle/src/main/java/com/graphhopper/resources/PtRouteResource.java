@@ -1,8 +1,3 @@
-//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by FernFlower decompiler)
-//
-
 package com.graphhopper.resources;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -142,7 +137,7 @@ public class PtRouteResource {
 
         public CustomWalkLeg(Trip.WalkLeg leg, List<String> stableEdgeIds, String travelSegmentType) {
             super(leg.departureLocation, leg.getDepartureTime(), leg.geometry,
-            leg.distance, leg.instructions, leg.details, leg.getArrivalTime());
+                    leg.distance, leg.instructions, leg.details, leg.getArrivalTime());
             this.stableEdgeIds = stableEdgeIds;
             this.details.clear();
             this.type = "foot";

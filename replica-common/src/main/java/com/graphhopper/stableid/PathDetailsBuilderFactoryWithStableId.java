@@ -29,7 +29,7 @@ import java.util.Map;
 import static com.graphhopper.routing.util.EncodingManager.getKey;
 import static com.graphhopper.util.Parameters.Details.*;
 
-public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFactory {
+public class PathDetailsBuilderFactoryWithStableId extends PathDetailsBuilderFactory {
 
     @Override
     public List<PathDetailsBuilder> createPathDetailsBuilders(List<String> requestedPathDetails, EncodedValueLookup evl, Weighting weighting) {
@@ -70,7 +70,7 @@ public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFact
         }
 
         if (requestedPathDetails.contains("r5_edge_id")) {
-            builders.add(new StableEdgeIdPathDetailsBuilder(evl));
+            builders.add(new StableIdPathDetailsBuilder(evl));
         }
 
         if (requestedPathDetails.contains("adj_node")) {

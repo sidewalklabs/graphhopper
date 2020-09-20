@@ -19,6 +19,7 @@ package com.graphhopper.http;
 
 import com.graphhopper.http.cli.GtfsLinkMapperCommand;
 import com.graphhopper.http.cli.ExportCommand;
+import com.graphhopper.http.cli.GtfsLinkMapperCommand;
 import com.graphhopper.http.cli.ImportCommand;
 import com.graphhopper.http.resources.RootResource;
 import io.dropwizard.Application;
