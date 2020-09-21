@@ -114,7 +114,6 @@ public class GtfsLinkMapper {
             int odStopCount = 0;
             int nonUniqueODPairs = 0;
             int routeNotFoundCount = 0;
-            int singleEdgeReturnedCount = 0;
             // For each trip, route with auto between all O/D stop pairs,
             // and store returned stable edge IDs for each route in mapdb file
             for (String tripId : tripIdToStopsInTrip.keySet()) {
@@ -150,12 +149,12 @@ public class GtfsLinkMapper {
                     GHResponse response = graphHopper.route(odRequest);
 
                     // If stop->stop path couldn't be found by GH, don't store anything
-                    if (response.getAll().size() != 1) {
+                    if (response.getAll().size() == 0 || response.getAll().get(0).hasErrors()) {
                         routeNotFoundCount++;
                         continue;
                     }
 
-                    // Parse stable IDs and adjacent nodes for each edge from response
+                    // Parse stable IDs for each edge from response
                     List<PathDetail> responsePathEdgeIdDetails = response.getAll().get(0).getPathDetails().get("r5_edge_id");
                     List<String> pathEdgeIds = responsePathEdgeIdDetails.stream()
                             .map(pathDetail -> (String) pathDetail.getValue())
@@ -172,7 +171,6 @@ public class GtfsLinkMapper {
                     " total trips processed; " + nonUniqueODPairs + "/" + odStopCount
                     + " O/D stop pairs were non-unique; routes for " + routeNotFoundCount + "/" + odStopCount
                     + " stop->stop pairs were not found");
-            logger.info("number of returned paths that only had 1 virtual edge: " + singleEdgeReturnedCount);
         }
         db.commit();
         db.close();
