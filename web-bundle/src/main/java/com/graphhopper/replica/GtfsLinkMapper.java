@@ -44,7 +44,7 @@ public class GtfsLinkMapper {
 
         // Define GTFS route types we care about linking to street edges: tram, bus, and cable car
         // Taken from Google's GTFS spec: https://developers.google.com/transit/gtfs/reference#routestxt
-        final Set<Integer> streetRouteTypes = Sets.newHashSet(0, 3, 5);
+        final Set<Integer> STREET_BASED_ROUTE_TYPES = Sets.newHashSet(0, 3, 5);
 
         // Initialize mapdb database to store link mappings and route info
         logger.info("Initializing new mapdb file to store link mappings");
@@ -70,15 +70,8 @@ public class GtfsLinkMapper {
             GTFSFeed feed = gtfsFeedMap.get(feedId);
             logger.info("Processing GTFS feed " + feedId + " " + feed.feedId);
 
-            // Only look at routes for transit types that travel on the street network
-            Set<String> validRouteIdsForFeed = feed.routes.values().stream()
-                    .filter(route -> streetRouteTypes.contains(route.route_type))
-                    .map(route -> route.route_id)
-                    .collect(Collectors.toSet());
-
-            // Store route information in db for every valid route
+            // Store route information in db for _every_ route type
             Map<String, String> routeInfoMap = feed.routes.keySet().stream()
-                    .filter(routeId -> validRouteIdsForFeed.contains(routeId))
                     .map(routeId -> feed.routes.get(routeId))
                     .collect(Collectors.toMap(
                             route -> route.route_id,
@@ -86,29 +79,35 @@ public class GtfsLinkMapper {
                     ));
             gtfsRouteInfo.putAll(routeInfoMap);
 
+            // For mapping purposes, only look at routes for transit that use the street network
+            Set<String> streetBasedRouteIdsForFeed = feed.routes.values().stream()
+                    .filter(route -> STREET_BASED_ROUTE_TYPES.contains(route.route_type))
+                    .map(route -> route.route_id)
+                    .collect(Collectors.toSet());
+
             // Find all GTFS trips for each route
-            Set<String> tripsForValidRoutes = feed.trips.values().stream()
-                    .filter(trip -> validRouteIdsForFeed.contains(trip.route_id))
+            Set<String> tripsForStreetBasedRoutes = feed.trips.values().stream()
+                    .filter(trip -> streetBasedRouteIdsForFeed.contains(trip.route_id))
                     .map(trip -> trip.trip_id)
                     .collect(Collectors.toSet());
 
             // Find all stops for each trip
             SetMultimap<String, StopTime> tripIdToStopsInTrip = HashMultimap.create();
             feed.stop_times.values().stream()
-                    .filter(stopTime -> tripsForValidRoutes.contains(stopTime.trip_id))
+                    .filter(stopTime -> tripsForStreetBasedRoutes.contains(stopTime.trip_id))
                     .forEach(stopTime -> tripIdToStopsInTrip.put(stopTime.trip_id, stopTime));
 
-            Set<String> stopIdsForAllTrips = tripIdToStopsInTrip.values().stream()
+            Set<String> stopIdsForStreetBasedTrips = tripIdToStopsInTrip.values().stream()
                     .map(stopTime -> stopTime.stop_id)
                     .collect(Collectors.toSet());
 
-            Map<String, Stop> stopsForAllTrips = feed.stops.values().stream()
-                    .filter(stop -> stopIdsForAllTrips.contains(stop.stop_id))
+            Map<String, Stop> stopsForStreetBasedTrips = feed.stops.values().stream()
+                    .filter(stop -> stopIdsForStreetBasedTrips.contains(stop.stop_id))
                     .collect(Collectors.toMap(stop -> stop.stop_id, stop -> stop));
 
-            logger.info("There are " + validRouteIdsForFeed.size() + " GTFS routes containing "
-                    + tripsForValidRoutes.size() + " total trips to process for this feed. Routes to be computed for "
-                    + stopIdsForAllTrips.size() + "/" + feed.stops.values().size() + " stop->stop pairs");
+            logger.info("There are " + streetBasedRouteIdsForFeed.size() + " GTFS routes containing "
+                    + tripsForStreetBasedRoutes.size() + " total trips to process for this feed. Routes to be computed for "
+                    + stopIdsForStreetBasedTrips.size() + "/" + feed.stops.values().size() + " stop->stop pairs");
 
             int processedTripCount = 0;
             int odStopCount = 0;
@@ -124,7 +123,7 @@ public class GtfsLinkMapper {
                 }
 
                 // Fetch all sequentially-ordered stop->stop pairs for this trip
-                List<Pair<Stop, Stop>> odStopsForTrip = getODStopsForTrip(tripIdToStopsInTrip.get(tripId), stopsForAllTrips);
+                List<Pair<Stop, Stop>> odStopsForTrip = getODStopsForTrip(tripIdToStopsInTrip.get(tripId), stopsForStreetBasedTrips);
 
                 // Route a car between each stop->stop pair, and store the returned stable edge IDs in mapdb map
                 for (Pair<Stop, Stop> odStopPair : odStopsForTrip) {
