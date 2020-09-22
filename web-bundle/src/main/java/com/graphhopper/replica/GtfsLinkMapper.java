@@ -44,7 +44,7 @@ public class GtfsLinkMapper {
 
         // Define GTFS route types we care about linking to street edges: tram, bus, and cable car
         // Taken from Google's GTFS spec: https://developers.google.com/transit/gtfs/reference#routestxt
-        final Set<Integer> streetRouteTypes = Sets.newHashSet(0, 3, 5);
+        final Set<Integer> STREET_BASED_ROUTE_TYPES = Sets.newHashSet(0, 3, 5);
 
         // Initialize mapdb database to store link mappings and route info
         logger.info("Initializing new mapdb file to store link mappings");
@@ -81,7 +81,7 @@ public class GtfsLinkMapper {
 
             // For mapping purposes, only look at routes for transit that use the street network
             Set<String> streetBasedRouteIdsForFeed = feed.routes.values().stream()
-                    .filter(route -> streetRouteTypes.contains(route.route_type))
+                    .filter(route -> STREET_BASED_ROUTE_TYPES.contains(route.route_type))
                     .map(route -> route.route_id)
                     .collect(Collectors.toSet());
 
