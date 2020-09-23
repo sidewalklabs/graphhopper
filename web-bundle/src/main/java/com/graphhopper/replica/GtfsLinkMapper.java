@@ -144,7 +144,7 @@ public class GtfsLinkMapper {
                             odStopPair.getRight().stop_lat, odStopPair.getRight().stop_lon
                     );
                     odRequest.setProfile("car");
-                    odRequest.setPathDetails(Lists.newArrayList("r5_edge_id"));
+                    odRequest.setPathDetails(Lists.newArrayList("stable_edge_id"));
                     GHResponse response = graphHopper.route(odRequest);
 
                     // If stop->stop path couldn't be found by GH, don't store anything
@@ -154,7 +154,8 @@ public class GtfsLinkMapper {
                     }
 
                     // Parse stable IDs for each edge from response
-                    List<PathDetail> responsePathEdgeIdDetails = response.getAll().get(0).getPathDetails().get("r5_edge_id");
+                    List<PathDetail> responsePathEdgeIdDetails = response.getAll().get(0)
+                            .getPathDetails().get("stable_edge_id");
                     List<String> pathEdgeIds = responsePathEdgeIdDetails.stream()
                             .map(pathDetail -> (String) pathDetail.getValue())
                             .collect(Collectors.toList());

@@ -116,6 +116,10 @@ public class RouteResource {
             removeLegacyParameters(request.getHints());
         }
         errorIfLegacyParameters(request.getHints());
+
+        // Always return stable edge IDs, even if they aren't requested
+        if (!pathDetails.contains("stable_edge_id")) pathDetails.add("stable_edge_id");
+
         request.setPoints(points).
                 setProfile(profileName).
                 setAlgorithm(algoStr).
