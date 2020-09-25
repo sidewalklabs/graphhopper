@@ -4,7 +4,6 @@ import com.conveyal.gtfs.GTFSFeed;
 import com.conveyal.gtfs.model.Route;
 import com.conveyal.gtfs.model.Stop;
 import com.conveyal.gtfs.model.StopTime;
-import com.conveyal.gtfs.model.Trip;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
@@ -18,10 +17,7 @@ import com.graphhopper.matching.MapMatching;
 import com.graphhopper.matching.MatchResult;
 import com.graphhopper.matching.Observation;
 import com.graphhopper.routing.ev.BooleanEncodedValue;
-import com.graphhopper.routing.ev.SimpleBooleanEncodedValue;
 import com.graphhopper.routing.util.AllEdgesIterator;
-import com.graphhopper.routing.util.CarFlagEncoder;
-import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.details.PathDetail;
 import com.graphhopper.util.shapes.GHPoint;
@@ -54,11 +50,13 @@ public class GtfsLinkMapper {
         Map<String, GTFSFeed> gtfsFeedMap = gtfsStorage.getGtfsFeeds();
         final Set<Integer> STREET_BASED_ROUTE_TYPES = Sets.newHashSet(0, 3, 5);
 
+        // Set up map matcher and Set to hold matched edge IDs
         Set<Integer> matchedEdgeSet = Sets.newHashSet();
         PMap hints = new PMap();
         hints.putObject("profile", "car");
         MapMatching matching = new MapMatching(graphHopper, hints);
 
+        // For each feed, perform map matching against geo of each trip, and store all matched edges
         for (String feedId : gtfsFeedMap.keySet()) {
             GTFSFeed feed = gtfsFeedMap.get(feedId);
 
@@ -77,7 +75,7 @@ public class GtfsLinkMapper {
             for (String tripid : tripsForStreetBasedRoutes) {
                 LineString tripGeometry = feed.getTripGeometry(tripid);
 
-                // do map matching, store results in set<edge IDs>
+                // do map matching, store results in Set
                 List<Observation> pointsToMatch = Arrays.stream(tripGeometry.getCoordinates())
                         .map(coordinate -> new GHPoint(coordinate.x, coordinate.y))
                         .map(ghPoint -> new Observation(ghPoint))
@@ -89,8 +87,7 @@ public class GtfsLinkMapper {
                         .forEach(edgeId -> matchedEdgeSet.add(edgeId));
             }
 
-            //make new flag encoder; loop through set<edge IDs> and mark each of them as accessible (all others not)
-            //route using this flag encoder profile
+            // Set all edges that were not matched against GTFS shapes as inaccessible, so they can't be routed on
             BooleanEncodedValue carAccessEncoder = graphHopper.getEncodingManager().getEncoder("car").getAccessEnc();
             AllEdgesIterator edgesIterator = graphHopper.getGraphHopperStorage().getAllEdges();
             while (edgesIterator.next()) {
@@ -100,9 +97,7 @@ public class GtfsLinkMapper {
             }
         }
 
-
-        // Do standard stop->stop routing on new "subgraph"
-
+        // ----Now, perform standard link mapping procedure, routing only along still-accessible edges----
         // Initialize mapdb database to store link mappings and route info
         logger.info("Initializing new mapdb file to store link mappings");
         DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
@@ -219,14 +214,8 @@ public class GtfsLinkMapper {
         // For testing
         logger.info("All stable edge IDs: ");
         logger.info(allStableIds.stream().collect(Collectors.joining(",")));
-
-
     }
-
-
-
-
-
+    
     public void setGtfsLinkMappings() {
         logger.info("Starting GTFS link mapping process");
         GtfsStorage gtfsStorage = ((GraphHopperGtfs) graphHopper).getGtfsStorage();
