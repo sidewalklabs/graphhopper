@@ -116,7 +116,6 @@ public class RouteResource {
             removeLegacyParameters(request.getHints());
         }
         errorIfLegacyParameters(request.getHints());
-
         request.setPoints(points).
                 setProfile(profileName).
                 setAlgorithm(algoStr).
