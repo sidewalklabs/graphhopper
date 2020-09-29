@@ -116,12 +116,14 @@ public class GtfsLinkMapper {
             // For each trip, route with auto between all O/D stop pairs,
             // and store returned stable edge IDs for each route in mapdb file
             for (String tripId : tripIdToStopsInTrip.keySet()) {
+                /*
                 if (processedTripCount % (tripIdToStopsInTrip.keySet().size() / 10) == 0) {
                     logger.info(processedTripCount + "/" + tripIdToStopsInTrip.keySet().size() + " trips for feed "
                             + feedId + " processed so far; " + nonUniqueODPairs + "/" + odStopCount
                             + " O/D stop pairs were non-unique, and were not routed between.");
                 }
-
+                */
+                
                 // Fetch all sequentially-ordered stop->stop pairs for this trip
                 List<Pair<Stop, Stop>> odStopsForTrip = getODStopsForTrip(tripIdToStopsInTrip.get(tripId), stopsForStreetBasedTrips);
 
