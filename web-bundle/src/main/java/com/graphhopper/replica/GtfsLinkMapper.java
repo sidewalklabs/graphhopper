@@ -144,7 +144,6 @@ public class GtfsLinkMapper {
                             odStopPair.getRight().stop_lat, odStopPair.getRight().stop_lon
                     );
                     odRequest.setProfile("car");
-                    odRequest.setPathDetails(Lists.newArrayList("stable_edge_ids"));
                     GHResponse response = graphHopper.route(odRequest);
 
                     // If stop->stop path couldn't be found by GH, don't store anything
