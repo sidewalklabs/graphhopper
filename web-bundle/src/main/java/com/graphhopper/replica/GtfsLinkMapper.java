@@ -37,6 +37,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.graphhopper.util.Parameters.Routing.MAX_VISITED_NODES;
+
 public class GtfsLinkMapper {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final GraphHopper graphHopper;
@@ -54,6 +56,7 @@ public class GtfsLinkMapper {
         Set<Integer> matchedEdgeSet = Sets.newHashSet();
         PMap hints = new PMap();
         hints.putObject("profile", "car");
+        hints.putObject(MAX_VISITED_NODES, 10000);
         MapMatching matching = new MapMatching(graphHopper, hints);
 
         // For each feed, perform map matching against geo of each trip, and store all matched edges
@@ -77,11 +80,11 @@ public class GtfsLinkMapper {
 
                 // do map matching, store results in Set
                 List<Observation> pointsToMatch = Arrays.stream(tripGeometry.getCoordinates())
-                        .map(coordinate -> new GHPoint(coordinate.x, coordinate.y))
+                        .map(coordinate -> new GHPoint(coordinate.y, coordinate.x))
                         .map(ghPoint -> new Observation(ghPoint))
                         .collect(Collectors.toList());
 
-                MatchResult result = matching.doWork(pointsToMatch);
+                MatchResult result = matching.match(pointsToMatch);
                 result.getMergedPath().calcEdges().stream()
                         .map(edge -> edge.getEdge())
                         .forEach(edgeId -> matchedEdgeSet.add(edgeId));
