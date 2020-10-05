@@ -69,8 +69,9 @@ public class PathDetailsBuilderFactoryWithStableId extends PathDetailsBuilderFac
             builders.add(new EdgeKeyDetails());
         }
 
-        // Always add stable ID details builder, so stable IDs are always returned
-        builders.add(new StableIdPathDetailsBuilder(evl));
+        if (requestedPathDetails.contains("stable_edge_ids")) {
+            builders.add(new StableIdPathDetailsBuilder(evl));
+        }
 
         for (Map.Entry entry : Arrays.asList(new MapEntry<>(RoadClass.KEY, RoadClass.class),
                 new MapEntry<>(RoadEnvironment.KEY, RoadEnvironment.class), new MapEntry<>(Surface.KEY, Surface.class),

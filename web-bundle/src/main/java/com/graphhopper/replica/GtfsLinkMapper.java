@@ -13,6 +13,7 @@ import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.gtfs.GtfsStorage;
+import com.graphhopper.stableid.PathDetailsBuilderFactoryWithStableId;
 import com.graphhopper.util.details.PathDetail;
 import org.apache.commons.lang3.tuple.Pair;
 import org.mapdb.DB;
@@ -145,6 +146,7 @@ public class GtfsLinkMapper {
                             odStopPair.getRight().stop_lat, odStopPair.getRight().stop_lon
                     );
                     odRequest.setProfile("car");
+                    odRequest.setPathDetails(Lists.newArrayList("stable_edge_ids"));
                     GHResponse response = graphHopper.route(odRequest);
 
                     // If stop->stop path couldn't be found by GH, don't store anything

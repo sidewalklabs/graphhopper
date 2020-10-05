@@ -68,6 +68,10 @@ public class PtRouteResource {
         List<GHLocation> points = requestPoints.stream().map(AbstractParam::get).collect(Collectors.toList());
         Instant departureTime = departureTimeParam.get();
         Request request = new Request(points, departureTime);
+
+        // Always return stable edge IDs, even if they aren't requested
+        if (!pathDetails.contains("stable_edge_ids")) pathDetails.add("stable_edge_ids");
+
         request.setArriveBy(arriveBy);
         Optional.ofNullable(profileQuery).ifPresent(request::setProfileQuery);
         Optional.ofNullable(profileDuration.get()).ifPresent(request::setMaxProfileDuration);
