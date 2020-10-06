@@ -34,12 +34,17 @@ import java.util.concurrent.TimeUnit;
 public class RouterServer {
 
     private Server server;
+    private String configPath;
     private GraphHopperManaged graphHopperManaged;
+
+    public RouterServer(String configPath) {
+        this.configPath = configPath;
+    }
 
     private void start() throws IOException {
         ObjectMapper yaml = Jackson.initObjectMapper(new ObjectMapper(new YAMLFactory()));
         yaml.registerModule(new GraphHopperConfigModule());
-        JsonNode yamlNode = yaml.readTree(new File("config.yml"));
+        JsonNode yamlNode = yaml.readTree(new File(configPath));
         GraphHopperConfig graphHopperConfiguration = yaml.convertValue(yamlNode.get("graphhopper"), GraphHopperConfig.class);
         ObjectMapper json = Jackson.newObjectMapper();
         graphHopperManaged = new GraphHopperManaged(graphHopperConfiguration, json);
@@ -80,7 +85,10 @@ public class RouterServer {
      * Main launches the server from the command line.
      */
     public static void main(String[] args) throws IOException, InterruptedException {
-        final RouterServer server = new RouterServer();
+        if (args.length != 1) {
+            throw new RuntimeException("Must include path to GH config in order to start server!");
+        }
+        final RouterServer server = new RouterServer(args[0]);
         server.start();
         server.blockUntilShutdown();
     }

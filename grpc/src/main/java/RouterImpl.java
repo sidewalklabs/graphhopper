@@ -17,7 +17,6 @@
  */
 
 import com.google.common.collect.Lists;
-import com.google.protobuf.Timestamp;
 import com.graphhopper.*;
 import com.graphhopper.util.shapes.GHPoint;
 import io.grpc.stub.StreamObserver;
@@ -26,7 +25,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class RouterImpl extends RouterGrpc.RouterImplBase {
-
     private final GraphHopper graphHopper;
 
     public RouterImpl(GraphHopper graphHopper) {
@@ -38,8 +36,11 @@ public class RouterImpl extends RouterGrpc.RouterImplBase {
         GHRequest ghRequest = new GHRequest(
                 request.getPointsList().stream().map(p -> new GHPoint(p.getLat(), p.getLon())).collect(Collectors.toList())
         );
+        // Always return stable edge IDs, even if they aren't requested
+        ghRequest.setPathDetails(Lists.newArrayList("stable_edge_ids"));
         ghRequest.setProfile(request.getProfile());
         GHResponse ghResponse = graphHopper.route(ghRequest);
+
         Route.RouteReply.Builder replyBuilder = Route.RouteReply.newBuilder();
         for (ResponsePath responsePath : ghResponse.getAll()) {
             List<Route.Leg> legs = Lists.newArrayList();
