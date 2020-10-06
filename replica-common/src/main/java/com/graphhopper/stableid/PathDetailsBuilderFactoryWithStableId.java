@@ -69,7 +69,7 @@ public class PathDetailsBuilderFactoryWithStableId extends PathDetailsBuilderFac
             builders.add(new EdgeKeyDetails());
         }
 
-        if (requestedPathDetails.contains("r5_edge_id")) {
+        if (requestedPathDetails.contains("stable_edge_ids")) {
             builders.add(new StableIdPathDetailsBuilder(evl));
         }
 
