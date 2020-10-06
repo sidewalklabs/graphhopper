@@ -3,9 +3,7 @@ package com.graphhopper.resources;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.graphhopper.GHResponse;
-import com.graphhopper.ResponsePath;
-import com.graphhopper.Trip;
+import com.graphhopper.*;
 import com.graphhopper.gtfs.GHLocation;
 import com.graphhopper.gtfs.PtRouter;
 import com.graphhopper.gtfs.Request;
@@ -35,6 +33,7 @@ import static java.util.stream.Collectors.toList;
 @Path("route-pt")
 public class PtRouteResource {
     private static final Logger logger = LoggerFactory.getLogger(PtRouteResource.class);
+    private final GraphHopperAPI graphHopper;
     private final PtRouter ptRouter;
     private static Map<String, String> gtfsLinkMappings;
     private static Map<String, String> gtfsRouteInfo;
@@ -48,7 +47,8 @@ public class PtRouteResource {
     }
 
     @Inject
-    public PtRouteResource(PtRouter ptRouter) {
+    public PtRouteResource(GraphHopperAPI graphHopper, PtRouter ptRouter) {
+        this.graphHopper = graphHopper;
         this.ptRouter = ptRouter;
     }
 
@@ -86,38 +86,53 @@ public class PtRouteResource {
                 continue;
             }
 
-            // Add stable edge IDs to PT legs
-            List<Trip.Leg> ptLegs = path.getLegs().stream()
-                    .filter(leg -> leg.type.equals("pt"))
-                    .map(leg -> getCustomPtLeg((Trip.PtLeg)leg))
-                    .collect(toList());
-
-            // Add stable edge IDs to walk legs
-            List<Trip.Leg> walkLegs = path.getLegs().stream()
-                    .filter(leg -> leg.type.equals("walk"))
-                    .collect(toList());
-
-            Trip.WalkLeg firstLeg = (Trip.WalkLeg) walkLegs.get(0);
-            Trip.WalkLeg lastLeg = (Trip.WalkLeg) walkLegs.get(1);
-
-            List<String> lastLegStableIds = lastLeg.details.get("r5_edge_id").stream()
-                    .map(idPathDetail -> (String) idPathDetail.getValue())
-                    .filter(id -> id.length() == 20)
-                    .collect(toList());
-
-            // The first leg contains stable IDs for both walking legs for some reason,
-            // so we remove the IDs from the last leg
-            List<String> firstLegStableIds = firstLeg.details.get("r5_edge_id").stream()
-                    .map(idPathDetail -> (String) idPathDetail.getValue())
-                    .filter(id -> id.length() == 20)
-                    .collect(toList());
-            firstLegStableIds.removeAll(lastLegStableIds);
+            ArrayList<Trip.Leg> legs = new ArrayList<>(path.getLegs());
 
             // Replace the path's legs with newly-constructed legs containing stable edge IDs
             path.getLegs().clear();
-            path.getLegs().add(new CustomWalkLeg(firstLeg, firstLegStableIds, "ACCESS"));
-            path.getLegs().addAll(ptLegs);
-            path.getLegs().add(new CustomWalkLeg(lastLeg, lastLegStableIds, "EGRESS"));
+
+            for (int i = 0; i < legs.size(); i++) {
+                Trip.Leg leg = legs.get(i);
+                if (leg instanceof Trip.WalkLeg) {
+                    String travelSegmentType;
+                    if (i==0)
+                        travelSegmentType = "ACCESS";
+                    else if (i == legs.size()-1)
+                        travelSegmentType = "EGRESS";
+                    else
+                        travelSegmentType = "TRANSFER"; // walk leg in middle of trip, not currently used by gh, reserved for future
+                    path.getLegs().add(new CustomWalkLeg(((Trip.WalkLeg) leg), stableIds((Trip.WalkLeg) leg), travelSegmentType));
+                } else if (leg instanceof Trip.PtLeg) {
+                    Trip.PtLeg thisLeg = (Trip.PtLeg) leg;
+                    path.getLegs().add(getCustomPtLeg(thisLeg));
+                    if (i < legs.size() - 1 && legs.get(i+1) instanceof Trip.PtLeg) {
+                        Trip.PtLeg nextLeg = (Trip.PtLeg) legs.get(i + 1);
+                        Trip.Stop lastStopOfThisLeg = thisLeg.stops.get(thisLeg.stops.size() - 1);
+                        Trip.Stop firstStopOfNextLeg = nextLeg.stops.get(0);
+                        if (!lastStopOfThisLeg.stop_id.equals(firstStopOfNextLeg.stop_id)) {
+                            GHRequest r = new GHRequest(
+                                    lastStopOfThisLeg.geometry.getY(), lastStopOfThisLeg.geometry.getX(),
+                                    firstStopOfNextLeg.geometry.getY(), firstStopOfNextLeg.geometry.getX());
+                            r.setProfile("foot");
+                            r.setPathDetails(Arrays.asList("r5_edge_id"));
+                            GHResponse transfer = graphHopper.route(r);
+                            if (!transfer.hasErrors()) {
+                                ResponsePath transferPath = transfer.getBest();
+                                Trip.WalkLeg transferLeg = new Trip.WalkLeg(
+                                        lastStopOfThisLeg.stop_name,
+                                        thisLeg.getArrivalTime(),
+                                        transferPath.getPoints().getCachedLineString(false),
+                                        transferPath.getDistance(),
+                                        transferPath.getInstructions(),
+                                        transferPath.getPathDetails(),
+                                        Date.from(thisLeg.getArrivalTime().toInstant().plusMillis(transferPath.getTime()))
+                                );
+                                path.getLegs().add(new CustomWalkLeg(transferLeg, stableIds(transferLeg), "TRANSFER"));
+                            }
+                        }
+                    }
+                }
+            }
             path.getPathDetails().clear();
             pathsWithStableIds.add(path);
         }
@@ -128,6 +143,13 @@ public class PtRouteResource {
         pathsWithStableIds.forEach(path -> routeWithStableIds.add(path));
 
         return WebHelper.jsonObject(routeWithStableIds, true, true, false, false, stopWatch.stop().getMillis());
+    }
+
+    private List<String> stableIds(Trip.WalkLeg firstLeg) {
+        return firstLeg.details.get("r5_edge_id").stream()
+                .map(idPathDetail -> (String) idPathDetail.getValue())
+                .filter(id -> id.length() == 20)
+                .collect(toList());
     }
 
     public static class CustomWalkLeg extends Trip.WalkLeg {
