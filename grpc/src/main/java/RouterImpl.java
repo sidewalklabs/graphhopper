@@ -47,5 +47,4 @@ public class RouterImpl extends RouterGrpc.RouterImplBase {
         responseObserver.onNext(replyBuilder.build());
         responseObserver.onCompleted();
     }
-
 }
