@@ -1,4 +1,4 @@
-package com.graphhopper.swl;/*
+package com.graphhopper.stableid;/*
  *  Licensed to GraphHopper GmbH under one or more contributor
  *  license agreements. See the NOTICE file distributed with this work for
  *  additional information regarding copyright ownership.
@@ -29,7 +29,7 @@ import java.util.Map;
 import static com.graphhopper.routing.util.EncodingManager.getKey;
 import static com.graphhopper.util.Parameters.Details.*;
 
-public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFactory {
+public class PathDetailsBuilderFactoryWithStableId extends PathDetailsBuilderFactory {
 
     @Override
     public List<PathDetailsBuilder> createPathDetailsBuilders(List<String> requestedPathDetails, EncodedValueLookup evl, Weighting weighting) {
@@ -70,7 +70,7 @@ public class PathDetailsBuilderFactoryWithEdgeKey extends PathDetailsBuilderFact
         }
 
         if (requestedPathDetails.contains("r5_edge_id")) {
-            builders.add(new R5EdgeIdPathDetailsBuilder(evl));
+            builders.add(new StableIdPathDetailsBuilder(evl));
         }
 
         for (Map.Entry entry : Arrays.asList(new MapEntry<>(RoadClass.KEY, RoadClass.class),

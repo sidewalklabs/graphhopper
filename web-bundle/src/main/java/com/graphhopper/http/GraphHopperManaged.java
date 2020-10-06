@@ -24,7 +24,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.GraphHopperConfig;
 import com.graphhopper.config.Profile;
-import com.graphhopper.gtfs.GraphHopperGtfs;
+import com.graphhopper.export.CustomGraphHopperGtfs;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.json.geo.JsonFeatureCollection;
 import com.graphhopper.reader.osm.GraphHopperOSM;
@@ -34,12 +34,10 @@ import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.util.spatialrules.SpatialRuleLookupHelper;
 import com.graphhopper.routing.weighting.custom.CustomProfile;
 import com.graphhopper.routing.weighting.custom.CustomWeighting;
-import com.graphhopper.storage.GraphHopperStorage;
-import com.graphhopper.storage.NodeAccess;
-import com.graphhopper.swl.CustomCarFlagEncoder;
-import com.graphhopper.swl.EncodedValueFactoryWithStableId;
-import com.graphhopper.swl.PathDetailsBuilderFactoryWithEdgeKey;
-import com.graphhopper.swl.StableIdEncodedValues;
+import com.graphhopper.replica.CustomCarFlagEncoder;
+import com.graphhopper.stableid.EncodedValueFactoryWithStableId;
+import com.graphhopper.stableid.PathDetailsBuilderFactoryWithStableId;
+import com.graphhopper.stableid.StableIdEncodedValues;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
 import com.graphhopper.util.shapes.BBox;
@@ -76,13 +74,7 @@ public class GraphHopperManaged implements Managed {
             landmarkSplittingFeatureCollection = null;
         }
         if (configuration.has("gtfs.file")) {
-            graphHopper = new GraphHopperGtfs(configuration) {
-                @Override
-                protected void registerCustomEncodedValues(EncodingManager.Builder emBuilder) {
-                    super.registerCustomEncodedValues(emBuilder);
-                    StableIdEncodedValues.createAndAddEncodedValues(emBuilder);
-                }
-            };
+            graphHopper = new CustomGraphHopperGtfs(configuration);
         } else {
             graphHopper = new GraphHopperOSM(landmarkSplittingFeatureCollection) {
                 @Override
@@ -152,7 +144,7 @@ public class GraphHopperManaged implements Managed {
         });
         graphHopper.setEncodedValueFactory(new EncodedValueFactoryWithStableId());
         graphHopper.init(configuration);
-        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithEdgeKey());
+        graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithStableId());
     }
 
     @Override
@@ -171,20 +163,5 @@ public class GraphHopperManaged implements Managed {
     @Override
     public void stop() {
         graphHopper.close();
-    }
-
-    public void setStableEdgeIds() {
-        GraphHopperStorage graphHopperStorage = graphHopper.getGraphHopperStorage();
-        AllEdgesIterator edgesIterator = graphHopperStorage.getAllEdges();
-        NodeAccess nodes = graphHopperStorage.getNodeAccess();
-        EncodingManager encodingManager = graphHopper.getEncodingManager();
-        StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(encodingManager);
-
-        // Set both forward and reverse stable edge IDs for each edge
-        while (edgesIterator.next()) {
-            stableIdEncodedValues.setStableId(true, edgesIterator, nodes);
-            stableIdEncodedValues.setStableId(false, edgesIterator, nodes);
-        }
-        graphHopperStorage.flush();
     }
 }

@@ -16,31 +16,40 @@
  *  limitations under the License.
  */
 
-package com.graphhopper.swl;
+package com.graphhopper.stableid;
 
+import com.graphhopper.routing.ev.EncodedValueLookup;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.details.AbstractPathDetailsBuilder;
 
-public class EdgeKeyDetails extends AbstractPathDetailsBuilder {
-    private int edgeKey;
+public class StableIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
+    private final StableIdEncodedValues originalDirectionFlagEncoder;
+    private String edgeId;
 
-    public EdgeKeyDetails() {
-        super("edge_key");
-        edgeKey = -1;
+    public StableIdPathDetailsBuilder(EncodedValueLookup originalDirectionFlagEncoder) {
+        super("r5_edge_id");
+        this.originalDirectionFlagEncoder = StableIdEncodedValues.fromEncodingManager((EncodingManager) originalDirectionFlagEncoder);
+        edgeId = "";
     }
 
     @Override
     public boolean isEdgeDifferentToLastEdge(EdgeIteratorState edge) {
-        int newEdgeKey = EdgeKeys.getEdgeKey(edge);
-        if (newEdgeKey != edgeKey) {
-            edgeKey = newEdgeKey;
-            return true;
+        String newEdgeId = getStableId(edge);
+        if (newEdgeId.equals(edgeId)) {
+            return false;
         }
-        return false;
+        edgeId = newEdgeId;
+        return true;
+    }
+
+    private String getStableId(EdgeIteratorState edge) {
+        boolean reverse = edge.get(EdgeIteratorState.REVERSE_STATE);
+        return originalDirectionFlagEncoder.getStableId(reverse, edge);
     }
 
     @Override
     public Object getCurrentValue() {
-        return this.edgeKey;
+        return this.edgeId;
     }
 }

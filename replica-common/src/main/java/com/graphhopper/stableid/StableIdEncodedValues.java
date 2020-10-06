@@ -1,4 +1,4 @@
-package com.graphhopper.swl;
+package com.graphhopper.stableid;
 
 import com.google.common.base.Charsets;
 import com.google.common.hash.HashCode;
@@ -11,7 +11,6 @@ import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.util.AngleCalc;
 import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.Helper;
 
 public class StableIdEncodedValues {
 
@@ -42,7 +41,7 @@ public class StableIdEncodedValues {
         }
     }
 
-    final String getStableId(boolean reverse, EdgeIteratorState edge) {
+    public final String getStableId(boolean reverse, EdgeIteratorState edge) {
         byte[] stableId = new byte[8];
         UnsignedIntEncodedValue[] idByte = reverse ? reverseStableIdEnc : stableIdEnc;
         for (int i=0; i<8; i++) {
