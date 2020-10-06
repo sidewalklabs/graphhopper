@@ -16,13 +16,13 @@
  *  limitations under the License.
  */
 
-import com.graphhopper.GHRequest;
-import com.graphhopper.GHResponse;
-import com.graphhopper.GraphHopper;
-import com.graphhopper.ResponsePath;
+import com.google.common.collect.Lists;
+import com.google.protobuf.Timestamp;
+import com.graphhopper.*;
 import com.graphhopper.util.shapes.GHPoint;
 import io.grpc.stub.StreamObserver;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class RouterImpl extends RouterGrpc.RouterImplBase {
@@ -42,7 +42,34 @@ public class RouterImpl extends RouterGrpc.RouterImplBase {
         GHResponse ghResponse = graphHopper.route(ghRequest);
         Route.RouteReply.Builder replyBuilder = Route.RouteReply.newBuilder();
         for (ResponsePath responsePath : ghResponse.getAll()) {
-            replyBuilder.addPaths(Route.Path.newBuilder().setTime(responsePath.getTime()));
+            List<Route.Leg> legs = Lists.newArrayList();
+
+            // todo: add remaining pt/foot specific fields
+            for (Trip.Leg leg : responsePath.getLegs()) {
+                if (leg.type.equals("pt")) {
+                    legs.add(Route.Leg.newBuilder()
+                            .setType("pt")
+                            .setArrivalTime(leg.getArrivalTime().getTime())
+                            .setDepartureTime(leg.getDepartureTime().getTime())
+                            .build());
+                } else {
+                    legs.add(Route.Leg.newBuilder()
+                            .setType("foot")
+                            .setArrivalTime(leg.getArrivalTime().getTime())
+                            .setDepartureTime(leg.getDepartureTime().getTime())
+                            .build());
+                }
+            }
+            List<String> pathStableEdgeIds = responsePath.getPathDetails().get("stable_edge_ids").stream()
+                    .map(pathDetail -> (String) pathDetail.getValue())
+                    .collect(Collectors.toList());
+
+            replyBuilder.addPaths(Route.Path.newBuilder()
+                    .setTime(responsePath.getTime())
+                    .setDistance(responsePath.getDistance())
+                    .addAllLegs(legs)
+                    .addAllStableEdgeIds(pathStableEdgeIds)
+            );
         }
         responseObserver.onNext(replyBuilder.build());
         responseObserver.onCompleted();
