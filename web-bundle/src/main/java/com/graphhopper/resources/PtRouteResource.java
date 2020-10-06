@@ -68,6 +68,10 @@ public class PtRouteResource {
         List<GHLocation> points = requestPoints.stream().map(AbstractParam::get).collect(Collectors.toList());
         Instant departureTime = departureTimeParam.get();
         Request request = new Request(points, departureTime);
+
+        // Always return stable edge IDs, even if they aren't requested
+        if (!pathDetails.contains("stable_edge_ids")) pathDetails.add("stable_edge_ids");
+
         request.setArriveBy(arriveBy);
         Optional.ofNullable(profileQuery).ifPresent(request::setProfileQuery);
         Optional.ofNullable(profileDuration.get()).ifPresent(request::setMaxProfileDuration);
@@ -100,14 +104,14 @@ public class PtRouteResource {
             Trip.WalkLeg firstLeg = (Trip.WalkLeg) walkLegs.get(0);
             Trip.WalkLeg lastLeg = (Trip.WalkLeg) walkLegs.get(1);
 
-            List<String> lastLegStableIds = lastLeg.details.get("r5_edge_id").stream()
+            List<String> lastLegStableIds = lastLeg.details.get("stable_edge_ids").stream()
                     .map(idPathDetail -> (String) idPathDetail.getValue())
                     .filter(id -> id.length() == 20)
                     .collect(toList());
 
             // The first leg contains stable IDs for both walking legs for some reason,
             // so we remove the IDs from the last leg
-            List<String> firstLegStableIds = firstLeg.details.get("r5_edge_id").stream()
+            List<String> firstLegStableIds = firstLeg.details.get("stable_edge_ids").stream()
                     .map(idPathDetail -> (String) idPathDetail.getValue())
                     .filter(id -> id.length() == 20)
                     .collect(toList());
