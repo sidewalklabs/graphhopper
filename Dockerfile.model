@@ -13,7 +13,7 @@ WORKDIR /graphhopper
 
 COPY . .
 
-RUN mvn -s maven_settings.xml --projects web -am -DskipTests=true package
+RUN ./build_with_proto.sh
 
 FROM openjdk:14.0.2-jdk
 
