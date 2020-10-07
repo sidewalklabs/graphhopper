@@ -24,7 +24,8 @@ import io.grpc.stub.StreamObserver;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class RouterImpl extends RouterGrpc.RouterImplBase {
+public class RouterImpl extends router.RouterGrpc.RouterImplBase {
+
     private final GraphHopper graphHopper;
 
     public RouterImpl(GraphHopper graphHopper) {
@@ -32,7 +33,7 @@ public class RouterImpl extends RouterGrpc.RouterImplBase {
     }
 
     @Override
-    public void route(Route.RouteRequest request, StreamObserver<Route.RouteReply> responseObserver) {
+    public void route(router.Route.RouteRequest request, StreamObserver<router.Route.RouteReply> responseObserver) {
         GHRequest ghRequest = new GHRequest(
                 request.getPointsList().stream().map(p -> new GHPoint(p.getLat(), p.getLon())).collect(Collectors.toList())
         );
@@ -41,20 +42,20 @@ public class RouterImpl extends RouterGrpc.RouterImplBase {
         ghRequest.setProfile(request.getProfile());
         GHResponse ghResponse = graphHopper.route(ghRequest);
 
-        Route.RouteReply.Builder replyBuilder = Route.RouteReply.newBuilder();
+        router.Route.RouteReply.Builder replyBuilder = router.Route.RouteReply.newBuilder();
         for (ResponsePath responsePath : ghResponse.getAll()) {
-            List<Route.Leg> legs = Lists.newArrayList();
+            List<router.Route.Leg> legs = Lists.newArrayList();
 
             // todo: add remaining pt/foot specific fields
             for (Trip.Leg leg : responsePath.getLegs()) {
                 if (leg.type.equals("pt")) {
-                    legs.add(Route.Leg.newBuilder()
+                    legs.add(router.Route.Leg.newBuilder()
                             .setType("pt")
                             .setArrivalTime(leg.getArrivalTime().getTime())
                             .setDepartureTime(leg.getDepartureTime().getTime())
                             .build());
                 } else {
-                    legs.add(Route.Leg.newBuilder()
+                    legs.add(router.Route.Leg.newBuilder()
                             .setType("foot")
                             .setArrivalTime(leg.getArrivalTime().getTime())
                             .setDepartureTime(leg.getDepartureTime().getTime())
@@ -65,7 +66,7 @@ public class RouterImpl extends RouterGrpc.RouterImplBase {
                     .map(pathDetail -> (String) pathDetail.getValue())
                     .collect(Collectors.toList());
 
-            replyBuilder.addPaths(Route.Path.newBuilder()
+            replyBuilder.addPaths(router.Route.Path.newBuilder()
                     .setTime(responsePath.getTime())
                     .setDistance(responsePath.getDistance())
                     .addAllLegs(legs)

@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package router;
+
 service Router {
   rpc Route (RouteRequest) returns (RouteReply) {}
 }
