@@ -18,12 +18,16 @@
 
 import com.google.common.collect.Lists;
 import com.graphhopper.*;
+import com.graphhopper.util.PMap;
 import com.graphhopper.util.shapes.GHPoint;
 import io.grpc.stub.StreamObserver;
 import router.RouterOuterClass;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
+
+import static com.graphhopper.util.Parameters.Routing.INSTRUCTIONS;
 
 public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
@@ -41,6 +45,20 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         // Always return stable edge IDs, even if they aren't requested
         ghRequest.setPathDetails(Lists.newArrayList("stable_edge_ids"));
         ghRequest.setProfile(request.getProfile());
+        ghRequest.setLocale(Locale.US);
+
+        PMap hints = new PMap();
+        hints.putObject(INSTRUCTIONS, false);
+        /*
+        if (algo == alternative) {
+
+
+            hints.putObject("alternative_route.max_paths", );
+            hints.putObject("alternative_route.max_weight_factor", );
+            hints.putObject("alternative_route.max_share_factor", );
+            ghRequest.getHints().putAll(hints);
+        }
+         */
         GHResponse ghResponse = graphHopper.route(ghRequest);
 
         RouterOuterClass.RouteReply.Builder replyBuilder = RouterOuterClass.RouteReply.newBuilder();
