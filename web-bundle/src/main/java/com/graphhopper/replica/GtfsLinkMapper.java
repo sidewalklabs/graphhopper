@@ -31,7 +31,7 @@ public class GtfsLinkMapper {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final GraphHopper graphHopper;
     private final String CSV_COLUMN_HEADERS = "route_id,feed_id,stop_id,next_stop_id," +
-            "stop_lat,stop_lat_next,stop_lon_next,street_edges,transit_edge";
+            "stop_lat,stop_lon,stop_lat_next,stop_lon_next,street_edges,transit_edge";
 
     public GtfsLinkMapper(GraphHopper graphHopper) {
         this.graphHopper = graphHopper;
@@ -221,13 +221,17 @@ public class GtfsLinkMapper {
                                                    Map<String, List<Pair<Stop, Stop>>> tripIdToStopPairsInTrip,
                                                    HTreeMap<String, String> gtfsLinkMappings) {
         List<String> rowsForFeed = Lists.newArrayList();
-
         for (String routeId : routeIdToTripsInRoute.keySet()) {
             for (String tripIdInRoute : routeIdToTripsInRoute.get(routeId)) {
                 for (Pair<Stop, Stop> stopStopPair : tripIdToStopPairsInTrip.get(tripIdInRoute)) {
                     String stopPairString = stopStopPair.getLeft().stop_id + "," + stopStopPair.getRight().stop_id;
+
+                    // Skip stop-stop pairs where we couldn't find a valid route
+                    if (!gtfsLinkMappings.containsKey(stopPairString)) {
+                        continue;
+                    }
                     List<String> stableEdgeIds = Lists.newArrayList(gtfsLinkMappings.get(stopPairString).split(","));
-                    String stableEdgeIdString = String.format("[%s]", stableEdgeIds.stream().map(id -> "'" + id + "'").collect(Collectors.joining(",")));
+                    String stableEdgeIdString = String.format("\"[%s]\"", stableEdgeIds.stream().map(id -> "'" + id + "'").collect(Collectors.joining(",")));
 
                     Stop stop = stopStopPair.getLeft();
                     Stop nextStop = stopStopPair.getRight();
