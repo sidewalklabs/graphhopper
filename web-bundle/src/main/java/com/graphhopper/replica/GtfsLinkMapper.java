@@ -61,7 +61,7 @@ public class GtfsLinkMapper {
                 .make();
 
         // Output file location for CSV containing all GTFS link mappings
-        File gtfsLinksCsvOutput = new File(graphHopper.getGraphHopperLocation() + "/gtfs_link_mappings.csv");
+        File gtfsLinksCsvOutput = new File(graphHopper.getGraphHopperLocation() + "/gtfs_link_mapping.csv");
         List<String> gtfsLinkMappingCsvRows = Lists.newArrayList();
 
         // For testing
@@ -223,14 +223,19 @@ public class GtfsLinkMapper {
         for (String routeId : routeIdToTripsInRoute.keySet()) {
             for (String tripIdInRoute : routeIdToTripsInRoute.get(routeId)) {
                 for (Pair<Stop, Stop> stopStopPair : tripIdToStopPairsInTrip.get(tripIdInRoute)) {
-                    String stopPairString = stopStopPair.getLeft().stop_id + "," + stopStopPair.getRight().stop_id;
+                    // Filter out stop-stop pairs where the stops are identical
+                    if (stopStopPair.getLeft().stop_id.equals(stopStopPair.getRight().stop_id)) {
+                        continue;
+                    }
 
                     // Skip stop-stop pairs where we couldn't find a valid route
+                    String stopPairString = stopStopPair.getLeft().stop_id + "," + stopStopPair.getRight().stop_id;
                     if (!gtfsLinkMappings.containsKey(stopPairString)) {
                         continue;
                     }
                     List<String> stableEdgeIds = Lists.newArrayList(gtfsLinkMappings.get(stopPairString).split(","));
-                    String stableEdgeIdString = String.format("\"[%s]\"", stableEdgeIds.stream().map(id -> "'" + id + "'").collect(Collectors.joining(",")));
+                    String stableEdgeIdString = stableEdgeIds.size() == 0 ? ""
+                            : String.format("\"[%s]\"", stableEdgeIds.stream().map(id -> "'" + id + "'").collect(Collectors.joining(",")));
 
                     Stop stop = stopStopPair.getLeft();
                     Stop nextStop = stopStopPair.getRight();
