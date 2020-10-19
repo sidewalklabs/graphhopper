@@ -240,7 +240,6 @@ public class GtfsLinkMapper {
                     Stop stop = stopStopPair.getLeft();
                     Stop nextStop = stopStopPair.getRight();
 
-                    // todo: why does this exist? Just copied over logic from old link mapper for now
                     // format: "{feed_id}:{route_id}/{feed_id}:{stop_id}/{feed_id}:{next_stop_id}"
                     String transitEdgeString = stop.feed_id + ":" + routeId + "/" + stop.feed_id + ":"
                             + stop.stop_id + "/" + stop.feed_id + ":" + nextStop.stop_id;
