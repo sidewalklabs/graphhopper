@@ -60,6 +60,12 @@ public class GtfsLinkMapper {
                 .valueSerializer(Serializer.STRING)
                 .make();
 
+        HTreeMap<String, String> gtfsFeedIdMap = db
+                .createHashMap("gtfsFeedIdMap")
+                .keySerializer(Serializer.STRING)
+                .valueSerializer(Serializer.STRING)
+                .make();
+
         // Output file location for CSV containing all GTFS link mappings
         File gtfsLinksCsvOutput = new File(graphHopper.getGraphHopperLocation() + "/gtfs_link_mapping.csv");
         List<String> gtfsLinkMappingCsvRows = Lists.newArrayList();
@@ -71,7 +77,10 @@ public class GtfsLinkMapper {
         // and then for each trip, route via car between each stop pair in sequential order, storing the returned IDs
         for (String feedId : gtfsFeedMap.keySet()) {
             GTFSFeed feed = gtfsFeedMap.get(feedId);
-            logger.info("Processing GTFS feed " + feedId + " " + feed.feedId);
+            logger.info("Processing GTFS feed " + feed.feedId);
+
+            // Record mapping of internal GH feed ID -> GTFS feed ID
+            gtfsFeedIdMap.put(feedId, feed.feedId);
 
             // Store route information in db for _every_ route type
             Map<String, String> routeInfoMap = feed.routes.keySet().stream()
@@ -127,7 +136,7 @@ public class GtfsLinkMapper {
                 if (tripIdToStopsInTrip.keySet().size() > 10 &&
                         processedTripCount % (tripIdToStopsInTrip.keySet().size() / 10) == 0) {
                     logger.info(processedTripCount + "/" + tripIdToStopsInTrip.keySet().size() + " trips for feed "
-                            + feedId + " processed so far; " + nonUniqueODPairs + "/" + odStopCount
+                            + feed.feedId + " processed so far; " + nonUniqueODPairs + "/" + odStopCount
                             + " O/D stop pairs were non-unique, and were not routed between.");
                 }
                 
@@ -177,7 +186,7 @@ public class GtfsLinkMapper {
                 }
                 processedTripCount++;
             }
-            logger.info("Done processing GTFS feed " + feedId + "; " + tripIdToStopsInTrip.keySet().size() +
+            logger.info("Done processing GTFS feed " + feed.feedId + "; " + tripIdToStopsInTrip.keySet().size() +
                     " total trips processed; " + nonUniqueODPairs + "/" + odStopCount
                     + " O/D stop pairs were non-unique; routes for " + routeNotFoundCount + "/" + odStopCount
                     + " stop->stop pairs were not found");
