@@ -19,7 +19,12 @@
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.graphhopper.GraphHopper;
 import com.graphhopper.GraphHopperConfig;
+import com.graphhopper.gtfs.GraphHopperGtfs;
+import com.graphhopper.gtfs.PtRouter;
+import com.graphhopper.gtfs.PtRouterImpl;
+import com.graphhopper.gtfs.RealtimeFeed;
 import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
@@ -49,8 +54,13 @@ public class RouterServer {
         ObjectMapper json = Jackson.newObjectMapper();
         graphHopperManaged = new GraphHopperManaged(graphHopperConfiguration, json);
         graphHopperManaged.start();
+        GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
+        PtRouter ptRouter = null;
+        if (graphHopper instanceof GraphHopperGtfs) {
+            ptRouter = new PtRouterImpl(graphHopper.getTranslationMap(), graphHopper.getGraphHopperStorage(), graphHopper.getLocationIndex(), ((GraphHopperGtfs) graphHopper).getGtfsStorage(), RealtimeFeed.empty(((GraphHopperGtfs) graphHopper).getGtfsStorage()), graphHopper.getPathDetailsBuilderFactory());
+        }
         server = ServerBuilder.forPort(50051)
-                .addService(new RouterImpl(graphHopperManaged.getGraphHopper()))
+                .addService(new RouterImpl(graphHopper, ptRouter))
                 .addService(ProtoReflectionService.newInstance())
                 .build()
                 .start();

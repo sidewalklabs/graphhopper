@@ -18,11 +18,16 @@
 
 import com.google.common.collect.Lists;
 import com.graphhopper.*;
+import com.graphhopper.gtfs.GHLocation;
+import com.graphhopper.gtfs.GHPointLocation;
+import com.graphhopper.gtfs.PtRouter;
+import com.graphhopper.gtfs.Request;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.shapes.GHPoint;
 import io.grpc.stub.StreamObserver;
 import router.RouterOuterClass;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -32,13 +37,23 @@ import static com.graphhopper.util.Parameters.Routing.INSTRUCTIONS;
 public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
     private final GraphHopper graphHopper;
+    private final PtRouter ptRouter;
 
-    public RouterImpl(GraphHopper graphHopper) {
+    public RouterImpl(GraphHopper graphHopper, PtRouter ptRouter) {
         this.graphHopper = graphHopper;
+        this.ptRouter = ptRouter;
     }
 
     @Override
     public void route(RouterOuterClass.RouteRequest request, StreamObserver<RouterOuterClass.RouteReply> responseObserver) {
+        if (request.getProfile().equals("pt")) {
+            routePt(request, responseObserver);
+        } else {
+            routeStreetMode(request, responseObserver);
+        }
+    }
+
+    private void routeStreetMode(RouterOuterClass.RouteRequest request, StreamObserver<RouterOuterClass.RouteReply> responseObserver) {
         GHRequest ghRequest = new GHRequest(
                 request.getPointsList().stream().map(p -> new GHPoint(p.getLat(), p.getLon())).collect(Collectors.toList())
         );
@@ -95,4 +110,13 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         responseObserver.onNext(replyBuilder.build());
         responseObserver.onCompleted();
     }
+
+    private void routePt(RouterOuterClass.RouteRequest request, StreamObserver<RouterOuterClass.RouteReply> responseObserver) {
+        Instant when = null;
+        List<GHLocation> collect = request.getPointsList().stream().map(p -> new GHPointLocation(new GHPoint(p.getLat(), p.getLon()))).collect(Collectors.toList());
+        Request ptRequest = new Request(collect, when);
+        GHResponse ghResponse = ptRouter.route(ptRequest);
+        // ...
+    }
+
 }
