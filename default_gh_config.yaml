@@ -36,8 +36,8 @@ graphhopper:
     - profile: truck
 
 server:
-  min_threads: 4
-  max_threads: 8
+  min_threads: 2
+  max_threads: 2
   application_connectors:
   - type: http
     port: 8998
