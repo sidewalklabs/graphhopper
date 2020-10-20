@@ -36,15 +36,15 @@ graphhopper:
     - profile: truck
 
 server:
-  min_threads: 2
-  max_threads: 2
+  min_threads: 3
+  max_threads: 3
   application_connectors:
   - type: http
     port: 8998
     # for security reasons bind (localhost does not work with k8s svcs)
     bind_host: 0.0.0.0
     acceptor_threads: 1
-    selector_threads: 2
+    selector_threads: 1
     accept_queue_size: 8
   request_log:
       appenders: []
