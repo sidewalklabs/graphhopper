@@ -8,6 +8,7 @@ graphhopper:
   routing.ch.disabling_allowed: true
   routing.max_visited_nodes: 1500000
   graph.flag_encoders: car,bike,foot,truck
+  matrix.threads: 2
 
   # Uncomment this if the export was done with turn-restriction-aware contraction hierarchies
   # prepare.ch.edge_based: edge_and_node
@@ -36,8 +37,8 @@ graphhopper:
     - profile: truck
 
 server:
-  min_threads: 3
-  max_threads: 3
+  min_threads: 6
+  max_threads: 6
   application_connectors:
   - type: http
     port: 8998
