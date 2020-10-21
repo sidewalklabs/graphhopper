@@ -6,7 +6,7 @@ graphhopper:
   gtfs.file:
   graph.location: transit_data/graphhopper
   routing.ch.disabling_allowed: true
-  routing.max_visited_nodes: 1500000
+  routing.max_visited_nodes: 500000
   graph.flag_encoders: car,bike,foot,truck
   matrix.threads: 2
 
