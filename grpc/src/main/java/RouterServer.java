@@ -47,6 +47,7 @@ public class RouterServer {
     }
 
     private void start() throws IOException {
+        // Start GH instance based on config given as command-line arg
         ObjectMapper yaml = Jackson.initObjectMapper(new ObjectMapper(new YAMLFactory()));
         yaml.registerModule(new GraphHopperConfigModule());
         JsonNode yamlNode = yaml.readTree(new File(configPath));
@@ -54,11 +55,15 @@ public class RouterServer {
         ObjectMapper json = Jackson.newObjectMapper();
         graphHopperManaged = new GraphHopperManaged(graphHopperConfiguration, json);
         graphHopperManaged.start();
+
+        // Grab instances of auto/bike/ped router and PT router (if applicable)
         GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
         PtRouter ptRouter = null;
         if (graphHopper instanceof GraphHopperGtfs) {
             ptRouter = new PtRouterImpl(graphHopper.getTranslationMap(), graphHopper.getGraphHopperStorage(), graphHopper.getLocationIndex(), ((GraphHopperGtfs) graphHopper).getGtfsStorage(), RealtimeFeed.empty(((GraphHopperGtfs) graphHopper).getGtfsStorage()), graphHopper.getPathDetailsBuilderFactory());
         }
+
+        // Start server
         server = ServerBuilder.forPort(50051)
                 .addService(new RouterImpl(graphHopper, ptRouter))
                 .addService(ProtoReflectionService.newInstance())
