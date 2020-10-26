@@ -16,11 +16,16 @@
  *  limitations under the License.
  */
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.graphhopper.*;
-import com.graphhopper.gtfs.PtRouter;
-import com.graphhopper.gtfs.Request;
+import com.graphhopper.gtfs.*;
+import com.graphhopper.http.GraphHopperManaged;
+import com.graphhopper.jackson.GraphHopperConfigModule;
+import com.graphhopper.jackson.Jackson;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.shapes.GHPoint;
 import io.grpc.stub.StreamObserver;
@@ -30,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -103,6 +109,58 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         responseObserver.onCompleted();
     }
 
+    /*
+    public static void main(String[] args) throws IOException {
+        testPtRouting();
+    }
+
+    public static void testPtRouting() throws IOException {
+        // Start GH instance based on config given as command-line arg
+        ObjectMapper yaml = Jackson.initObjectMapper(new ObjectMapper(new YAMLFactory()));
+        yaml.registerModule(new GraphHopperConfigModule());
+        JsonNode yamlNode = yaml.readTree(new File("default_gh_config.yaml"));
+        GraphHopperConfig graphHopperConfiguration = yaml.convertValue(yamlNode.get("graphhopper"), GraphHopperConfig.class);
+        ObjectMapper json = Jackson.newObjectMapper();
+        GraphHopperManaged graphHopperManaged = new GraphHopperManaged(graphHopperConfiguration, json);
+        graphHopperManaged.start();
+
+        // Grab instances of auto/bike/ped router and PT router (if applicable)
+        GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
+        PtRouter ptRouter = null;
+        if (graphHopper instanceof GraphHopperGtfs) {
+            ptRouter = new PtRouterImpl(graphHopper.getTranslationMap(), graphHopper.getGraphHopperStorage(), graphHopper.getLocationIndex(), ((GraphHopperGtfs) graphHopper).getGtfsStorage(), RealtimeFeed.empty(((GraphHopperGtfs) graphHopper).getGtfsStorage()), graphHopper.getPathDetailsBuilderFactory());
+        }
+        RouterImpl router = new RouterImpl(graphHopper, ptRouter);
+
+        List<Point> points = Lists.newArrayList();
+        points.add(Point.newBuilder().setLat(38.571091).setLon(-121.528625).build());
+        points.add(Point.newBuilder().setLat(38.534526).setLon(-121.504914).build());
+
+        PtRouteRequest r = PtRouteRequest.newBuilder()
+                .setEarliestDepartureTime("2018-10-16T20:03:03.000Z")
+                .addAllPoints(points)
+                .setLimitSolutions(1)
+                .build();
+
+        router.routePt(r, new StreamObserver<PtRouteReply>() {
+            @Override
+            public void onNext(PtRouteReply ptRouteReply) {
+
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+
+            }
+
+            @Override
+            public void onCompleted() {
+
+            }
+        });
+    }
+    */
+
     @Override
     public void routePt(PtRouteRequest request, StreamObserver<PtRouteReply> responseObserver) {
         Point fromPoint = request.getPoints(0);
@@ -162,12 +220,8 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
         PtRouteReply.Builder replyBuilder = PtRouteReply.newBuilder();
         for (ResponsePath responsePath : pathsWithStableIds) {
-            List<String> pathStableEdgeIds = responsePath.getPathDetails().get("stable_edge_ids").stream()
-                    .map(pathDetail -> (String) pathDetail.getValue())
-                    .collect(Collectors.toList());
-
             List<FootLeg> footLegs = responsePath.getLegs().stream()
-                    .filter(leg -> leg.type.equals("foot"))
+                    .filter(leg -> leg.type.equals("walk"))
                     .map(leg -> (CustomWalkLeg) leg)
                     .map(leg -> FootLeg.newBuilder()
                             .setDepartureTime(leg.getDepartureTime().getTime())
@@ -195,8 +249,8 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                             .addAllStops(leg.stops.stream().map(stop -> Stop.newBuilder()
                                     .setStopId(stop.stop_id)
                                     .setStopName(stop.stop_name)
-                                    .setArrivalTime(stop.arrivalTime.getTime())
-                                    .setDepartureTime(stop.departureTime.getTime())
+                                    .setArrivalTime(stop.arrivalTime == null ? 0 : stop.arrivalTime.getTime())
+                                    .setDepartureTime(stop.departureTime == null ? 0 : stop.departureTime.getTime())
                                     .setPoint(Point.newBuilder().setLat(stop.geometry.getX()).setLon(stop.geometry.getY()).build())
                                     .build()).collect(toList())
                             ).build()
@@ -206,7 +260,6 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     .setTime(responsePath.getTime())
                     .setDistance(responsePath.getDistance())
                     .setTransfers(responsePath.getNumChanges())
-                    .addAllStableEdgeIds(pathStableEdgeIds)
                     .addAllFootLegs(footLegs)
                     .addAllPtLegs(ptLegs)
             );
