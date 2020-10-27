@@ -24,6 +24,7 @@ import com.google.common.collect.Sets;
 import com.graphhopper.*;
 import com.graphhopper.gtfs.*;
 import com.graphhopper.http.GraphHopperManaged;
+import com.graphhopper.http.WebHelper;
 import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.util.PMap;
@@ -103,6 +104,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     .setTime(responsePath.getTime())
                     .setDistance(responsePath.getDistance())
                     .addAllStableEdgeIds(pathStableEdgeIds)
+                    .setPoints(WebHelper.encodePolyline(responsePath.getPoints()))
             );
         }
         responseObserver.onNext(replyBuilder.build());
