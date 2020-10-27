@@ -246,6 +246,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                             .setRouteShortName(leg.routeShortName)
                             .setRouteLongName(leg.routeLongName)
                             .setRouteType(leg.routeType)
+                            .setDirection(leg.trip_headsign)
                             .addAllStops(leg.stops.stream().map(stop -> Stop.newBuilder()
                                     .setStopId(stop.stop_id)
                                     .setStopName(stop.stop_name)
