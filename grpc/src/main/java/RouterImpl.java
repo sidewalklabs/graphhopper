@@ -80,7 +80,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         );
         ghRequest.setProfile(request.getProfile());
         ghRequest.setLocale(Locale.US);
-        ghRequest.setPathDetails(Lists.newArrayList("stable_edge_ids", "distance"));
+        ghRequest.setPathDetails(Lists.newArrayList("stable_edge_ids", "time"));
 
         PMap hints = new PMap();
         hints.putObject(INSTRUCTIONS, false);
@@ -99,15 +99,16 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             List<String> pathStableEdgeIds = responsePath.getPathDetails().get("stable_edge_ids").stream()
                     .map(pathDetail -> (String) pathDetail.getValue())
                     .collect(Collectors.toList());
-            List<Double> edgeDistances = responsePath.getPathDetails().get("distance").stream()
-                    .map(pathDetail -> (Double) pathDetail.getValue())
+
+            List<Long> edgeTimes = responsePath.getPathDetails().get("time").stream()
+                    .map(pathDetail -> (Long) pathDetail.getValue())
                     .collect(Collectors.toList());
 
             replyBuilder.addPaths(StreetPath.newBuilder()
                     .setTime(responsePath.getTime())
                     .setDistance(responsePath.getDistance())
                     .addAllStableEdgeIds(pathStableEdgeIds)
-                    .addAllDistances(edgeDistances)
+                    .addAllTimes(edgeTimes)
                     .setPoints(WebHelper.encodePolyline(responsePath.getPoints()))
             );
         }
