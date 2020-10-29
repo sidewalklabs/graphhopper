@@ -28,16 +28,24 @@ import com.graphhopper.gtfs.RealtimeFeed;
 import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
+import com.graphhopper.routing.GHMatrixAPI;
+import com.graphhopper.routing.MatrixAPI;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class RouterServer {
 
+    private static final Logger logger = LoggerFactory.getLogger(RouterServer.class);
     private Server server;
     private String configPath;
     private GraphHopperManaged graphHopperManaged;
@@ -63,9 +71,26 @@ public class RouterServer {
             ptRouter = new PtRouterImpl(graphHopper.getTranslationMap(), graphHopper.getGraphHopperStorage(), graphHopper.getLocationIndex(), ((GraphHopperGtfs) graphHopper).getGtfsStorage(), RealtimeFeed.empty(((GraphHopperGtfs) graphHopper).getGtfsStorage()), graphHopper.getPathDetailsBuilderFactory());
         }
 
+        // Create matrix API instance
+        MatrixAPI matrixAPI = new GHMatrixAPI(graphHopper, graphHopperConfiguration);
+
+        // Load GTFS link mapping and GTFS route info maps for use in building responses
+        Map<String, String> gtfsLinkMappings = null;
+        Map<String, String> gtfsRouteInfo = null;
+
+        File linkMappingsDbFile = new File("transit_data/gtfs_link_mappings.db");
+        if (linkMappingsDbFile.exists()) {
+            DB db = DBMaker.newFileDB(linkMappingsDbFile).make();
+            gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
+            gtfsRouteInfo = db.getHashMap("gtfsRouteInfo");
+            logger.info("Done loading GTFS link mappings and route info. Total number of mappings: " + gtfsLinkMappings.size());
+        } else {
+            logger.info("No GTFS link mapping mapdb file found! Skipped loading GTFS link mappings.");
+        }
+
         // Start server
         server = ServerBuilder.forPort(50051)
-                .addService(new RouterImpl(graphHopper, ptRouter))
+                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo))
                 .addService(ProtoReflectionService.newInstance())
                 .build()
                 .start();

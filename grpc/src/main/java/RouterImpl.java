@@ -27,6 +27,10 @@ import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.http.WebHelper;
 import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
+import com.graphhopper.routing.GHMRequest;
+import com.graphhopper.routing.GHMResponse;
+import com.graphhopper.routing.MatrixAPI;
+import com.graphhopper.routing.MatrixElement;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.shapes.GHPoint;
 import io.grpc.stub.StreamObserver;
@@ -51,26 +55,18 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     private static final Logger logger = LoggerFactory.getLogger(RouterImpl.class);
     private final GraphHopper graphHopper;
     private final PtRouter ptRouter;
+    private final MatrixAPI matrixAPI;
+    private Map<String, String> gtfsLinkMappings;
+    private Map<String, String> gtfsRouteInfo;
 
-    private static Map<String, String> gtfsLinkMappings;
-    private static Map<String, String> gtfsRouteInfo;
-
-    // Statically load GTFS link mapping and GTFS route info maps for use in building responses
-    static {
-        File linkMappingsDbFile = new File("transit_data/gtfs_link_mappings.db");
-        if (linkMappingsDbFile.exists()) {
-            DB db = DBMaker.newFileDB(linkMappingsDbFile).make();
-            gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
-            gtfsRouteInfo = db.getHashMap("gtfsRouteInfo");
-            logger.info("Done loading GTFS link mappings and route info. Total number of mappings: " + gtfsLinkMappings.size());
-        } else {
-            logger.info("No GTFS link mapping mapdb file found! Skipped loading GTFS link mappings.");
-        }
-    }
-
-    public RouterImpl(GraphHopper graphHopper, PtRouter ptRouter) {
+    public RouterImpl(GraphHopper graphHopper, PtRouter ptRouter, MatrixAPI matrixAPI,
+                      Map<String, String> gtfsLinkMappings,
+                      Map<String, String> gtfsRouteInfo) {
         this.graphHopper = graphHopper;
         this.ptRouter = ptRouter;
+        this.matrixAPI = matrixAPI;
+        this.gtfsLinkMappings = gtfsLinkMappings;
+        this.gtfsRouteInfo = gtfsRouteInfo;
     }
 
     @Override
@@ -113,6 +109,25 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             );
         }
         responseObserver.onNext(replyBuilder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void routeMatrix(MatrixRouteRequest request, StreamObserver<MatrixRouteReply> responseObserver) {
+        List<GHPoint> fromPoints = request.getFromPointsList().stream()
+                .map(p -> new GHPoint(p.getLat(), p.getLon())).collect(toList());
+        List<GHPoint> toPoints = request.getToPointsList().stream()
+                .map(p -> new GHPoint(p.getLat(), p.getLon())).collect(toList());
+
+        GHMRequest ghMatrixRequest = new GHMRequest();
+        ghMatrixRequest.setFromPoints(fromPoints);
+        ghMatrixRequest.setToPoints(toPoints);
+        ghMatrixRequest.setOutArrays(new HashSet<>(request.getOutArraysList()));
+        ghMatrixRequest.setProfile(request.getMode());
+        ghMatrixRequest.setFailFast(request.getFailFast());
+
+        GHMResponse ghMatrixResponse = matrixAPI.calc(ghMatrixRequest);
+        responseObserver.onNext(GrpcMatrixSerializer.serialize(ghMatrixRequest, ghMatrixResponse));
         responseObserver.onCompleted();
     }
 
