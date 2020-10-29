@@ -38,12 +38,14 @@ public class PtRouteResource {
     private final PtRouter ptRouter;
     private static Map<String, String> gtfsLinkMappings;
     private static Map<String, String> gtfsRouteInfo;
+    private static Map<String, String> gtfsFeedIdMapping;
 
     // Statically load GTFS link mapping and GTFS route info maps for use in building responses
     static {
         DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
         gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
         gtfsRouteInfo = db.getHashMap("gtfsRouteInfo");
+        gtfsFeedIdMapping = db.getHashMap("gtfsFeedIdMap");
         logger.info("Done loading GTFS link mappings and route info. Total number of mappings: " + gtfsLinkMappings.size());
     }
 
@@ -158,10 +160,10 @@ public class PtRouteResource {
         public final String routeLongName;
         public final String routeType;
 
-        public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds, String agencyName, String routeShortName,
-                           String routeLongName, String routeType) {
+        public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds, List<Trip.Stop> updatedStops, String agencyName,
+                           String routeShortName, String routeLongName, String routeType) {
             super(leg.feed_id, leg.isInSameVehicleAsPrevious, leg.trip_id, leg.route_id,
-                    leg.trip_headsign, leg.stops, leg.distance, leg.travelTime, leg.geometry);
+                    leg.trip_headsign, updatedStops, leg.distance, leg.travelTime, leg.geometry);
             this.stableEdgeIds = stableEdgeIds;
             this.agencyName = agencyName;
             this.routeShortName = routeShortName;
@@ -203,6 +205,15 @@ public class PtRouteResource {
             logger.info("Failed to find route info for route " + leg.route_id + " for PT trip leg " + leg.toString());
         }
 
-        return new CustomPtLeg(leg, stableEdgeIdsList, routeInfo[0], routeInfo[1], routeInfo[2], routeInfo[3]);
+        // Add proper GTFS feed ID as prefix to all stop names in Leg
+        List<Trip.Stop> updatedStops = Lists.newArrayList();
+        for (Trip.Stop stop : leg.stops) {
+            String updatedStopId = gtfsFeedIdMapping.get(leg.feed_id) + ":" + stop.stop_id;
+            updatedStops.add(new Trip.Stop(updatedStopId, stop.stop_name, stop.geometry, stop.arrivalTime,
+                    stop.plannedArrivalTime, stop.predictedArrivalTime, stop.arrivalCancelled, stop.departureTime,
+                    stop.plannedDepartureTime, stop.predictedDepartureTime, stop.departureCancelled));
+        }
+
+        return new CustomPtLeg(leg, stableEdgeIdsList, updatedStops, routeInfo[0], routeInfo[1], routeInfo[2], routeInfo[3]);
     }
 }
