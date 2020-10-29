@@ -16,36 +16,25 @@
  *  limitations under the License.
  */
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.graphhopper.*;
-import com.graphhopper.gtfs.*;
-import com.graphhopper.http.GraphHopperManaged;
+import com.graphhopper.gtfs.PtRouter;
+import com.graphhopper.gtfs.Request;
 import com.graphhopper.http.WebHelper;
-import com.graphhopper.jackson.GraphHopperConfigModule;
-import com.graphhopper.jackson.Jackson;
 import com.graphhopper.routing.GHMRequest;
 import com.graphhopper.routing.GHMResponse;
 import com.graphhopper.routing.MatrixAPI;
-import com.graphhopper.routing.MatrixElement;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.shapes.GHPoint;
 import io.grpc.stub.StreamObserver;
-import org.mapdb.DB;
-import org.mapdb.DBMaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import router.RouterOuterClass.*;
 
-import java.io.File;
-import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import router.RouterOuterClass.*;
 
 import static com.graphhopper.util.Parameters.Routing.INSTRUCTIONS;
 import static java.util.stream.Collectors.toList;
@@ -130,58 +119,6 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         responseObserver.onNext(GrpcMatrixSerializer.serialize(ghMatrixRequest, ghMatrixResponse));
         responseObserver.onCompleted();
     }
-
-    /*
-    public static void main(String[] args) throws IOException {
-        testPtRouting();
-    }
-
-    public static void testPtRouting() throws IOException {
-        // Start GH instance based on config given as command-line arg
-        ObjectMapper yaml = Jackson.initObjectMapper(new ObjectMapper(new YAMLFactory()));
-        yaml.registerModule(new GraphHopperConfigModule());
-        JsonNode yamlNode = yaml.readTree(new File("default_gh_config.yaml"));
-        GraphHopperConfig graphHopperConfiguration = yaml.convertValue(yamlNode.get("graphhopper"), GraphHopperConfig.class);
-        ObjectMapper json = Jackson.newObjectMapper();
-        GraphHopperManaged graphHopperManaged = new GraphHopperManaged(graphHopperConfiguration, json);
-        graphHopperManaged.start();
-
-        // Grab instances of auto/bike/ped router and PT router (if applicable)
-        GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
-        PtRouter ptRouter = null;
-        if (graphHopper instanceof GraphHopperGtfs) {
-            ptRouter = new PtRouterImpl(graphHopper.getTranslationMap(), graphHopper.getGraphHopperStorage(), graphHopper.getLocationIndex(), ((GraphHopperGtfs) graphHopper).getGtfsStorage(), RealtimeFeed.empty(((GraphHopperGtfs) graphHopper).getGtfsStorage()), graphHopper.getPathDetailsBuilderFactory());
-        }
-        RouterImpl router = new RouterImpl(graphHopper, ptRouter);
-
-        List<Point> points = Lists.newArrayList();
-        points.add(Point.newBuilder().setLat(38.571091).setLon(-121.528625).build());
-        points.add(Point.newBuilder().setLat(38.534526).setLon(-121.504914).build());
-
-        PtRouteRequest r = PtRouteRequest.newBuilder()
-                .setEarliestDepartureTime("2018-10-16T20:03:03.000Z")
-                .addAllPoints(points)
-                .setLimitSolutions(1)
-                .build();
-
-        router.routePt(r, new StreamObserver<PtRouteReply>() {
-            @Override
-            public void onNext(PtRouteReply ptRouteReply) {
-
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-
-            }
-
-            @Override
-            public void onCompleted() {
-
-            }
-        });
-    }
-    */
 
     @Override
     public void routePt(PtRouteRequest request, StreamObserver<PtRouteReply> responseObserver) {
