@@ -17,6 +17,7 @@
  */
 package com.graphhopper.resources;
 
+import com.google.common.collect.Lists;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopperAPI;
@@ -27,6 +28,7 @@ import com.graphhopper.routing.ProfileResolver;
 import com.graphhopper.util.*;
 import com.graphhopper.util.gpx.GpxFromInstructions;
 import com.graphhopper.util.shapes.GHPoint;
+import com.timgroup.statsd.StatsDClient;
 import io.dropwizard.jersey.params.AbstractParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,14 +60,16 @@ public class RouteResource {
 
     private final GraphHopperAPI graphHopper;
     private final ProfileResolver profileResolver;
+    private final StatsDClient statsDClient;
     private final Boolean hasElevation;
     private final Boolean usesCongestion;
 
     @Inject
-    public RouteResource(GraphHopperAPI graphHopper, ProfileResolver profileResolver,
+    public RouteResource(GraphHopperAPI graphHopper, ProfileResolver profileResolver, StatsDClient statsDClient,
                          @Named("hasElevation") Boolean hasElevation, @Named("usesCongestion") Boolean usesCongestion) {
         this.graphHopper = graphHopper;
         this.profileResolver = profileResolver;
+        this.statsDClient = statsDClient;
         this.hasElevation = hasElevation;
         this.usesCongestion = usesCongestion;
     }
@@ -142,6 +146,8 @@ public class RouteResource {
                 + String.format("%.1f", (double) took) + "ms, algo: " + algoStr + ", profile: " + profileName + ", " + weightingVehicleLogStr;
 
         if (ghResponse.hasErrors()) {
+            String[] datadogTags = {"mode:" + profileName, "request_succeeded:false", "api:rest"};
+            statsDClient.incrementCounter("routers.num_requests", datadogTags);
             logger.error(logStr + ", errors:" + ghResponse.getErrors());
             throw new MultiException(ghResponse.getErrors());
         } else {
@@ -151,6 +157,10 @@ public class RouteResource {
                     + ", time0: " + Math.round(ghResponse.getBest().getTime() / 60000f) + "min"
                     + ", points0: " + ghResponse.getBest().getPoints().getSize()
                     + ", debugInfo: " + ghResponse.getDebugInfo());
+
+            String[] datadogTags = {"mode:" + profileName, "request_succeeded:true", "api:rest"};
+            statsDClient.incrementCounter("routers.num_requests", datadogTags);
+
             return writeGPX ?
                     gpxSuccessResponseBuilder(ghResponse, timeString, trackName, enableElevation, withRoute, withTrack, withWayPoints, Constants.VERSION).
                             header("X-GH-Took", "" + Math.round(took)).

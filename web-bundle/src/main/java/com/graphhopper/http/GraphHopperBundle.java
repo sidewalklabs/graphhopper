@@ -44,6 +44,8 @@ import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.replica.MatrixResourceFactory;
 import com.graphhopper.util.TranslationMap;
 import com.graphhopper.util.details.PathDetailsBuilderFactory;
+import com.timgroup.statsd.NonBlockingStatsDClientBuilder;
+import com.timgroup.statsd.StatsDClient;
 import io.dropwizard.ConfiguredBundle;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
@@ -257,12 +259,21 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         final GraphHopperManaged graphHopperManaged = new GraphHopperManaged(graphHopperBundleConfiguration.getGraphHopperConfiguration(), environment.getObjectMapper());
         environment.lifecycle().manage(graphHopperManaged);
         final GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
+
+        // Initialize Datadog client
+        StatsDClient statsDClient = new NonBlockingStatsDClientBuilder()
+                .prefix("statsd")
+                .hostname("localhost")
+                .port(8125)
+                .build();
+
         environment.jersey().register(new AbstractBinder() {
             @Override
             protected void configure() {
                 bind(graphHopperBundleConfiguration.getGraphHopperConfiguration()).to(GraphHopperConfig.class);
                 bind(graphHopper).to(GraphHopper.class);
                 bind(graphHopper).to(GraphHopperAPI.class);
+                bind(statsDClient).to(StatsDClient.class);
 
                 bindFactory(PathDetailsBuilderFactoryFactory.class).to(PathDetailsBuilderFactory.class);
                 bindFactory(ProfileResolverFactory.class).to(ProfileResolver.class);

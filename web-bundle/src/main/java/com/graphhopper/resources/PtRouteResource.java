@@ -14,6 +14,7 @@ import com.graphhopper.http.GHLocationParam;
 import com.graphhopper.http.WebHelper;
 import com.graphhopper.util.Helper;
 import com.graphhopper.util.StopWatch;
+import com.timgroup.statsd.StatsDClient;
 import io.dropwizard.jersey.params.AbstractParam;
 import io.dropwizard.jersey.params.InstantParam;
 import org.mapdb.DB;
@@ -36,6 +37,7 @@ import static java.util.stream.Collectors.toList;
 public class PtRouteResource {
     private static final Logger logger = LoggerFactory.getLogger(PtRouteResource.class);
     private final PtRouter ptRouter;
+    private final StatsDClient statsDClient;
     private static Map<String, String> gtfsLinkMappings;
     private static Map<String, String> gtfsRouteInfo;
     private static Map<String, String> gtfsFeedIdMapping;
@@ -50,8 +52,9 @@ public class PtRouteResource {
     }
 
     @Inject
-    public PtRouteResource(PtRouter ptRouter) {
+    public PtRouteResource(PtRouter ptRouter, StatsDClient statsDClient) {
         this.ptRouter = ptRouter;
+        this.statsDClient = statsDClient;
     }
 
     @GET
@@ -132,6 +135,9 @@ public class PtRouteResource {
         routeWithStableIds.addDebugInfo(route.getDebugInfo());
         routeWithStableIds.addErrors(route.getErrors());
         pathsWithStableIds.forEach(path -> routeWithStableIds.add(path));
+
+        String[] datadogTags = {"mode:pt", "api:rest"};
+        statsDClient.incrementCounter("routers.num_requests", datadogTags);
 
         return WebHelper.jsonObject(routeWithStableIds, true, true, false, false, stopWatch.stop().getMillis());
     }
