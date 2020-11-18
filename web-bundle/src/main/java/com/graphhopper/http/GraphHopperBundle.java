@@ -263,7 +263,7 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         // Initialize Datadog client
         StatsDClient statsDClient = new NonBlockingStatsDClientBuilder()
                 .prefix("statsd")
-                .hostname("localhost")
+                .hostname(System.getenv("DD_AGENT_HOST"))
                 .port(8125)
                 .build();
 
