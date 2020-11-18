@@ -27,6 +27,7 @@ import com.graphhopper.routing.GHMResponse;
 import com.graphhopper.routing.MatrixAPI;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.shapes.GHPoint;
+import com.timgroup.statsd.StatsDClient;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,15 +48,18 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     private final MatrixAPI matrixAPI;
     private Map<String, String> gtfsLinkMappings;
     private Map<String, String> gtfsRouteInfo;
+    private final StatsDClient statsDClient;
 
     public RouterImpl(GraphHopper graphHopper, PtRouter ptRouter, MatrixAPI matrixAPI,
                       Map<String, String> gtfsLinkMappings,
-                      Map<String, String> gtfsRouteInfo) {
+                      Map<String, String> gtfsRouteInfo,
+                      StatsDClient statsDClient) {
         this.graphHopper = graphHopper;
         this.ptRouter = ptRouter;
         this.matrixAPI = matrixAPI;
         this.gtfsLinkMappings = gtfsLinkMappings;
         this.gtfsRouteInfo = gtfsRouteInfo;
+        this.statsDClient = statsDClient;
     }
 
     @Override
@@ -97,6 +101,10 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     .setPoints(WebHelper.encodePolyline(responsePath.getPoints()))
             );
         }
+
+        String[] datadogTags = {"mode:" + request.getProfile(), "api:grpc"};
+        statsDClient.incrementCounter("routers.num_requests", datadogTags);
+
         responseObserver.onNext(replyBuilder.build());
         responseObserver.onCompleted();
     }
@@ -116,6 +124,10 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         ghMatrixRequest.setFailFast(request.getFailFast());
 
         GHMResponse ghMatrixResponse = matrixAPI.calc(ghMatrixRequest);
+
+        String[] datadogTags = {"mode:" + request.getMode() + "_matrix", "api:grpc"};
+        statsDClient.incrementCounter("routers.num_requests", datadogTags);
+
         responseObserver.onNext(GrpcMatrixSerializer.serialize(ghMatrixRequest, ghMatrixResponse));
         responseObserver.onCompleted();
     }
@@ -224,6 +236,10 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     .addAllPtLegs(ptLegs)
             );
         }
+
+        String[] datadogTags = {"mode:pt", "api:grpc"};
+        statsDClient.incrementCounter("routers.num_requests", datadogTags);
+
         responseObserver.onNext(replyBuilder.build());
         responseObserver.onCompleted();
     }

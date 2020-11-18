@@ -30,6 +30,8 @@ import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
+import com.timgroup.statsd.NonBlockingStatsDClientBuilder;
+import com.timgroup.statsd.StatsDClient;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
@@ -88,9 +90,16 @@ public class RouterServer {
             logger.info("No GTFS link mapping mapdb file found! Skipped loading GTFS link mappings.");
         }
 
+        // Initialize Datadog client
+        StatsDClient statsDClient = new NonBlockingStatsDClientBuilder()
+                .prefix("statsd")
+                .hostname(System.getenv("DD_AGENT_HOST"))
+                .port(8125)
+                .build();
+
         // Start server
         server = ServerBuilder.forPort(50051)
-                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo))
+                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, statsDClient))
                 .addService(ProtoReflectionService.newInstance())
                 .build()
                 .start();
