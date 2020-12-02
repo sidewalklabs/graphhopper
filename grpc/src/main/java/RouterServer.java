@@ -33,7 +33,7 @@ import com.graphhopper.routing.MatrixAPI;
 import com.timgroup.statsd.NonBlockingStatsDClientBuilder;
 import com.timgroup.statsd.StatsDClient;
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class RouterServer {
@@ -90,19 +91,28 @@ public class RouterServer {
             logger.info("No GTFS link mapping mapdb file found! Skipped loading GTFS link mappings.");
         }
 
+        /*
         // Initialize Datadog client
         StatsDClient statsDClient = new NonBlockingStatsDClientBuilder()
-                .prefix("statsd")
                 .hostname(System.getenv("DD_AGENT_HOST"))
                 .port(8125)
                 .build();
+        */
+
+        logger.info("Datadog agent host IP is: " + System.getenv("DD_AGENT_HOST"));
 
         // Start server
-        server = ServerBuilder.forPort(50051)
-                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, statsDClient))
+        server = NettyServerBuilder.forPort(50051)
+                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo))
                 .addService(ProtoReflectionService.newInstance())
+                .maxConnectionAge(10, TimeUnit.SECONDS)
+                .maxConnectionAgeGrace(10, TimeUnit.SECONDS)
+                .executor(Executors.newFixedThreadPool(16))
                 .build()
                 .start();
+
+        logger.info("Started server with max conn age of 10 seconds");
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.err.println("*** shutting down gRPC server since JVM is shutting down");
             try {
