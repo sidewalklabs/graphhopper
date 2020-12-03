@@ -97,9 +97,9 @@ public class RouterServer {
                 .hostname(System.getenv("DD_AGENT_HOST"))
                 .port(8125)
                 .build();
-        */
 
         logger.info("Datadog agent host IP is: " + System.getenv("DD_AGENT_HOST"));
+        */
 
         // Start server
         server = NettyServerBuilder.forPort(50051)
