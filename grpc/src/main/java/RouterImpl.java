@@ -28,6 +28,7 @@ import com.graphhopper.routing.GHMRequest;
 import com.graphhopper.routing.GHMResponse;
 import com.graphhopper.routing.MatrixAPI;
 import com.graphhopper.util.PMap;
+import com.graphhopper.util.exceptions.PointNotFoundException;
 import com.graphhopper.util.shapes.GHPoint;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
@@ -85,32 +86,42 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
         try {
             GHResponse ghResponse = graphHopper.route(ghRequest);
-            StreetRouteReply.Builder replyBuilder = StreetRouteReply.newBuilder();
-            for (ResponsePath responsePath : ghResponse.getAll()) {
-                List<String> pathStableEdgeIds = responsePath.getPathDetails().get("stable_edge_ids").stream()
-                        .map(pathDetail -> (String) pathDetail.getValue())
-                        .collect(Collectors.toList());
+            if (ghResponse.getAll().size() == 0) {
+                Status status = Status.newBuilder()
+                        .setCode(Code.NOT_FOUND.getNumber())
+                        .setMessage("Path could not be found between "
+                                + ghRequest.getPoints().get(0).lat + "," + ghRequest.getPoints().get(0).lon + " to "
+                                + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon)
+                        .build();
+                responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+            } else {
+                StreetRouteReply.Builder replyBuilder = StreetRouteReply.newBuilder();
+                for (ResponsePath responsePath : ghResponse.getAll()) {
+                    List<String> pathStableEdgeIds = responsePath.getPathDetails().get("stable_edge_ids").stream()
+                            .map(pathDetail -> (String) pathDetail.getValue())
+                            .collect(Collectors.toList());
 
-                List<Long> edgeTimes = responsePath.getPathDetails().get("time").stream()
-                        .map(pathDetail -> (Long) pathDetail.getValue())
-                        .collect(Collectors.toList());
+                    List<Long> edgeTimes = responsePath.getPathDetails().get("time").stream()
+                            .map(pathDetail -> (Long) pathDetail.getValue())
+                            .collect(Collectors.toList());
 
-                replyBuilder.addPaths(StreetPath.newBuilder()
-                        .setTime(responsePath.getTime())
-                        .setDistance(responsePath.getDistance())
-                        .addAllStableEdgeIds(pathStableEdgeIds)
-                        .addAllTimes(edgeTimes)
-                        .setPoints(WebHelper.encodePolyline(responsePath.getPoints()))
-                );
+                    replyBuilder.addPaths(StreetPath.newBuilder()
+                            .setTime(responsePath.getTime())
+                            .setDistance(responsePath.getDistance())
+                            .addAllStableEdgeIds(pathStableEdgeIds)
+                            .addAllTimes(edgeTimes)
+                            .setPoints(WebHelper.encodePolyline(responsePath.getPoints()))
+                    );
+                }
+
+                /*
+                String[] datadogTags = {"mode:" + request.getProfile(), "api:grpc"};
+                statsDClient.incrementCounter("routers.num_requests", datadogTags);
+                */
+
+                responseObserver.onNext(replyBuilder.build());
+                responseObserver.onCompleted();
             }
-
-            /*
-            String[] datadogTags = {"mode:" + request.getProfile(), "api:grpc"};
-            statsDClient.incrementCounter("routers.num_requests", datadogTags);
-            */
-
-            responseObserver.onNext(replyBuilder.build());
-            responseObserver.onCompleted();
         } catch (Exception e) {
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
@@ -210,61 +221,78 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                 pathsWithStableIds.add(path);
             }
 
-            PtRouteReply.Builder replyBuilder = PtRouteReply.newBuilder();
-            for (ResponsePath responsePath : pathsWithStableIds) {
-                List<FootLeg> footLegs = responsePath.getLegs().stream()
-                        .filter(leg -> leg.type.equals("walk"))
-                        .map(leg -> (CustomWalkLeg) leg)
-                        .map(leg -> FootLeg.newBuilder()
-                                .setDepartureTime(leg.getDepartureTime().toString())
-                                .setArrivalTime(leg.getArrivalTime().toString())
-                                .setDistance(leg.getDistance())
-                                .addAllStableEdgeIds(leg.stableEdgeIds)
-                                .setTravelSegmentType(leg.travelSegmentType)
-                                .build())
-                        .collect(toList());
+            if (pathsWithStableIds.size() == 0) {
+                Status status = Status.newBuilder()
+                        .setCode(Code.NOT_FOUND.getNumber())
+                        .setMessage("Transit path could not be found between " + fromPoint.getLat() + "," +
+                                fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon())
+                        .build();
+                responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+            } else {
+                PtRouteReply.Builder replyBuilder = PtRouteReply.newBuilder();
+                for (ResponsePath responsePath : pathsWithStableIds) {
+                    List<FootLeg> footLegs = responsePath.getLegs().stream()
+                            .filter(leg -> leg.type.equals("walk"))
+                            .map(leg -> (CustomWalkLeg) leg)
+                            .map(leg -> FootLeg.newBuilder()
+                                    .setDepartureTime(leg.getDepartureTime().toString())
+                                    .setArrivalTime(leg.getArrivalTime().toString())
+                                    .setDistance(leg.getDistance())
+                                    .addAllStableEdgeIds(leg.stableEdgeIds)
+                                    .setTravelSegmentType(leg.travelSegmentType)
+                                    .build())
+                            .collect(toList());
 
-                List<PtLeg> ptLegs = responsePath.getLegs().stream()
-                        .filter(leg -> leg.type.equals("pt"))
-                        .map(leg -> (CustomPtLeg) leg)
-                        .map(leg -> PtLeg.newBuilder()
-                                .setDepartureTime(leg.getDepartureTime().toString())
-                                .setArrivalTime(leg.getArrivalTime().toString())
-                                .setDistance(leg.getDistance())
-                                .addAllStableEdgeIds(leg.stableEdgeIds)
-                                .setTripId(leg.trip_id)
-                                .setRouteId(leg.route_id)
-                                .setAgencyName(leg.agencyName)
-                                .setRouteShortName(leg.routeShortName)
-                                .setRouteLongName(leg.routeLongName)
-                                .setRouteType(leg.routeType)
-                                .setDirection(leg.trip_headsign)
-                                .addAllStops(leg.stops.stream().map(stop -> Stop.newBuilder()
-                                        .setStopId(stop.stop_id)
-                                        .setStopName(stop.stop_name)
-                                        .setArrivalTime(stop.arrivalTime == null ? "" : stop.arrivalTime.toString())
-                                        .setDepartureTime(stop.departureTime == null ? "" : stop.departureTime.toString())
-                                        .setPoint(Point.newBuilder().setLat(stop.geometry.getX()).setLon(stop.geometry.getY()).build())
-                                        .build()).collect(toList())
-                                ).build()
-                        ).collect(toList());
+                    List<PtLeg> ptLegs = responsePath.getLegs().stream()
+                            .filter(leg -> leg.type.equals("pt"))
+                            .map(leg -> (CustomPtLeg) leg)
+                            .map(leg -> PtLeg.newBuilder()
+                                    .setDepartureTime(leg.getDepartureTime().toString())
+                                    .setArrivalTime(leg.getArrivalTime().toString())
+                                    .setDistance(leg.getDistance())
+                                    .addAllStableEdgeIds(leg.stableEdgeIds)
+                                    .setTripId(leg.trip_id)
+                                    .setRouteId(leg.route_id)
+                                    .setAgencyName(leg.agencyName)
+                                    .setRouteShortName(leg.routeShortName)
+                                    .setRouteLongName(leg.routeLongName)
+                                    .setRouteType(leg.routeType)
+                                    .setDirection(leg.trip_headsign)
+                                    .addAllStops(leg.stops.stream().map(stop -> Stop.newBuilder()
+                                            .setStopId(stop.stop_id)
+                                            .setStopName(stop.stop_name)
+                                            .setArrivalTime(stop.arrivalTime == null ? "" : stop.arrivalTime.toString())
+                                            .setDepartureTime(stop.departureTime == null ? "" : stop.departureTime.toString())
+                                            .setPoint(Point.newBuilder().setLat(stop.geometry.getX()).setLon(stop.geometry.getY()).build())
+                                            .build()).collect(toList())
+                                    ).build()
+                            ).collect(toList());
 
-                replyBuilder.addPaths(PtPath.newBuilder()
-                        .setTime(responsePath.getTime())
-                        .setDistance(responsePath.getDistance())
-                        .setTransfers(responsePath.getNumChanges())
-                        .addAllFootLegs(footLegs)
-                        .addAllPtLegs(ptLegs)
-                );
+                    replyBuilder.addPaths(PtPath.newBuilder()
+                            .setTime(responsePath.getTime())
+                            .setDistance(responsePath.getDistance())
+                            .setTransfers(responsePath.getNumChanges())
+                            .addAllFootLegs(footLegs)
+                            .addAllPtLegs(ptLegs)
+                    );
+                }
+
+                /*
+                String[] datadogTags = {"mode:pt", "api:grpc"};
+                statsDClient.incrementCounter("routers.num_requests", datadogTags);
+                */
+
+                responseObserver.onNext(replyBuilder.build());
+                responseObserver.onCompleted();
             }
-
-            /*
-            String[] datadogTags = {"mode:pt", "api:grpc"};
-            statsDClient.incrementCounter("routers.num_requests", datadogTags);
-            */
-
-            responseObserver.onNext(replyBuilder.build());
-            responseObserver.onCompleted();
+        } catch (PointNotFoundException e) {
+            Status status = Status.newBuilder()
+                    .setCode(Code.NOT_FOUND.getNumber())
+                    .setMessage("Path could not be found between " + fromPoint.getLat() + "," +
+                            fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon() +
+                            "; one or both endpoints could not be snapped to a road segment")
+                    .build();
+            responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         } catch (Exception e) {
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
