@@ -18,6 +18,7 @@
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.protobuf.Timestamp;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import com.graphhopper.*;
@@ -76,7 +77,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
         PMap hints = new PMap();
         hints.putObject(INSTRUCTIONS, false);
-        if (request.getAlgorithm().equals("alternative_route")) {
+        if (request.getAlternateRouteMaxPaths() > 1) {
             ghRequest.setAlgorithm("alternative_route");
             hints.putObject("alternative_route.max_paths", request.getAlternateRouteMaxPaths());
             hints.putObject("alternative_route.max_weight_factor", request.getAlternateRouteMaxWeightFactor());
@@ -106,10 +107,10 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                             .collect(Collectors.toList());
 
                     replyBuilder.addPaths(StreetPath.newBuilder()
-                            .setTime(responsePath.getTime())
-                            .setDistance(responsePath.getDistance())
+                            .setDurationMillis(responsePath.getTime())
+                            .setDistanceMeters(responsePath.getDistance())
                             .addAllStableEdgeIds(pathStableEdgeIds)
-                            .addAllTimes(edgeTimes)
+                            .addAllEdgeDurationsMillis(edgeTimes)
                             .setPoints(WebHelper.encodePolyline(responsePath.getPoints()))
                     );
                 }
@@ -170,7 +171,9 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         Point toPoint = request.getPoints(1);
 
         Request ghPtRequest = new Request(fromPoint.getLat(), fromPoint.getLon(), toPoint.getLat(), toPoint.getLon());
-        ghPtRequest.setEarliestDepartureTime(Instant.parse(request.getEarliestDepartureTime()));
+        ghPtRequest.setEarliestDepartureTime(Instant.ofEpochSecond(
+                request.getEarliestDepartureTime().getSeconds(), request.getEarliestDepartureTime().getNanos())
+        );
         ghPtRequest.setLimitSolutions(request.getLimitSolutions());
         ghPtRequest.setLocale(Locale.US);
         ghPtRequest.setArriveBy(false);
@@ -235,9 +238,13 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                             .filter(leg -> leg.type.equals("walk"))
                             .map(leg -> (CustomWalkLeg) leg)
                             .map(leg -> FootLeg.newBuilder()
-                                    .setDepartureTime(leg.getDepartureTime().toString())
-                                    .setArrivalTime(leg.getArrivalTime().toString())
-                                    .setDistance(leg.getDistance())
+                                    .setDepartureTime(Timestamp.newBuilder()
+                                            .setSeconds(leg.getDepartureTime().getTime() / 1000) // getTime() returns millis
+                                            .build())
+                                    .setArrivalTime(Timestamp.newBuilder()
+                                            .setSeconds(leg.getArrivalTime().getTime() / 1000) // getTime() returns millis
+                                            .build())
+                                    .setDistanceMeters(leg.getDistance())
                                     .addAllStableEdgeIds(leg.stableEdgeIds)
                                     .setTravelSegmentType(leg.travelSegmentType)
                                     .build())
@@ -247,9 +254,13 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                             .filter(leg -> leg.type.equals("pt"))
                             .map(leg -> (CustomPtLeg) leg)
                             .map(leg -> PtLeg.newBuilder()
-                                    .setDepartureTime(leg.getDepartureTime().toString())
-                                    .setArrivalTime(leg.getArrivalTime().toString())
-                                    .setDistance(leg.getDistance())
+                                    .setDepartureTime(Timestamp.newBuilder()
+                                            .setSeconds(leg.getDepartureTime().getTime() / 1000) // getTime() returns millis
+                                            .build())
+                                    .setArrivalTime(Timestamp.newBuilder()
+                                            .setSeconds(leg.getArrivalTime().getTime() / 1000) // getTime() returns millis
+                                            .build())
+                                    .setDistanceMeters(leg.getDistance())
                                     .addAllStableEdgeIds(leg.stableEdgeIds)
                                     .setTripId(leg.trip_id)
                                     .setRouteId(leg.route_id)
@@ -261,16 +272,18 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                                     .addAllStops(leg.stops.stream().map(stop -> Stop.newBuilder()
                                             .setStopId(stop.stop_id)
                                             .setStopName(stop.stop_name)
-                                            .setArrivalTime(stop.arrivalTime == null ? "" : stop.arrivalTime.toString())
-                                            .setDepartureTime(stop.departureTime == null ? "" : stop.departureTime.toString())
+                                            .setArrivalTime(stop.arrivalTime == null ? Timestamp.newBuilder().build()
+                                                    : Timestamp.newBuilder().setSeconds(stop.arrivalTime.getTime() / 1000).build())
+                                            .setDepartureTime(stop.departureTime == null ? Timestamp.newBuilder().build()
+                                                    : Timestamp.newBuilder().setSeconds(stop.departureTime.getTime() / 1000).build())
                                             .setPoint(Point.newBuilder().setLat(stop.geometry.getX()).setLon(stop.geometry.getY()).build())
                                             .build()).collect(toList())
                                     ).build()
                             ).collect(toList());
 
                     replyBuilder.addPaths(PtPath.newBuilder()
-                            .setTime(responsePath.getTime())
-                            .setDistance(responsePath.getDistance())
+                            .setDurationMillis(responsePath.getTime())
+                            .setDistanceMeters(responsePath.getDistance())
                             .setTransfers(responsePath.getNumChanges())
                             .addAllFootLegs(footLegs)
                             .addAllPtLegs(ptLegs)
