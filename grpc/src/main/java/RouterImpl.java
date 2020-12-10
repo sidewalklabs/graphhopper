@@ -276,7 +276,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                                                     : Timestamp.newBuilder().setSeconds(stop.arrivalTime.getTime() / 1000).build())
                                             .setDepartureTime(stop.departureTime == null ? Timestamp.newBuilder().build()
                                                     : Timestamp.newBuilder().setSeconds(stop.departureTime.getTime() / 1000).build())
-                                            .setPoint(Point.newBuilder().setLat(stop.geometry.getX()).setLon(stop.geometry.getY()).build())
+                                            .setPoint(Point.newBuilder().setLat(stop.geometry.getY()).setLon(stop.geometry.getX()).build())
                                             .build()).collect(toList())
                                     ).build()
                             ).collect(toList());
