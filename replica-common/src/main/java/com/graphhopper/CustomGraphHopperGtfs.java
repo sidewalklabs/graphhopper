@@ -1,9 +1,11 @@
-package com.graphhopper.export;
+package com.graphhopper;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.graphhopper.GraphHopperConfig;
+import com.graphhopper.export.TraversalPermissionLabeler;
+import com.graphhopper.export.USTraversalPermissionLabeler;
+import com.graphhopper.export.Way;
 import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.reader.DataReader;
 import com.graphhopper.reader.ReaderElement;

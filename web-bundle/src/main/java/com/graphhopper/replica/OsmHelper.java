@@ -1,6 +1,5 @@
 package com.graphhopper.replica;
 
-import com.graphhopper.export.CustomGraphHopperGtfs;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.HTreeMap;
@@ -15,31 +14,33 @@ import java.util.Map;
 public class OsmHelper {
     private static final Logger logger = LoggerFactory.getLogger(OsmHelper.class);
 
-    public static void writeOsmInfoToMapDb(CustomGraphHopperGtfs graphHopperGtfs) {
+    public static void writeOsmInfoToMapDb(Map<Long, Map<String, String>> osmIdToLaneTags,
+                                           Map<Integer, Long> ghIdToOsmId,
+                                           Map<Long, List<String>> osmIdToAccessFlags) {
         logger.info("Initializing new MapDB database files to store OSM info.");
         DB db = DBMaker.newFileDB(new File("transit_data/osm_info.db")).make();
 
-        HTreeMap<Long, Map<String, String>> osmIdToLaneTags = db
+        HTreeMap<Long, Map<String, String>> osmIdToLaneTagsMap = db
                 .createHashMap("osmIdToLaneTags")
                 .keySerializer(Serializer.LONG)
                 .valueSerializer(Serializer.JAVA)
                 .make();
 
-        HTreeMap<Integer, Long> ghIdToOsmId = db
+        HTreeMap<Integer, Long> ghIdToOsmIdMap = db
                 .createHashMap("ghIdToOsmId")
                 .keySerializer(Serializer.INTEGER)
                 .valueSerializer(Serializer.LONG)
                 .make();
 
-        HTreeMap<Long, List<String>> osmIdToAccessFlags = db
+        HTreeMap<Long, List<String>> osmIdToAccessFlagsMap = db
                 .createHashMap("osmIdToAccessFlags")
                 .keySerializer(Serializer.LONG)
                 .valueSerializer(Serializer.JAVA)
                 .make();
 
-        osmIdToLaneTags.putAll(graphHopperGtfs.getOsmIdToLaneTags());
-        ghIdToOsmId.putAll(graphHopperGtfs.getGhIdToOsmId());
-        osmIdToAccessFlags.putAll(graphHopperGtfs.getOsmIdToAccessFlags());
+        osmIdToLaneTagsMap.putAll(osmIdToLaneTags);
+        ghIdToOsmIdMap.putAll(ghIdToOsmId);
+        osmIdToAccessFlagsMap.putAll(osmIdToAccessFlags);
 
         db.commit();
         db.close();
