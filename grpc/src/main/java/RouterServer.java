@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -79,7 +80,7 @@ public class RouterServer {
 
         // Load GTFS link mapping and GTFS route info maps for use in building responses
         Map<String, String> gtfsLinkMappings = null;
-        Map<String, String> gtfsRouteInfo = null;
+        Map<String, List<String>> gtfsRouteInfo = null;
 
         File linkMappingsDbFile = new File("transit_data/gtfs_link_mappings.db");
         if (linkMappingsDbFile.exists()) {

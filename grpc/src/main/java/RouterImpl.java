@@ -51,12 +51,12 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     private final PtRouter ptRouter;
     private final MatrixAPI matrixAPI;
     private Map<String, String> gtfsLinkMappings;
-    private Map<String, String> gtfsRouteInfo;
+    private Map<String, List<String>> gtfsRouteInfo;
     // private final StatsDClient statsDClient;
 
     public RouterImpl(GraphHopper graphHopper, PtRouter ptRouter, MatrixAPI matrixAPI,
                       Map<String, String> gtfsLinkMappings,
-                      Map<String, String> gtfsRouteInfo
+                      Map<String, List<String>> gtfsRouteInfo
                       /*StatsDClient statsDClient*/) {
         this.graphHopper = graphHopper;
         this.ptRouter = ptRouter;
@@ -307,6 +307,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     .build();
             responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         } catch (Exception e) {
+            logger.error("ERRRRRRRROR! " + e.getMessage());
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
                     .setMessage("GH internal error! Path could not be found between " + fromPoint.getLat() + "," +
@@ -376,15 +377,14 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         stableEdgeIdsList.clear();
         stableEdgeIdsList.addAll(stableEdgeIdsWithoutDuplicates);
 
-        // Split comma-separated GTFS route info string of agency_name,route_short_name,route_long_name,route_type
-        String[] routeInfo = gtfsRouteInfo.containsKey(leg.route_id)
-                ? gtfsRouteInfo.get(leg.route_id).split(",")
-                : new String[]{"", "", "", ""};
+        // Ordered list of GTFS route info, containing agency_name, route_short_name, route_long_name, route_type
+        List<String> routeInfo = gtfsRouteInfo.getOrDefault(leg.route_id, Lists.newArrayList("", "", "", ""));
 
         if (!gtfsRouteInfo.containsKey(leg.route_id)) {
             logger.info("Failed to find route info for route " + leg.route_id + " for PT trip leg " + leg.toString());
         }
 
-        return new CustomPtLeg(leg, stableEdgeIdsList, routeInfo[0], routeInfo[1], routeInfo[2], routeInfo[3]);
+        return new CustomPtLeg(leg, stableEdgeIdsList,
+                routeInfo.get(0), routeInfo.get(1), routeInfo.get(2), routeInfo.get(3));
     }
 }
