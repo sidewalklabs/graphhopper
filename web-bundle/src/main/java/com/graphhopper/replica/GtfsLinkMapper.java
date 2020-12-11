@@ -213,7 +213,7 @@ public class GtfsLinkMapper {
         return odStopsForTrip;
     }
 
-    // Returns comma-separated string of agency_name,route_short_name,route_long_name,route_type
+    // Ordered list of strings: agency_name,route_short_name,route_long_name,route_type
     private static List<String> getRouteInfo(Route route, String agencyName) {
         return Lists.newArrayList(agencyName, route.route_short_name, route.route_long_name, "" + route.route_type);
     }
