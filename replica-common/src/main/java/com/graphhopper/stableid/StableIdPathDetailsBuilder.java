@@ -28,7 +28,7 @@ public class StableIdPathDetailsBuilder extends AbstractPathDetailsBuilder {
     private String edgeId;
 
     public StableIdPathDetailsBuilder(EncodedValueLookup originalDirectionFlagEncoder) {
-        super("r5_edge_id");
+        super("stable_edge_ids");
         this.originalDirectionFlagEncoder = StableIdEncodedValues.fromEncodingManager((EncodingManager) originalDirectionFlagEncoder);
         edgeId = "";
     }

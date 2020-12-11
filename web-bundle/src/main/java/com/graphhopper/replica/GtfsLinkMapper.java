@@ -4,10 +4,7 @@ import com.conveyal.gtfs.GTFSFeed;
 import com.conveyal.gtfs.model.Route;
 import com.conveyal.gtfs.model.Stop;
 import com.conveyal.gtfs.model.StopTime;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
@@ -30,7 +27,7 @@ import org.mapdb.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
+import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +39,8 @@ import static com.graphhopper.util.Parameters.Routing.MAX_VISITED_NODES;
 public class GtfsLinkMapper {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final GraphHopper graphHopper;
+    private final String CSV_COLUMN_HEADERS = "route_id,feed_id,stop_id,next_stop_id," +
+            "stop_lat,stop_lon,stop_lat_next,stop_lon_next,street_edges,transit_edge";
 
     public GtfsLinkMapper(GraphHopper graphHopper) {
         this.graphHopper = graphHopper;
@@ -237,11 +236,21 @@ public class GtfsLinkMapper {
                 .valueSerializer(Serializer.STRING)
                 .make();
 
-        HTreeMap<String, String> gtfsRouteInfo = db
+        HTreeMap<String, List<String>> gtfsRouteInfo = db
                 .createHashMap("gtfsRouteInfo")
+                .keySerializer(Serializer.STRING)
+                .valueSerializer(Serializer.JAVA)
+                .make();
+
+        HTreeMap<String, String> gtfsFeedIdMap = db
+                .createHashMap("gtfsFeedIdMap")
                 .keySerializer(Serializer.STRING)
                 .valueSerializer(Serializer.STRING)
                 .make();
+
+        // Output file location for CSV containing all GTFS link mappings
+        File gtfsLinksCsvOutput = new File(graphHopper.getGraphHopperLocation() + "/gtfs_link_mapping.csv");
+        List<String> gtfsLinkMappingCsvRows = Lists.newArrayList();
 
         // For testing
         // Set<String> allStableIds = Sets.newHashSet();
@@ -250,14 +259,17 @@ public class GtfsLinkMapper {
         // and then for each trip, route via car between each stop pair in sequential order, storing the returned IDs
         for (String feedId : gtfsFeedMap.keySet()) {
             GTFSFeed feed = gtfsFeedMap.get(feedId);
-            logger.info("Processing GTFS feed " + feedId + " " + feed.feedId);
+            logger.info("Processing GTFS feed " + feed.feedId);
+
+            // Record mapping of internal GH feed ID -> GTFS feed ID
+            gtfsFeedIdMap.put(feedId, feed.feedId);
 
             // Store route information in db for _every_ route type
-            Map<String, String> routeInfoMap = feed.routes.keySet().stream()
+            Map<String, List<String>> routeInfoMap = feed.routes.keySet().stream()
                     .map(routeId -> feed.routes.get(routeId))
                     .collect(Collectors.toMap(
                             route -> route.route_id,
-                            route -> getRouteInfoString(route, feed.agency.get(route.agency_id).agency_name)
+                            route -> getRouteInfo(route, feed.agency.get(route.agency_id).agency_name)
                     ));
             gtfsRouteInfo.putAll(routeInfoMap);
 
@@ -272,6 +284,10 @@ public class GtfsLinkMapper {
                     .filter(trip -> streetBasedRouteIdsForFeed.contains(trip.route_id))
                     .map(trip -> trip.trip_id)
                     .collect(Collectors.toSet());
+
+            SetMultimap<String, String> routeIdToTripsInRoute = HashMultimap.create();
+            streetBasedRouteIdsForFeed.stream().forEach(routeId -> routeIdToTripsInRoute.putAll(routeId,
+                    tripsForStreetBasedRoutes.stream().filter(tripId -> feed.trips.get(tripId).route_id.equals(routeId)).collect(Collectors.toList())));
 
             // Find all stops for each trip
             SetMultimap<String, StopTime> tripIdToStopsInTrip = HashMultimap.create();
@@ -291,6 +307,7 @@ public class GtfsLinkMapper {
                     + tripsForStreetBasedRoutes.size() + " total trips to process for this feed. Routes to be computed for "
                     + stopIdsForStreetBasedTrips.size() + "/" + feed.stops.values().size() + " stop->stop pairs");
 
+            Map<String, List<Pair<Stop, Stop>>> tripIdToStopPairsInTrip = Maps.newHashMap();
             int processedTripCount = 0;
             int odStopCount = 0;
             int nonUniqueODPairs = 0;
@@ -298,14 +315,16 @@ public class GtfsLinkMapper {
             // For each trip, route with auto between all O/D stop pairs,
             // and store returned stable edge IDs for each route in mapdb file
             for (String tripId : tripIdToStopsInTrip.keySet()) {
-                if (processedTripCount % (tripIdToStopsInTrip.keySet().size() / 10) == 0) {
+                if (tripIdToStopsInTrip.keySet().size() > 10 &&
+                        processedTripCount % (tripIdToStopsInTrip.keySet().size() / 10) == 0) {
                     logger.info(processedTripCount + "/" + tripIdToStopsInTrip.keySet().size() + " trips for feed "
-                            + feedId + " processed so far; " + nonUniqueODPairs + "/" + odStopCount
+                            + feed.feedId + " processed so far; " + nonUniqueODPairs + "/" + odStopCount
                             + " O/D stop pairs were non-unique, and were not routed between.");
                 }
-
+                
                 // Fetch all sequentially-ordered stop->stop pairs for this trip
                 List<Pair<Stop, Stop>> odStopsForTrip = getODStopsForTrip(tripIdToStopsInTrip.get(tripId), stopsForStreetBasedTrips);
+                tripIdToStopPairsInTrip.put(tripId, odStopsForTrip);
 
                 // Route a car between each stop->stop pair, and store the returned stable edge IDs in mapdb map
                 for (Pair<Stop, Stop> odStopPair : odStopsForTrip) {
@@ -326,7 +345,7 @@ public class GtfsLinkMapper {
                             odStopPair.getRight().stop_lat, odStopPair.getRight().stop_lon
                     );
                     odRequest.setProfile("car");
-                    odRequest.setPathDetails(Lists.newArrayList("r5_edge_id"));
+                    odRequest.setPathDetails(Lists.newArrayList("stable_edge_ids"));
                     GHResponse response = graphHopper.route(odRequest);
 
                     // If stop->stop path couldn't be found by GH, don't store anything
@@ -336,7 +355,8 @@ public class GtfsLinkMapper {
                     }
 
                     // Parse stable IDs for each edge from response
-                    List<PathDetail> responsePathEdgeIdDetails = response.getAll().get(0).getPathDetails().get("r5_edge_id");
+                    List<PathDetail> responsePathEdgeIdDetails = response.getAll().get(0)
+                            .getPathDetails().get("stable_edge_ids");
                     List<String> pathEdgeIds = responsePathEdgeIdDetails.stream()
                             .map(pathDetail -> (String) pathDetail.getValue())
                             .collect(Collectors.toList());
@@ -348,14 +368,18 @@ public class GtfsLinkMapper {
                 }
                 processedTripCount++;
             }
-            logger.info("Done processing GTFS feed " + feedId + "; " + tripIdToStopsInTrip.keySet().size() +
+            logger.info("Done processing GTFS feed " + feed.feedId + "; " + tripIdToStopsInTrip.keySet().size() +
                     " total trips processed; " + nonUniqueODPairs + "/" + odStopCount
                     + " O/D stop pairs were non-unique; routes for " + routeNotFoundCount + "/" + odStopCount
                     + " stop->stop pairs were not found");
+
+            gtfsLinkMappingCsvRows.addAll(getGtfsLinkCsvRowsForFeed(routeIdToTripsInRoute, tripIdToStopPairsInTrip, gtfsLinkMappings));
         }
         db.commit();
         db.close();
         logger.info("Done creating GTFS link mappings for " + gtfsFeedMap.size() + " GTFS feeds");
+
+        writeGtfsLinksToCsv(gtfsLinkMappingCsvRows, gtfsLinksCsvOutput);
 
         // For testing
         // logger.info("All stable edge IDs: ");
@@ -377,8 +401,77 @@ public class GtfsLinkMapper {
         return odStopsForTrip;
     }
 
-    // Returns comma-separated string of agency_name,route_short_name,route_long_name,route_type
-    private static String getRouteInfoString(Route route, String agencyName) {
-        return agencyName + "," + route.route_short_name + "," + route.route_long_name + "," + route.route_type;
+    // Ordered list of strings: agency_name,route_short_name,route_long_name,route_type
+    private static List<String> getRouteInfo(Route route, String agencyName) {
+        return Lists.newArrayList(agencyName, route.route_short_name, route.route_long_name, "" + route.route_type);
+    }
+
+    // returns all CSV rows (as a list of Strings) derived from a single GTFS feed's data
+    private List<String> getGtfsLinkCsvRowsForFeed(SetMultimap<String, String> routeIdToTripsInRoute,
+                                                   Map<String, List<Pair<Stop, Stop>>> tripIdToStopPairsInTrip,
+                                                   HTreeMap<String, String> gtfsLinkMappings) {
+        List<String> rowsForFeed = Lists.newArrayList();
+        for (String routeId : routeIdToTripsInRoute.keySet()) {
+            for (String tripIdInRoute : routeIdToTripsInRoute.get(routeId)) {
+                for (Pair<Stop, Stop> stopStopPair : tripIdToStopPairsInTrip.get(tripIdInRoute)) {
+                    // Filter out stop-stop pairs where the stops are identical
+                    if (stopStopPair.getLeft().stop_id.equals(stopStopPair.getRight().stop_id)) {
+                        continue;
+                    }
+
+                    // Skip stop-stop pairs where we couldn't find a valid route
+                    String stopPairString = stopStopPair.getLeft().stop_id + "," + stopStopPair.getRight().stop_id;
+                    if (!gtfsLinkMappings.containsKey(stopPairString)) {
+                        continue;
+                    }
+                    List<String> stableEdgeIds = Lists.newArrayList(gtfsLinkMappings.get(stopPairString).split(","));
+                    String stableEdgeIdString = stableEdgeIds.size() == 0 ? ""
+                            : String.format("\"[%s]\"", stableEdgeIds.stream().map(id -> "'" + id + "'").collect(Collectors.joining(",")));
+
+                    Stop stop = stopStopPair.getLeft();
+                    Stop nextStop = stopStopPair.getRight();
+
+                    // format: "{feed_id}:{route_id}/{feed_id}:{stop_id}/{feed_id}:{next_stop_id}"
+                    String transitEdgeString = stop.feed_id + ":" + routeId + "/" + stop.feed_id + ":"
+                            + stop.stop_id + "/" + stop.feed_id + ":" + nextStop.stop_id;
+
+                    rowsForFeed.add(getCsvLine(routeId, stop.feed_id, stop.stop_id, nextStop.stop_id,
+                            stop.stop_lat, stop.stop_lon, nextStop.stop_lat, nextStop.stop_lon,
+                            stableEdgeIdString, transitEdgeString));
+                }
+            }
+        }
+        return rowsForFeed;
+    }
+
+    private static String getCsvLine(String routeId, String feedId, String stopId, String nextStopId,
+                                     double stopLat, double stopLon, double stopLatNext, double stopLonNext,
+                                     String stableEdgeIdString, String transitEdgeString) {
+        return String.format("%s,%s,%s,%s,%f,%f,%f,%f,%s,%s", routeId, feedId, stopId, nextStopId,
+                stopLat, stopLon, stopLatNext, stopLonNext, stableEdgeIdString, transitEdgeString
+        );
+    }
+
+    // writes all pre-formed CSV rows to file
+    private void writeGtfsLinksToCsv(List<String> gtfsLinkMappingCsvRows, File outputFile) {
+        logger.info("Writing GTFS link mapping CSV file to " + outputFile.getPath() + "...");
+        OutputStream outputStream;
+        try {
+            outputStream = new BufferedOutputStream(new FileOutputStream(outputFile));
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        PrintStream printStream = new PrintStream(outputStream);
+        printStream.println(CSV_COLUMN_HEADERS);
+
+        for (String row : gtfsLinkMappingCsvRows) {
+            printStream.println(row);
+        }
+
+        printStream.close();
+        logger.info("Done writing GTFS link mappings to CSV");
+        if (!outputFile.exists()) {
+            logger.error("Output file can't be found! CSV write may not have completed successfully");
+        }
     }
 }
