@@ -67,7 +67,7 @@ public class GtfsLinkMapper {
                 .make();
 
         // Output file location for CSV containing all GTFS link mappings
-        File gtfsLinksCsvOutput = new File(graphHopper.getGraphHopperLocation() + "/gtfs_link_mappings.csv");
+        File gtfsLinksCsvOutput = new File("transit_data/gtfs_link_mappings.csv");
         List<String> gtfsLinkMappingCsvRows = Lists.newArrayList();
 
         // For testing
