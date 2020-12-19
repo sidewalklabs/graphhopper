@@ -24,10 +24,7 @@ import com.google.rpc.Status;
 import com.graphhopper.*;
 import com.graphhopper.gtfs.PtRouter;
 import com.graphhopper.gtfs.Request;
-import com.graphhopper.http.WebHelper;
-import com.graphhopper.routing.GHMRequest;
-import com.graphhopper.routing.GHMResponse;
-import com.graphhopper.routing.MatrixAPI;
+import com.graphhopper.routing.*;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.exceptions.PointNotFoundException;
 import com.graphhopper.util.shapes.GHPoint;
@@ -153,7 +150,61 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             String[] datadogTags = {"mode:" + request.getMode() + "_matrix", "api:grpc"};
             statsDClient.incrementCounter("routers.num_requests", datadogTags);
             */
-            responseObserver.onNext(GrpcMatrixSerializer.serialize(ghMatrixRequest, ghMatrixResponse));
+
+            if (ghMatrixRequest.getFailFast() && ghMatrixResponse.hasInvalidPoints()) {
+                MatrixErrors matrixErrors = new MatrixErrors();
+                matrixErrors.addInvalidFromPoints(ghMatrixResponse.getInvalidFromPoints());
+                matrixErrors.addInvalidToPoints(ghMatrixResponse.getInvalidToPoints());
+                throw new MatrixCalculationException(matrixErrors);
+            }
+            int from_len = ghMatrixRequest.getFromPoints().size();
+            int to_len = ghMatrixRequest.getToPoints().size();
+            List<List<Long>> timeList = new ArrayList(from_len);
+            List<Long> timeRow;
+            List<List<Long>> distanceList = new ArrayList(from_len);
+            List<Long> distanceRow;
+            Iterator<MatrixElement> iter = ghMatrixResponse.getMatrixElementIterator();
+            MatrixErrors matrixErrors = new MatrixErrors();
+            StringBuilder debugBuilder = new StringBuilder();
+            debugBuilder.append(ghMatrixResponse.getDebugInfo());
+
+            for(int fromIndex = 0; fromIndex < from_len; ++fromIndex) {
+                timeRow = new ArrayList(to_len);
+                timeList.add(timeRow);
+                distanceRow = new ArrayList(to_len);
+                distanceList.add(distanceRow);
+
+                for(int toIndex = 0; toIndex < to_len; ++toIndex) {
+                    if (!iter.hasNext()) {
+                        throw new IllegalStateException("Internal error, matrix dimensions should be " + from_len + "x" + to_len + ", but failed to retrieve element (" + fromIndex + ", " + toIndex + ")");
+                    }
+
+                    MatrixElement element = iter.next();
+                    if (!element.isConnected()) {
+                        matrixErrors.addDisconnectedPair(element.getFromIndex(), element.getToIndex());
+                    }
+
+                    if (ghMatrixRequest.getFailFast() && matrixErrors.hasDisconnectedPairs()) {
+                        throw new MatrixCalculationException(matrixErrors);
+                    }
+
+                    long time = element.getTime();
+                    timeRow.add(time == Long.MAX_VALUE ? null : Math.round((double)time / 1000.0D));
+
+                    double distance = element.getDistance();
+                    distanceRow.add(distance == Double.MAX_VALUE ? null : Math.round(distance));
+
+                    debugBuilder.append(element.getDebugInfo());
+                }
+            }
+
+            List<MatrixRow> timeRows = timeList.stream()
+                    .map(row -> MatrixRow.newBuilder().addAllValues(row).build()).collect(toList());
+            List<MatrixRow> distanceRows = distanceList.stream()
+                    .map(row -> MatrixRow.newBuilder().addAllValues(row).build()).collect(toList());
+
+            MatrixRouteReply result = MatrixRouteReply.newBuilder().addAllTimes(timeRows).addAllDistances(distanceRows).build();
+            responseObserver.onNext(result);
             responseObserver.onCompleted();
         } catch (Exception e) {
             Status status = Status.newBuilder()
