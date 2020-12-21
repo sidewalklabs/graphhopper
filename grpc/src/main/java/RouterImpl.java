@@ -130,6 +130,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         }
     }
 
+    // TODO: Clean up code based on fix-it comments in PR #26
     @Override
     public void routeMatrix(MatrixRouteRequest request, StreamObserver<MatrixRouteReply> responseObserver) {
         List<GHPoint> fromPoints = request.getFromPointsList().stream()
