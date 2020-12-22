@@ -17,6 +17,7 @@
         <module>replica-common</module>
         <module>web-bundle</module>
         <module>web</module>
+        <module>grpc</module>
     </modules>
     <build>
         <plugins>

@@ -36,13 +36,15 @@ public class PtRouteResource {
     private final GraphHopperAPI graphHopper;
     private final PtRouter ptRouter;
     private static Map<String, String> gtfsLinkMappings;
-    private static Map<String, String> gtfsRouteInfo;
+    private static Map<String, List<String>> gtfsRouteInfo;
+    private static Map<String, String> gtfsFeedIdMapping;
 
     // Statically load GTFS link mapping and GTFS route info maps for use in building responses
     static {
         DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
         gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
         gtfsRouteInfo = db.getHashMap("gtfsRouteInfo");
+        gtfsFeedIdMapping = db.getHashMap("gtfsFeedIdMap");
         logger.info("Done loading GTFS link mappings and route info. Total number of mappings: " + gtfsLinkMappings.size());
     }
 
@@ -68,6 +70,10 @@ public class PtRouteResource {
         List<GHLocation> points = requestPoints.stream().map(AbstractParam::get).collect(Collectors.toList());
         Instant departureTime = departureTimeParam.get();
         Request request = new Request(points, departureTime);
+
+        // Always return stable edge IDs, even if they aren't requested
+        if (!pathDetails.contains("stable_edge_ids")) pathDetails.add("stable_edge_ids");
+
         request.setArriveBy(arriveBy);
         Optional.ofNullable(profileQuery).ifPresent(request::setProfileQuery);
         Optional.ofNullable(profileDuration.get()).ifPresent(request::setMaxProfileDuration);
@@ -86,26 +92,29 @@ public class PtRouteResource {
                 continue;
             }
 
-            ArrayList<Trip.Leg> legs = new ArrayList<>(path.getLegs());
-
             // Replace the path's legs with newly-constructed legs containing stable edge IDs
+            ArrayList<Trip.Leg> legs = new ArrayList<>(path.getLegs());
             path.getLegs().clear();
 
             for (int i = 0; i < legs.size(); i++) {
                 Trip.Leg leg = legs.get(i);
                 if (leg instanceof Trip.WalkLeg) {
+                    Trip.WalkLeg thisLeg = (Trip.WalkLeg) leg;
                     String travelSegmentType;
-                    if (i==0)
+                    if (i == 0) {
                         travelSegmentType = "ACCESS";
-                    else if (i == legs.size()-1)
+                    } else if (i == legs.size() - 1) {
                         travelSegmentType = "EGRESS";
-                    else
+                    } else {
                         travelSegmentType = "TRANSFER"; // walk leg in middle of trip, not currently used by gh, reserved for future
-                    path.getLegs().add(new CustomWalkLeg(((Trip.WalkLeg) leg), stableIds((Trip.WalkLeg) leg), travelSegmentType));
+                    }
+                    path.getLegs().add(new CustomWalkLeg(thisLeg, fetchWalkLegStableIds(thisLeg), travelSegmentType));
                 } else if (leg instanceof Trip.PtLeg) {
                     Trip.PtLeg thisLeg = (Trip.PtLeg) leg;
                     path.getLegs().add(getCustomPtLeg(thisLeg));
-                    if (i < legs.size() - 1 && legs.get(i+1) instanceof Trip.PtLeg) {
+
+                    // If this PT leg is followed by another PT leg, add a walk TRANSFER leg between them
+                    if (i < legs.size() - 1 && legs.get(i + 1) instanceof Trip.PtLeg) {
                         Trip.PtLeg nextLeg = (Trip.PtLeg) legs.get(i + 1);
                         Trip.Stop lastStopOfThisLeg = thisLeg.stops.get(thisLeg.stops.size() - 1);
                         Trip.Stop firstStopOfNextLeg = nextLeg.stops.get(0);
@@ -114,7 +123,7 @@ public class PtRouteResource {
                                     lastStopOfThisLeg.geometry.getY(), lastStopOfThisLeg.geometry.getX(),
                                     firstStopOfNextLeg.geometry.getY(), firstStopOfNextLeg.geometry.getX());
                             r.setProfile("foot");
-                            r.setPathDetails(Arrays.asList("r5_edge_id"));
+                            r.setPathDetails(Arrays.asList("stable_edge_ids"));
                             GHResponse transfer = graphHopper.route(r);
                             if (!transfer.hasErrors()) {
                                 ResponsePath transferPath = transfer.getBest();
@@ -127,7 +136,7 @@ public class PtRouteResource {
                                         transferPath.getPathDetails(),
                                         Date.from(thisLeg.getArrivalTime().toInstant().plusMillis(transferPath.getTime()))
                                 );
-                                path.getLegs().add(new CustomWalkLeg(transferLeg, stableIds(transferLeg), "TRANSFER"));
+                                path.getLegs().add(new CustomWalkLeg(transferLeg, fetchWalkLegStableIds(transferLeg), "TRANSFER"));
                             }
                         }
                     }
@@ -145,8 +154,8 @@ public class PtRouteResource {
         return WebHelper.jsonObject(routeWithStableIds, true, true, false, false, stopWatch.stop().getMillis());
     }
 
-    private List<String> stableIds(Trip.WalkLeg firstLeg) {
-        return firstLeg.details.get("r5_edge_id").stream()
+    private static List<String> fetchWalkLegStableIds(Trip.WalkLeg leg) {
+        return leg.details.get("stable_edge_ids").stream()
                 .map(idPathDetail -> (String) idPathDetail.getValue())
                 .filter(id -> id.length() == 20)
                 .collect(toList());
@@ -176,10 +185,10 @@ public class PtRouteResource {
         public final String routeLongName;
         public final String routeType;
 
-        public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds, String agencyName, String routeShortName,
-                           String routeLongName, String routeType) {
+        public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds, List<Trip.Stop> updatedStops, String agencyName,
+                           String routeShortName, String routeLongName, String routeType) {
             super(leg.feed_id, leg.isInSameVehicleAsPrevious, leg.trip_id, leg.route_id,
-                    leg.trip_headsign, leg.stops, leg.distance, leg.travelTime, leg.geometry);
+                    leg.trip_headsign, updatedStops, leg.distance, leg.travelTime, leg.geometry);
             this.stableEdgeIds = stableEdgeIds;
             this.agencyName = agencyName;
             this.routeShortName = routeShortName;
@@ -212,15 +221,25 @@ public class PtRouteResource {
         stableEdgeIdsList.clear();
         stableEdgeIdsList.addAll(stableEdgeIdsWithoutDuplicates);
 
-        // Split comma-separated GTFS route info string of agency_name,route_short_name,route_long_name,route_type
-        String[] routeInfo = gtfsRouteInfo.containsKey(leg.route_id)
-                ? gtfsRouteInfo.get(leg.route_id).split(",")
-                : new String[]{"", "", "", ""};
+        // Ordered list of GTFS route info, containing agency_name, route_short_name, route_long_name, route_type
+        List<String> routeInfo = gtfsRouteInfo.containsKey(leg.route_id)
+                ? gtfsRouteInfo.get(leg.route_id)
+                : Lists.newArrayList("", "", "", "");
 
         if (!gtfsRouteInfo.containsKey(leg.route_id)) {
             logger.info("Failed to find route info for route " + leg.route_id + " for PT trip leg " + leg.toString());
         }
 
-        return new CustomPtLeg(leg, stableEdgeIdsList, routeInfo[0], routeInfo[1], routeInfo[2], routeInfo[3]);
+        // Add proper GTFS feed ID as prefix to all stop names in Leg
+        List<Trip.Stop> updatedStops = Lists.newArrayList();
+        for (Trip.Stop stop : leg.stops) {
+            String updatedStopId = gtfsFeedIdMapping.get(leg.feed_id) + ":" + stop.stop_id;
+            updatedStops.add(new Trip.Stop(updatedStopId, stop.stop_name, stop.geometry, stop.arrivalTime,
+                    stop.plannedArrivalTime, stop.predictedArrivalTime, stop.arrivalCancelled, stop.departureTime,
+                    stop.plannedDepartureTime, stop.predictedDepartureTime, stop.departureCancelled));
+        }
+
+        return new CustomPtLeg(leg, stableEdgeIdsList, updatedStops,
+                routeInfo.get(0), routeInfo.get(1), routeInfo.get(2), routeInfo.get(3));
     }
 }
