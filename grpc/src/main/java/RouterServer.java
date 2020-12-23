@@ -30,8 +30,6 @@ import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
-import com.timgroup.statsd.NonBlockingStatsDClientBuilder;
-import com.timgroup.statsd.StatsDClient;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
