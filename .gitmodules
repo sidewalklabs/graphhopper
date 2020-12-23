@@ -1,0 +1,4 @@
+[submodule "idls"]
+	path = idls
+	url = git@github.com:replicahq/idls.git
+	branch = master

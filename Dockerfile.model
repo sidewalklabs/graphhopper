@@ -4,16 +4,13 @@ ARG GRAPHHOPPER_TOKEN
 ARG GIT_USER_ID
 ARG GIT_PERSONAL_ACCESS
 
-ENV JETTY_PORT 11111
-ENV JAVA_OPTS "-server -Xmx1g -Xms1g -XX:+UseG1GC -XX:MetaspaceSize=100M"
-
 RUN apt-get update && apt-get install -y wget
 
 WORKDIR /graphhopper
 
 COPY . .
 
-RUN mvn -s maven_settings.xml --projects web -am -DskipTests=true package
+RUN ./build_with_proto.sh
 
 FROM openjdk:14.0.2-jdk
 
@@ -21,11 +18,11 @@ RUN mkdir -p /data
 
 WORKDIR /graphhopper
 
+COPY --from=build /graphhopper/grpc/target/*.jar ./grpc/target/
 COPY --from=build /graphhopper/web/target/*.jar ./web/target/
 # pom.xml is used to get the jar file version. see https://github.com/graphhopper/graphhopper/pull/1990#discussion_r409438806
 COPY ./pom.xml ./default_gh_config.yaml ./
 
 VOLUME [ "/data" ]
 
-EXPOSE 11111
-EXPOSE 8998
+EXPOSE 50051
