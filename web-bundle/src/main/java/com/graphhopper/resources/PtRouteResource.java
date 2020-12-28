@@ -14,6 +14,7 @@ import com.graphhopper.util.Helper;
 import com.graphhopper.util.StopWatch;
 import io.dropwizard.jersey.params.AbstractParam;
 import io.dropwizard.jersey.params.InstantParam;
+import org.glassfish.jersey.internal.inject.Custom;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.slf4j.Logger;
@@ -142,6 +143,13 @@ public class PtRouteResource {
                     }
                 }
             }
+
+            // ACCESS legs contains stable IDs for both ACCESS and EGRESS legs for some reason,
+            // so we remove the EGRESS leg IDs from the ACCESS leg before storing the path
+            CustomWalkLeg accessLeg = (CustomWalkLeg) path.getLegs().get(0);
+            CustomWalkLeg egressLeg = (CustomWalkLeg) path.getLegs().get(path.getLegs().size() - 1);
+            accessLeg.stableEdgeIds.removeAll(egressLeg.stableEdgeIds);
+
             path.getPathDetails().clear();
             pathsWithStableIds.add(path);
         }
