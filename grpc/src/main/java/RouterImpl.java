@@ -311,59 +311,15 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             } else {
                 PtRouteReply.Builder replyBuilder = PtRouteReply.newBuilder();
                 for (ResponsePath responsePath : pathsWithStableIds) {
-                    List<FootLeg> footLegs = responsePath.getLegs().stream()
-                            .filter(leg -> leg.type.equals("walk"))
-                            .map(leg -> (CustomWalkLeg) leg)
-                            .map(leg -> FootLeg.newBuilder()
-                                    .setDepartureTime(Timestamp.newBuilder()
-                                            .setSeconds(leg.getDepartureTime().getTime() / 1000) // getTime() returns millis
-                                            .build())
-                                    .setArrivalTime(Timestamp.newBuilder()
-                                            .setSeconds(leg.getArrivalTime().getTime() / 1000) // getTime() returns millis
-                                            .build())
-                                    .setDistanceMeters(leg.getDistance())
-                                    .addAllStableEdgeIds(leg.stableEdgeIds)
-                                    .setTravelSegmentType(leg.travelSegmentType)
-                                    .build())
+                    List<GenericLeg> legs = responsePath.getLegs().stream()
+                            .map(leg -> createGenericLeg(leg))
                             .collect(toList());
-
-                    List<PtLeg> ptLegs = responsePath.getLegs().stream()
-                            .filter(leg -> leg.type.equals("pt"))
-                            .map(leg -> (CustomPtLeg) leg)
-                            .map(leg -> PtLeg.newBuilder()
-                                    .setDepartureTime(Timestamp.newBuilder()
-                                            .setSeconds(leg.getDepartureTime().getTime() / 1000) // getTime() returns millis
-                                            .build())
-                                    .setArrivalTime(Timestamp.newBuilder()
-                                            .setSeconds(leg.getArrivalTime().getTime() / 1000) // getTime() returns millis
-                                            .build())
-                                    .setDistanceMeters(leg.getDistance())
-                                    .addAllStableEdgeIds(leg.stableEdgeIds)
-                                    .setTripId(leg.trip_id)
-                                    .setRouteId(leg.route_id)
-                                    .setAgencyName(leg.agencyName)
-                                    .setRouteShortName(leg.routeShortName)
-                                    .setRouteLongName(leg.routeLongName)
-                                    .setRouteType(leg.routeType)
-                                    .setDirection(leg.trip_headsign)
-                                    .addAllStops(leg.stops.stream().map(stop -> Stop.newBuilder()
-                                            .setStopId(stop.stop_id)
-                                            .setStopName(stop.stop_name)
-                                            .setArrivalTime(stop.arrivalTime == null ? Timestamp.newBuilder().build()
-                                                    : Timestamp.newBuilder().setSeconds(stop.arrivalTime.getTime() / 1000).build())
-                                            .setDepartureTime(stop.departureTime == null ? Timestamp.newBuilder().build()
-                                                    : Timestamp.newBuilder().setSeconds(stop.departureTime.getTime() / 1000).build())
-                                            .setPoint(Point.newBuilder().setLat(stop.geometry.getY()).setLon(stop.geometry.getX()).build())
-                                            .build()).collect(toList())
-                                    ).build()
-                            ).collect(toList());
 
                     replyBuilder.addPaths(PtPath.newBuilder()
                             .setDurationMillis(responsePath.getTime())
                             .setDistanceMeters(responsePath.getDistance())
                             .setTransfers(responsePath.getNumChanges())
-                            .addAllFootLegs(footLegs)
-                            .addAllPtLegs(ptLegs)
+                            .addAllLegs(legs)
                     );
                 }
 
@@ -399,6 +355,53 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                 .map(idPathDetail -> (String) idPathDetail.getValue())
                 .filter(id -> id.length() == 20)
                 .collect(toList());
+    }
+
+    private static GenericLeg createGenericLeg(Trip.Leg leg) {
+        if (leg.type.equals("walk")) {
+            CustomWalkLeg walkLeg = (CustomWalkLeg) leg;
+            FootLeg footLegProto = FootLeg.newBuilder()
+                    .setDepartureTime(Timestamp.newBuilder()
+                            .setSeconds(walkLeg.getDepartureTime().getTime() / 1000) // getTime() returns millis
+                            .build())
+                    .setArrivalTime(Timestamp.newBuilder()
+                            .setSeconds(walkLeg.getArrivalTime().getTime() / 1000) // getTime() returns millis
+                            .build())
+                    .setDistanceMeters(walkLeg.getDistance())
+                    .addAllStableEdgeIds(walkLeg.stableEdgeIds)
+                    .setTravelSegmentType(walkLeg.travelSegmentType)
+                    .build();
+            return GenericLeg.newBuilder().setFootLeg(footLegProto).build();
+        } else { // leg is a PT leg
+            CustomPtLeg ptLeg = (CustomPtLeg) leg;
+            PtLeg ptLegProto = PtLeg.newBuilder()
+                    .setDepartureTime(Timestamp.newBuilder()
+                            .setSeconds(ptLeg.getDepartureTime().getTime() / 1000) // getTime() returns millis
+                            .build())
+                    .setArrivalTime(Timestamp.newBuilder()
+                            .setSeconds(ptLeg.getArrivalTime().getTime() / 1000) // getTime() returns millis
+                            .build())
+                    .setDistanceMeters(ptLeg.getDistance())
+                    .addAllStableEdgeIds(ptLeg.stableEdgeIds)
+                    .setTripId(ptLeg.trip_id)
+                    .setRouteId(ptLeg.route_id)
+                    .setAgencyName(ptLeg.agencyName)
+                    .setRouteShortName(ptLeg.routeShortName)
+                    .setRouteLongName(ptLeg.routeLongName)
+                    .setRouteType(ptLeg.routeType)
+                    .setDirection(ptLeg.trip_headsign)
+                    .addAllStops(ptLeg.stops.stream().map(stop -> Stop.newBuilder()
+                            .setStopId(stop.stop_id)
+                            .setStopName(stop.stop_name)
+                            .setArrivalTime(stop.arrivalTime == null ? Timestamp.newBuilder().build()
+                                    : Timestamp.newBuilder().setSeconds(stop.arrivalTime.getTime() / 1000).build())
+                            .setDepartureTime(stop.departureTime == null ? Timestamp.newBuilder().build()
+                                    : Timestamp.newBuilder().setSeconds(stop.departureTime.getTime() / 1000).build())
+                            .setPoint(Point.newBuilder().setLat(stop.geometry.getY()).setLon(stop.geometry.getX()).build())
+                            .build()).collect(toList())
+                    ).build();
+            return GenericLeg.newBuilder().setPtLeg(ptLegProto).build();
+        }
     }
 
     public static class CustomWalkLeg extends Trip.WalkLeg {
