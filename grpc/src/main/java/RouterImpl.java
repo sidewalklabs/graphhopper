@@ -26,6 +26,7 @@ import com.graphhopper.gtfs.PtRouter;
 import com.graphhopper.gtfs.Request;
 import com.graphhopper.resources.PtRouteResource;
 import com.graphhopper.routing.*;
+import com.graphhopper.util.DistanceCalcEarth;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.exceptions.PointNotFoundException;
 import com.graphhopper.util.shapes.GHPoint;
@@ -50,17 +51,20 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     private final MatrixAPI matrixAPI;
     private Map<String, String> gtfsLinkMappings;
     private Map<String, List<String>> gtfsRouteInfo;
+    private Map<String, String> gtfsFeedIdMapping;
     // private final StatsDClient statsDClient;
 
     public RouterImpl(GraphHopper graphHopper, PtRouter ptRouter, MatrixAPI matrixAPI,
                       Map<String, String> gtfsLinkMappings,
-                      Map<String, List<String>> gtfsRouteInfo
+                      Map<String, List<String>> gtfsRouteInfo,
+                      Map<String, String> gtfsFeedIdMapping
                       /*StatsDClient statsDClient*/) {
         this.graphHopper = graphHopper;
         this.ptRouter = ptRouter;
         this.matrixAPI = matrixAPI;
         this.gtfsLinkMappings = gtfsLinkMappings;
         this.gtfsRouteInfo = gtfsRouteInfo;
+        this.gtfsFeedIdMapping = gtfsFeedIdMapping;
         // this.statsDClient = statsDClient;
     }
 
@@ -428,10 +432,10 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         public final String routeLongName;
         public final String routeType;
 
-        public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds, String agencyName, String routeShortName,
-                           String routeLongName, String routeType) {
+        public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds, List<Trip.Stop> updatedStops, double distance,
+                           String agencyName, String routeShortName, String routeLongName, String routeType) {
             super(leg.feed_id, leg.isInSameVehicleAsPrevious, leg.trip_id, leg.route_id,
-                    leg.trip_headsign, leg.stops, leg.distance, leg.travelTime, leg.geometry);
+                    leg.trip_headsign, updatedStops, distance, leg.travelTime, leg.geometry);
             this.stableEdgeIds = stableEdgeIds;
             this.agencyName = agencyName;
             this.routeShortName = routeShortName;
@@ -442,11 +446,18 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
     private CustomPtLeg getCustomPtLeg(Trip.PtLeg leg) {
         List<Trip.Stop> stops = leg.stops;
+        double legDistance = 0.0;
 
         // Retrieve stable edge IDs for each stop->stop segment of leg
         List<String> stableEdgeIdSegments = Lists.newArrayList();
         for (int i = 0; i < stops.size() - 1; i++) {
-            String stopPair = stops.get(i).stop_id + "," + stops.get(i + 1).stop_id;
+            Trip.Stop from = stops.get(i);
+            Trip.Stop to = stops.get(i + 1);
+            legDistance += DistanceCalcEarth.DIST_EARTH.calcDist(
+                    from.geometry.getY(), from.geometry.getX(), to.geometry.getY(), to.geometry.getX()
+            );
+
+            String stopPair = from.stop_id + "," + to.stop_id;
             if (gtfsLinkMappings.containsKey(stopPair)) {
                 if (!gtfsLinkMappings.get(stopPair).isEmpty()) {
                     stableEdgeIdSegments.add(gtfsLinkMappings.get(stopPair));
@@ -471,7 +482,16 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             logger.info("Failed to find route info for route " + leg.route_id + " for PT trip leg " + leg.toString());
         }
 
-        return new CustomPtLeg(leg, stableEdgeIdsList,
+        // Add proper GTFS feed ID as prefix to all stop names in Leg
+        List<Trip.Stop> updatedStops = Lists.newArrayList();
+        for (Trip.Stop stop : leg.stops) {
+            String updatedStopId = gtfsFeedIdMapping.get(leg.feed_id) + ":" + stop.stop_id;
+            updatedStops.add(new Trip.Stop(updatedStopId, stop.stop_name, stop.geometry, stop.arrivalTime,
+                    stop.plannedArrivalTime, stop.predictedArrivalTime, stop.arrivalCancelled, stop.departureTime,
+                    stop.plannedDepartureTime, stop.predictedDepartureTime, stop.departureCancelled));
+        }
+
+        return new CustomPtLeg(leg, stableEdgeIdsList, updatedStops, legDistance,
                 routeInfo.get(0), routeInfo.get(1), routeInfo.get(2), routeInfo.get(3));
     }
 }
