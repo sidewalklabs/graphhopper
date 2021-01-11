@@ -76,15 +76,17 @@ public class RouterServer {
         // Create matrix API instance
         MatrixAPI matrixAPI = new GHMatrixAPI(graphHopper, graphHopperConfiguration);
 
-        // Load GTFS link mapping and GTFS route info maps for use in building responses
+        // Load GTFS link mapping and GTFS info maps for use in building responses
         Map<String, String> gtfsLinkMappings = null;
         Map<String, List<String>> gtfsRouteInfo = null;
+        Map<String, String> gtfsFeedIdMapping = null;
 
         File linkMappingsDbFile = new File("transit_data/gtfs_link_mappings.db");
         if (linkMappingsDbFile.exists()) {
             DB db = DBMaker.newFileDB(linkMappingsDbFile).make();
             gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
             gtfsRouteInfo = db.getHashMap("gtfsRouteInfo");
+            gtfsFeedIdMapping = db.getHashMap("gtfsFeedIdMap");
             logger.info("Done loading GTFS link mappings and route info. Total number of mappings: " + gtfsLinkMappings.size());
         } else {
             logger.info("No GTFS link mapping mapdb file found! Skipped loading GTFS link mappings.");
@@ -102,7 +104,7 @@ public class RouterServer {
 
         // Start server
         server = NettyServerBuilder.forPort(50051)
-                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo))
+                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, gtfsFeedIdMapping))
                 .addService(ProtoReflectionService.newInstance())
                 .maxConnectionAge(10, TimeUnit.SECONDS)
                 .maxConnectionAgeGrace(10, TimeUnit.SECONDS)
