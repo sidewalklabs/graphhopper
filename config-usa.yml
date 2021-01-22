@@ -3,7 +3,8 @@
 
 graphhopper:
 
-  datareader.file: ""
+  datareader.file: ../graphhopper/oregon-latest.osm.pbf
+  gtfs.file: gtfs.zip
   graph.location: transit_data/graphhopper
 
   routing.ch.disabling_allowed: true

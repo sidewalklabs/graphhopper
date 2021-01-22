@@ -46,7 +46,7 @@ public final class GraphHopperApplication extends Application<GraphHopperServerC
         bootstrap.addCommand(new ExportCommand());
 
         Map<String, String> resourceToURIMappings = new HashMap<>();
-        resourceToURIMappings.put("/assets/", "/maps/");
+        resourceToURIMappings.put("/src/main/resources/assets/", "/maps/");
         resourceToURIMappings.put("/META-INF/resources/webjars", "/webjars"); // https://www.webjars.org/documentation#dropwizard
         bootstrap.addBundle(new ConfiguredAssetsBundle(resourceToURIMappings, "index.html"));
     }
