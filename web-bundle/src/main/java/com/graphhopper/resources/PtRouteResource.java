@@ -197,11 +197,11 @@ public class PtRouteResource {
         stableEdgeIdsList.addAll(stableEdgeIdsWithoutDuplicates);
 
         // Ordered list of GTFS route info, containing agency_name, route_short_name, route_long_name, route_type
-        List<String> routeInfo = gtfsRouteInfo.containsKey(leg.route_id)
-                ? gtfsRouteInfo.get(leg.route_id)
+        List<String> routeInfo = gtfsRouteInfo.containsKey(gtfsRouteInfoKey(leg))
+                ? gtfsRouteInfo.get(gtfsRouteInfoKey(leg))
                 : Lists.newArrayList("", "", "", "");
 
-        if (!gtfsRouteInfo.containsKey(leg.route_id)) {
+        if (!gtfsRouteInfo.containsKey(gtfsRouteInfoKey(leg))) {
             logger.info("Failed to find route info for route " + leg.route_id + " for PT trip leg " + leg.toString());
         }
 
@@ -216,5 +216,9 @@ public class PtRouteResource {
 
         return new CustomPtLeg(leg, stableEdgeIdsList, updatedStops,
                 routeInfo.get(0), routeInfo.get(1), routeInfo.get(2), routeInfo.get(3));
+    }
+
+    private static String gtfsRouteInfoKey(Trip.PtLeg leg) {
+        return leg.feed_id + ":" + leg.route_id;
     }
 }
