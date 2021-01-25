@@ -80,7 +80,7 @@ public class GtfsLinkMapper {
             Map<String, List<String>> routeInfoMap = feed.routes.keySet().stream()
                     .map(routeId -> feed.routes.get(routeId))
                     .collect(Collectors.toMap(
-                            route -> route.route_id,
+                            route -> feedId + ":" + route.route_id,
                             route -> getRouteInfo(route, feed.agency.get(route.agency_id).agency_name)
                     ));
             gtfsRouteInfo.putAll(routeInfoMap);
