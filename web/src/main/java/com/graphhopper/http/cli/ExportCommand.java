@@ -72,17 +72,19 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         Map<Long, Map<String, String>> osmIdToLaneTags = db.getHashMap("osmIdToLaneTags");
         Map<Integer, Long> ghIdToOsmId = db.getHashMap("ghIdToOsmId");
         Map<Long, List<String>> osmIdToAccessFlags = db.getHashMap("osmIdToAccessFlags");
+        Map<Long, String> osmIdToStreetName = db.getHashMap("osmIdToStreetName");
         logger.info("Done loading OSM info needed for CSV export from MapDB file.");
 
         // Use loaded graph data to write street network out to CSV
-        writeStreetEdgesCsv(configuredGraphHopper, osmIdToLaneTags, ghIdToOsmId, osmIdToAccessFlags);
+        writeStreetEdgesCsv(configuredGraphHopper, osmIdToLaneTags, ghIdToOsmId, osmIdToAccessFlags, osmIdToStreetName);
         db.close();
     }
 
     private static void writeStreetEdgesCsv(GraphHopper configuredGraphHopper,
                                             Map<Long, Map<String, String>> osmIdToLaneTags,
                                             Map<Integer, Long> ghIdToOsmId,
-                                            Map<Long, List<String>> osmIdToAccessFlags) {
+                                            Map<Long, List<String>> osmIdToAccessFlags,
+                                            Map<Long, String> osmIdToStreetName) {
 
         // Grab edge/node iterators for graph loaded from pre-built GH files
         GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
@@ -135,7 +137,6 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
 
             // Parse OSM highway type and street name, and grab encoded stable IDs for both edge directions
             String highwayTag = edgeIterator.get(roadClassEnc).toString();
-            String streetName = edgeIterator.getName();
             String forwardStableEdgeId = stableIdEncodedValues.getStableId(false, edgeIterator);
             String backwardStableEdgeId = stableIdEncodedValues.getStableId(true, edgeIterator);
 
@@ -151,6 +152,9 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                 skippedEdgeCount++;
                 continue;
             }
+
+            // Use street name parsed from Ways/Relations, if it exists; otherwise, use default GH edge name
+            String streetName = osmIdToStreetName.getOrDefault(osmId, edgeIterator.getName());
 
             // Set accessibility flags for each edge direction
             // Returned flags are from the set {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}
