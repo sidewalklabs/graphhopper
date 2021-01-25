@@ -49,17 +49,20 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     private final MatrixAPI matrixAPI;
     private Map<String, String> gtfsLinkMappings;
     private Map<String, List<String>> gtfsRouteInfo;
+    private Map<String, String> gtfsFeedIdMapping;
     // private final StatsDClient statsDClient;
 
     public RouterImpl(GraphHopper graphHopper, PtRouter ptRouter, MatrixAPI matrixAPI,
                       Map<String, String> gtfsLinkMappings,
-                      Map<String, List<String>> gtfsRouteInfo
+                      Map<String, List<String>> gtfsRouteInfo,
+                      Map<String, String> gtfsFeedIdMapping
                       /*StatsDClient statsDClient*/) {
         this.graphHopper = graphHopper;
         this.ptRouter = ptRouter;
         this.matrixAPI = matrixAPI;
         this.gtfsLinkMappings = gtfsLinkMappings;
         this.gtfsRouteInfo = gtfsRouteInfo;
+        this.gtfsFeedIdMapping = gtfsFeedIdMapping;
         // this.statsDClient = statsDClient;
     }
 
@@ -392,10 +395,10 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         public final String routeLongName;
         public final String routeType;
 
-        public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds, String agencyName, String routeShortName,
-                           String routeLongName, String routeType) {
+        public CustomPtLeg(Trip.PtLeg leg, List<String> stableEdgeIds, List<Trip.Stop> updatedStops,
+                           String agencyName, String routeShortName, String routeLongName, String routeType) {
             super(leg.feed_id, leg.isInSameVehicleAsPrevious, leg.trip_id, leg.route_id,
-                    leg.trip_headsign, leg.stops, leg.distance, leg.travelTime, leg.geometry);
+                    leg.trip_headsign, updatedStops, leg.distance, leg.travelTime, leg.geometry);
             this.stableEdgeIds = stableEdgeIds;
             this.agencyName = agencyName;
             this.routeShortName = routeShortName;
@@ -429,13 +432,26 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         stableEdgeIdsList.addAll(stableEdgeIdsWithoutDuplicates);
 
         // Ordered list of GTFS route info, containing agency_name, route_short_name, route_long_name, route_type
-        List<String> routeInfo = gtfsRouteInfo.getOrDefault(leg.route_id, Lists.newArrayList("", "", "", ""));
+        List<String> routeInfo = gtfsRouteInfo.getOrDefault(gtfsRouteInfoKey(leg), Lists.newArrayList("", "", "", ""));
 
-        if (!gtfsRouteInfo.containsKey(leg.route_id)) {
+        if (!gtfsRouteInfo.containsKey(gtfsRouteInfoKey(leg))) {
             logger.info("Failed to find route info for route " + leg.route_id + " for PT trip leg " + leg.toString());
         }
 
-        return new CustomPtLeg(leg, stableEdgeIdsList,
+        // Add proper GTFS feed ID as prefix to all stop names in Leg
+        List<Trip.Stop> updatedStops = Lists.newArrayList();
+        for (Trip.Stop stop : leg.stops) {
+            String updatedStopId = gtfsFeedIdMapping.get(leg.feed_id) + ":" + stop.stop_id;
+            updatedStops.add(new Trip.Stop(updatedStopId, stop.stop_name, stop.geometry, stop.arrivalTime,
+                    stop.plannedArrivalTime, stop.predictedArrivalTime, stop.arrivalCancelled, stop.departureTime,
+                    stop.plannedDepartureTime, stop.predictedDepartureTime, stop.departureCancelled));
+        }
+
+        return new CustomPtLeg(leg, stableEdgeIdsList, updatedStops,
                 routeInfo.get(0), routeInfo.get(1), routeInfo.get(2), routeInfo.get(3));
+    }
+
+    private static String gtfsRouteInfoKey(Trip.PtLeg leg) {
+        return leg.feed_id + ":" + leg.route_id;
     }
 }
