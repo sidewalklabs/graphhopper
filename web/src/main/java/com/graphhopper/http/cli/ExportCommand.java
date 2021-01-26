@@ -73,10 +73,12 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         Map<Integer, Long> ghIdToOsmId = db.getHashMap("ghIdToOsmId");
         Map<Long, List<String>> osmIdToAccessFlags = db.getHashMap("osmIdToAccessFlags");
         Map<Long, String> osmIdToStreetName = db.getHashMap("osmIdToStreetName");
+        Map<Long, String> osmIdToHighway = db.getHashMap("osmIdToHighway");
         logger.info("Done loading OSM info needed for CSV export from MapDB file.");
 
         // Use loaded graph data to write street network out to CSV
-        writeStreetEdgesCsv(configuredGraphHopper, osmIdToLaneTags, ghIdToOsmId, osmIdToAccessFlags, osmIdToStreetName);
+        writeStreetEdgesCsv(configuredGraphHopper, osmIdToLaneTags, ghIdToOsmId,
+                osmIdToAccessFlags, osmIdToStreetName, osmIdToHighway);
         db.close();
     }
 
@@ -84,7 +86,8 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                                             Map<Long, Map<String, String>> osmIdToLaneTags,
                                             Map<Integer, Long> ghIdToOsmId,
                                             Map<Long, List<String>> osmIdToAccessFlags,
-                                            Map<Long, String> osmIdToStreetName) {
+                                            Map<Long, String> osmIdToStreetName,
+                                            Map<Long, String> osmIdToHighway) {
 
         // Grab edge/node iterators for graph loaded from pre-built GH files
         GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
@@ -135,13 +138,8 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
             // DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon);
             long distanceMeters = Math.round(DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon));
 
-            // Parse OSM highway type and street name, and grab encoded stable IDs for both edge directions
-            String highwayTag = edgeIterator.get(roadClassEnc).toString();
-            String forwardStableEdgeId = stableIdEncodedValues.getStableId(false, edgeIterator);
-            String backwardStableEdgeId = stableIdEncodedValues.getStableId(true, edgeIterator);
-
             // Convert GH's km/h speed to cm/s to match R5's implementation
-            int speedcms = (int)(edgeIterator.get(avgSpeedEnc) / 3.6 * 100);
+            int speedcms = (int) (edgeIterator.get(avgSpeedEnc) / 3.6 * 100);
 
             // Convert GH's distance in meters to millimeters to match R5's implementation
             long distanceMillimeters = distanceMeters * 1000;
@@ -155,6 +153,11 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
 
             // Use street name parsed from Ways/Relations, if it exists; otherwise, use default GH edge name
             String streetName = osmIdToStreetName.getOrDefault(osmId, edgeIterator.getName());
+
+            // Grab OSM highway type and encoded stable IDs for both edge directions
+            String highwayTag = osmIdToHighway.getOrDefault(osmId, edgeIterator.get(roadClassEnc).toString());
+            String forwardStableEdgeId = stableIdEncodedValues.getStableId(false, edgeIterator);
+            String backwardStableEdgeId = stableIdEncodedValues.getStableId(true, edgeIterator);
 
             // Set accessibility flags for each edge direction
             // Returned flags are from the set {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}

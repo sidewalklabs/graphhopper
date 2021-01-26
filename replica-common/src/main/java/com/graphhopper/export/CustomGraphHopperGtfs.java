@@ -47,9 +47,11 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
     // Map of OSM way ID to access flags for each edge direction (each created from set
     // {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}), stored in list in order [forward, backward]
     private Map<Long, List<String>> osmIdToAccessFlags;
-    // Map of OSM way ID to street name. Name is parsed directly from Way, unless name field isn't present,
+    // Map of OSM ID to street name. Name is parsed directly from Way, unless name field isn't present,
     // in which case the name is taken from the Relation containing the Way, if one exists
     private Map<Long, String> osmIdToStreetName;
+    // Map of OSM ID to highway tag
+    private Map<Long, String> osmIdToHighwayTag;
 
 
     public CustomGraphHopperGtfs(GraphHopperConfig ghConfig) {
@@ -59,6 +61,7 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
         this.ghIdToOsmId = Maps.newHashMap();
         this.osmIdToAccessFlags = Maps.newHashMap();
         this.osmIdToStreetName = Maps.newHashMap();
+        this.osmIdToHighwayTag = Maps.newHashMap();
     }
 
     @Override
@@ -105,9 +108,16 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
                     final ReaderWay ghReaderWay = (ReaderWay) next;
                     long osmId = ghReaderWay.getId();
 
+                    // Parse street name from Way, if it exists
                     String wayName = getNameFromOsmElement(ghReaderWay);
                     if (wayName != null) {
                         osmIdToStreetName.put(osmId, wayName);
+                    }
+
+                    // Parse highway tag from Way, if it's present
+                    String highway = getHighwayFromOsmElement(ghReaderWay);
+                    if (highway != null) {
+                        osmIdToHighwayTag.put(osmId, highway);
                     }
 
                     // Parse all tags needed for determining lane counts on edge
@@ -163,6 +173,14 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
                                     osmIdToStreetName.put(member.getRef(), streetName);
                                 }
                             }
+                            // If we haven't recorded a highway tag for a Way in this Relation,
+                            // use the Relation's highway tag instead, if it exists
+                            if (!osmIdToHighwayTag.containsKey(member.getRef())) {
+                                String highway = getHighwayFromOsmElement(relation);
+                                if (highway != null) {
+                                    osmIdToHighwayTag.put(member.getRef(), highway);
+                                }
+                            }
                         }
                     }
                 }
@@ -170,6 +188,14 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
             LOG.info("Finished scanning road relations for additional street names. " + readCount + " total relations were considered.");
         } catch (Exception e) {
             throw new RuntimeException("Can't open OSM file provided at " + osmPath + "!");
+        }
+    }
+
+    private static String getHighwayFromOsmElement(ReaderElement wayOrRelation) {
+        if (wayOrRelation.hasTag("highway")) {
+            return wayOrRelation.getTag("highway");
+        } else {
+            return null;
         }
     }
 
@@ -197,5 +223,9 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
 
     public Map<Long, String> getOsmIdToStreetName() {
         return osmIdToStreetName;
+    }
+
+    public Map<Long, String> getOsmIdToHighwayTag() {
+        return osmIdToHighwayTag;
     }
 }
