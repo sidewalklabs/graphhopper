@@ -115,7 +115,7 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
                     }
 
                     // Parse highway tag from Way, if it's present
-                    String highway = getHighwayFromOsmElement(ghReaderWay);
+                    String highway = getHighwayFromOsmWay(ghReaderWay);
                     if (highway != null) {
                         osmIdToHighwayTag.put(osmId, highway);
                     }
@@ -173,14 +173,6 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
                                     osmIdToStreetName.put(member.getRef(), streetName);
                                 }
                             }
-                            // If we haven't recorded a highway tag for a Way in this Relation,
-                            // use the Relation's highway tag instead, if it exists
-                            if (!osmIdToHighwayTag.containsKey(member.getRef())) {
-                                String highway = getHighwayFromOsmElement(relation);
-                                if (highway != null) {
-                                    osmIdToHighwayTag.put(member.getRef(), highway);
-                                }
-                            }
                         }
                     }
                 }
@@ -191,9 +183,9 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
         }
     }
 
-    private static String getHighwayFromOsmElement(ReaderElement wayOrRelation) {
-        if (wayOrRelation.hasTag("highway")) {
-            return wayOrRelation.getTag("highway");
+    private static String getHighwayFromOsmWay(ReaderWay way) {
+        if (way.hasTag("highway")) {
+            return way.getTag("highway");
         } else {
             return null;
         }
