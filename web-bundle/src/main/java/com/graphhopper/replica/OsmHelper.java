@@ -37,9 +37,23 @@ public class OsmHelper {
                 .valueSerializer(Serializer.JAVA)
                 .make();
 
+        HTreeMap<Long, String> osmIdToStreetName = db
+                .createHashMap("osmIdToStreetName")
+                .keySerializer(Serializer.LONG)
+                .valueSerializer(Serializer.STRING)
+                .make();
+
+        HTreeMap<Long, String> osmIdToHighway = db
+                .createHashMap("osmIdToHighway")
+                .keySerializer(Serializer.LONG)
+                .valueSerializer(Serializer.STRING)
+                .make();
+
         osmIdToLaneTags.putAll(graphHopperGtfs.getOsmIdToLaneTags());
         ghIdToOsmId.putAll(graphHopperGtfs.getGhIdToOsmId());
         osmIdToAccessFlags.putAll(graphHopperGtfs.getOsmIdToAccessFlags());
+        osmIdToStreetName.putAll(graphHopperGtfs.getOsmIdToStreetName());
+        osmIdToHighway.putAll(graphHopperGtfs.getOsmIdToHighwayTag());
 
         db.commit();
         db.close();
