@@ -319,8 +319,8 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                                     .setTripId(leg.trip_id)
                                     .setRouteId(leg.route_id)
                                     .setAgencyName(leg.agencyName)
-                                    .setRouteShortName(leg.routeShortName != null ? leg.routeShortName : "")
-                                    .setRouteLongName(leg.routeLongName != null ? leg.routeLongName : "")
+                                    .setRouteShortName(leg.routeShortName)
+                                    .setRouteLongName(leg.routeLongName)
                                     .setRouteType(leg.routeType)
                                     .setDirection(leg.trip_headsign)
                                     .addAllStops(leg.stops.stream().map(stop -> Stop.newBuilder()
@@ -361,7 +361,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     .build();
             responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         } catch (Exception e) {
-            logger.error("ERRRRRRRROR! ", e);
+            logger.error("GraphHopper internal error! ", e);
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
                     .setMessage("GH internal error! Path could not be found between " + fromPoint.getLat() + "," +
@@ -433,6 +433,9 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
         // Ordered list of GTFS route info, containing agency_name, route_short_name, route_long_name, route_type
         List<String> routeInfo = gtfsRouteInfo.getOrDefault(gtfsRouteInfoKey(leg), Lists.newArrayList("", "", "", ""));
+
+        // Convert any missing info to empty string to prevent NPE
+        routeInfo = routeInfo.stream().map(info -> info == null ? "" : info).collect(toList());
 
         if (!gtfsRouteInfo.containsKey(gtfsRouteInfoKey(leg))) {
             logger.info("Failed to find route info for route " + leg.route_id + " for PT trip leg " + leg.toString());
