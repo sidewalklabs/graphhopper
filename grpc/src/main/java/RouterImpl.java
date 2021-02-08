@@ -319,8 +319,8 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                                     .setTripId(leg.trip_id)
                                     .setRouteId(leg.route_id)
                                     .setAgencyName(leg.agencyName)
-                                    .setRouteShortName(leg.routeShortName)
-                                    .setRouteLongName(leg.routeLongName)
+                                    .setRouteShortName(leg.routeShortName != null ? leg.routeShortName : "")
+                                    .setRouteLongName(leg.routeLongName != null ? leg.routeLongName : "")
                                     .setRouteType(leg.routeType)
                                     .setDirection(leg.trip_headsign)
                                     .addAllStops(leg.stops.stream().map(stop -> Stop.newBuilder()
@@ -361,7 +361,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     .build();
             responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         } catch (Exception e) {
-            logger.error("ERRRRRRRROR! " + e.getMessage());
+            logger.error("ERRRRRRRROR! ", e);
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
                     .setMessage("GH internal error! Path could not be found between " + fromPoint.getLat() + "," +
