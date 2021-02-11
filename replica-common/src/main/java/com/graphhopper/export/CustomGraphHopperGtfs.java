@@ -111,6 +111,9 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
                     // Parse street name from Way, if it exists
                     String wayName = getNameFromOsmElement(ghReaderWay);
                     if (wayName != null) {
+                        if (osmIdToStreetName.containsKey(osmId)) {
+                            LOG.info("Uh oh.... " + osmId + " : " + osmIdToStreetName.get(osmId));
+                        }
                         osmIdToStreetName.put(osmId, wayName);
                     }
 
@@ -156,28 +159,40 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
             }
             LOG.info("Finished parsing lane tag info from OSM ways. " + readCount + " total ways were parsed.");
 
+            // Map for storing OSM ID -> Street names parsed from OSM relations
+            Map<Long, String> streetNamesFromRelations = Maps.newHashMap();
+
+            Map<Long, String> testMap = Maps.newHashMap();
+
+            // For each Way that didn't have a street name tag to parse directly, set street name to be
+            // concatenation of all street name tags from the set of all Relations the Way is part of
             readCount = 0;
             LOG.info("Scanning road relations to populate street names for Ways that didn't have them set.");
             for (ReaderRelation relation : roadRelations) {
-                if (relation.hasTag("route", "road")) {
-                    if (++readCount % 1000 == 0) {
-                        LOG.info("Parsing tag info from OSM relations. " + readCount + " read so far.");
-                    }
-                    for (ReaderRelation.Member member : relation.getMembers()) {
-                        if (member.getType() == ReaderRelation.Member.WAY) {
-                            // If we haven't recorded a street name for a Way in this Relation,
-                            // use the Relation's name instead, if it exists
-                            if (!osmIdToStreetName.containsKey(member.getRef())) {
-                                String streetName = getNameFromOsmElement(relation);
-                                if (streetName != null) {
-                                    osmIdToStreetName.put(member.getRef(), streetName);
-                                }
+                if (++readCount % 1000 == 0) {
+                    LOG.info("Parsing tag info from OSM relations. " + readCount + " read so far.");
+                }
+                for (ReaderRelation.Member member : relation.getMembers()) {
+                    if (member.getType() == ReaderRelation.Member.WAY && !osmIdToStreetName.containsKey(member.getRef())) {
+                        String streetName = getNameFromOsmElement(relation);
+                        if (streetName != null) {
+                            if (!streetNamesFromRelations.containsKey(member.getRef())) {
+                                streetNamesFromRelations.put(member.getRef(), streetName);
+                            } else {
+                                String concatenatedName = streetNamesFromRelations.get(member.getRef()) + ", " + streetName;
+                                testMap.put(member.getRef(), concatenatedName);
+                                streetNamesFromRelations.put(member.getRef(), concatenatedName);
                             }
                         }
                     }
                 }
             }
+            LOG.info("Size before: " + osmIdToStreetName.keySet().size());
+            osmIdToStreetName.putAll(streetNamesFromRelations);
+            LOG.info("Size after: " + osmIdToStreetName.keySet().size());
             LOG.info("Finished scanning road relations for additional street names. " + readCount + " total relations were considered.");
+
+            LOG.info("All concatenated names from relations: \n " + testMap);
         } catch (Exception e) {
             throw new RuntimeException("Can't open OSM file provided at " + osmPath + "!");
         }
