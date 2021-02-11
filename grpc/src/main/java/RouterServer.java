@@ -107,8 +107,8 @@ public class RouterServer {
                 .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, gtfsFeedIdMapping))
                 .addService(ProtoReflectionService.newInstance())
                 .maxConnectionAge(10, TimeUnit.SECONDS)
-                .maxConnectionAgeGrace(10, TimeUnit.SECONDS)
-                .executor(Executors.newFixedThreadPool(5))
+                .maxConnectionAgeGrace(30, TimeUnit.SECONDS)
+                .executor(Executors.newFixedThreadPool(3))
                 .build()
                 .start();
 
