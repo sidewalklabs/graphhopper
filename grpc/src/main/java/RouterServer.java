@@ -108,7 +108,7 @@ public class RouterServer {
                 .addService(ProtoReflectionService.newInstance())
                 .maxConnectionAge(10, TimeUnit.SECONDS)
                 .maxConnectionAgeGrace(10, TimeUnit.SECONDS)
-                .executor(Executors.newFixedThreadPool(16))
+                .executor(Executors.newFixedThreadPool(5))
                 .build()
                 .start();
 
