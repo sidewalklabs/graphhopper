@@ -91,7 +91,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                 String message = "Path could not be found between "
                         + ghRequest.getPoints().get(0).lat + "," + ghRequest.getPoints().get(0).lon + " to "
                         + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon;
-                logger.warn(message);
+                // logger.warn(message);
                 Status status = Status.newBuilder()
                         .setCode(Code.NOT_FOUND.getNumber())
                         .setMessage(message)
@@ -128,7 +128,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             String message = "GH internal error! Path could not be found between "
                     + ghRequest.getPoints().get(0).lat + "," + ghRequest.getPoints().get(0).lon + " to "
                     + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon;
-            logger.error(message);
+            logger.error(message, e);
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
                     .setMessage(message)
@@ -286,7 +286,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             if (pathsWithStableIds.size() == 0) {
                 String message = "Transit path could not be found between " + fromPoint.getLat() + "," +
                         fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon();
-                logger.warn(message);
+                // logger.warn(message);
                 Status status = Status.newBuilder()
                         .setCode(Code.NOT_FOUND.getNumber())
                         .setMessage(message)
@@ -363,7 +363,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             String message = "Path could not be found between " + fromPoint.getLat() + "," +
                     fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon() +
                     "; one or both endpoints could not be snapped to a road segment";
-            logger.warn(message);
+            // logger.warn(message);
             Status status = Status.newBuilder()
                     .setCode(Code.NOT_FOUND.getNumber())
                     .setMessage(message)
