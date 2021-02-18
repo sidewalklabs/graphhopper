@@ -20,7 +20,7 @@ public class GtfsLinkMapperCommand extends ConfiguredCommand<GraphHopperServerCo
         GraphHopper gh = graphHopper.getGraphHopper();
         gh.load(gh.getGraphHopperLocation());
         GtfsLinkMapper gtfsLinkMapper = new GtfsLinkMapper(gh);
-        gtfsLinkMapper.setGtfsLinkMappings();
+        gtfsLinkMapper.setGtfsLinkMappingsMapMatching();
         gh.close();
     }
 }

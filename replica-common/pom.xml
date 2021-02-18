@@ -21,6 +21,16 @@
             <artifactId>graphhopper-matrix</artifactId>
             <version>3.0-replica2</version>
         </dependency>
+        <dependency>
+            <groupId>com.graphhopper</groupId>
+            <artifactId>graphhopper-map-matching-core</artifactId>
+            <version>e164705aa7a6320a29d7760294be8d353b7b21c7</version>
+        </dependency>
+        <dependency>
+            <groupId>com.graphhopper</groupId>
+            <artifactId>graphhopper-map-matching-web-bundle</artifactId>
+            <version>e164705aa7a6320a29d7760294be8d353b7b21c7</version>
+        </dependency>
     </dependencies>
 
 </project>
