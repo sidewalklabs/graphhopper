@@ -190,13 +190,19 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                     // Copy R5's logic; filter out edges with unwanted highway tags and negative OSM IDs
                     // todo: do negative OSM ids happen in GH? This might have been R5-specific
                     if (!HIGHWAY_FILTER_TAGS.contains(highwayTag) && osmId >= 0) {
-                        // Print line for each edge direction
-                        printer.printRecord(forwardStableEdgeId, startVertex, endVertex,
-                                startLat, startLon, endLat, endLon, geometryString, streetName,
-                                distanceMillimeters, osmId, speedcms, forwardFlags, forwardLanes, highwayTag);
-                        printer.printRecord(backwardStableEdgeId, endVertex, startVertex,
-                                endLat, endLon, startLat, startLon, reverseGeometryString, streetName,
-                                distanceMillimeters, osmId, speedcms, backwardFlags, backwardLanes, highwayTag);
+                        // Print line for each edge direction, if edge is accessible.
+                        // Inaccessible edges have no flags set; flags are stored as stringified lists,
+                        // so innaccessible edges will have a flag equal to "[]", the empty list's toString()
+                        if (!forwardFlags.equals(Lists.newArrayList().toString())) {
+                            printer.printRecord(forwardStableEdgeId, startVertex, endVertex,
+                                    startLat, startLon, endLat, endLon, geometryString, streetName,
+                                    distanceMillimeters, osmId, speedcms, forwardFlags, forwardLanes, highwayTag);
+                        }
+                        if (!backwardFlags.equals(Lists.newArrayList().toString())) {
+                            printer.printRecord(backwardStableEdgeId, endVertex, startVertex,
+                                    endLat, endLon, startLat, startLon, reverseGeometryString, streetName,
+                                    distanceMillimeters, osmId, speedcms, backwardFlags, backwardLanes, highwayTag);
+                        }
                     }
                 }
             }
