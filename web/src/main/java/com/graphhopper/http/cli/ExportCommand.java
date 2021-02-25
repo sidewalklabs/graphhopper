@@ -124,9 +124,12 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                     double endLat = nodes.getLat(endVertex);
                     double endLon = nodes.getLon(endVertex);
 
-                    // Get edge geometry and distance
+                    // Get edge geometry for both edge directions, and distance
                     PointList wayGeometry = edgeIterator.fetchWayGeometry(FetchMode.ALL);
                     String geometryString = wayGeometry.toLineString(false).toString();
+                    wayGeometry.reverse();
+                    String reverseGeometryString = wayGeometry.toLineString(false).toString();
+
                     long distanceMeters = Math.round(DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon));
 
                     // Convert GH's km/h speed to cm/s to match R5's implementation
@@ -192,7 +195,7 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                                 startLat, startLon, endLat, endLon, geometryString, streetName,
                                 distanceMillimeters, osmId, speedcms, forwardFlags, forwardLanes, highwayTag);
                         printer.printRecord(backwardStableEdgeId, endVertex, startVertex,
-                                endLat, endLon, startLat, startLon, geometryString, streetName,
+                                endLat, endLon, startLat, startLon, reverseGeometryString, streetName,
                                 distanceMillimeters, osmId, speedcms, backwardFlags, backwardLanes, highwayTag);
                     }
                 }
