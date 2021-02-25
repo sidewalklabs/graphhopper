@@ -193,12 +193,12 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                         // Print line for each edge direction, if edge is accessible.
                         // Inaccessible edges have no flags set; flags are stored as stringified lists,
                         // so innaccessible edges will have a flag equal to "[]", the empty list's toString()
-                        if (!forwardFlags.equals(Lists.newArrayList().toString())) {
+                        if (!forwardFlags.equals("[]")) {
                             printer.printRecord(forwardStableEdgeId, startVertex, endVertex,
                                     startLat, startLon, endLat, endLon, geometryString, streetName,
                                     distanceMillimeters, osmId, speedcms, forwardFlags, forwardLanes, highwayTag);
                         }
-                        if (!backwardFlags.equals(Lists.newArrayList().toString())) {
+                        if (!backwardFlags.equals("[]")) {
                             printer.printRecord(backwardStableEdgeId, endVertex, startVertex,
                                     endLat, endLon, startLat, startLon, reverseGeometryString, streetName,
                                     distanceMillimeters, osmId, speedcms, backwardFlags, backwardLanes, highwayTag);
