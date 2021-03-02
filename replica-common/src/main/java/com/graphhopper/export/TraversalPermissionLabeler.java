@@ -66,7 +66,7 @@ public abstract class TraversalPermissionLabeler {
         validHighwayTagsConst.put("corridor", false); //Apparently indoor hallway
         validHighwayTags = Collections.unmodifiableMap(validHighwayTagsConst);
 
-        addPermissions("motorway", "access=yes;bicycle=no;foot=no");
+        addPermissions("motorway", "access=yes;access=customers;bicycle=no;foot=no");
         addPermissions("trunk|primary|secondary|tertiary|unclassified|residential|living_street|road|service|track", "access=yes");
         addPermissions("pedestrian", "access=no;foot=yes");
         addPermissions("path", "access=no;foot=yes;bicycle=yes");
