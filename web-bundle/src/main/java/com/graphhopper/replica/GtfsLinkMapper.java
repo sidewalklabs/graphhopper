@@ -224,33 +224,35 @@ public class GtfsLinkMapper {
                                                    HTreeMap<String, String> gtfsLinkMappings) {
         List<String> rowsForFeed = Lists.newArrayList();
         for (String routeId : routeIdToTripsInRoute.keySet()) {
-            for (String tripIdInRoute : routeIdToTripsInRoute.get(routeId)) {
-                for (Pair<Stop, Stop> stopStopPair : tripIdToStopPairsInTrip.get(tripIdInRoute)) {
-                    // Filter out stop-stop pairs where the stops are identical
-                    if (stopStopPair.getLeft().stop_id.equals(stopStopPair.getRight().stop_id)) {
-                        continue;
-                    }
+	    if (routeIdToTripsInRoute.containsKey(routeId)) {
+                for (String tripIdInRoute : routeIdToTripsInRoute.get(routeId)) {
+                    for (Pair<Stop, Stop> stopStopPair : tripIdToStopPairsInTrip.get(tripIdInRoute)) {
+                        // Filter out stop-stop pairs where the stops are identical
+                        if (stopStopPair.getLeft().stop_id.equals(stopStopPair.getRight().stop_id)) {
+                            continue;
+                        }
 
-                    // Skip stop-stop pairs where we couldn't find a valid route
-                    String stopPairString = stopStopPair.getLeft().stop_id + "," + stopStopPair.getRight().stop_id;
-                    if (!gtfsLinkMappings.containsKey(stopPairString)) {
-                        continue;
-                    }
-                    List<String> stableEdgeIds = Lists.newArrayList(gtfsLinkMappings.get(stopPairString).split(","));
-                    String stableEdgeIdString = stableEdgeIds.size() == 0 ? ""
-                            : String.format("\"[%s]\"", stableEdgeIds.stream().map(id -> "'" + id + "'").collect(Collectors.joining(",")));
+                        // Skip stop-stop pairs where we couldn't find a valid route
+                        String stopPairString = stopStopPair.getLeft().stop_id + "," + stopStopPair.getRight().stop_id;
+                        if (!gtfsLinkMappings.containsKey(stopPairString)) {
+                            continue;
+                        }
+                        List<String> stableEdgeIds = Lists.newArrayList(gtfsLinkMappings.get(stopPairString).split(","));
+                        String stableEdgeIdString = stableEdgeIds.size() == 0 ? ""
+                                : String.format("\"[%s]\"", stableEdgeIds.stream().map(id -> "'" + id + "'").collect(Collectors.joining(",")));
 
-                    Stop stop = stopStopPair.getLeft();
-                    Stop nextStop = stopStopPair.getRight();
+                        Stop stop = stopStopPair.getLeft();
+                        Stop nextStop = stopStopPair.getRight();
 
-                    // format: "{feed_id}:{route_id}/{feed_id}:{stop_id}/{feed_id}:{next_stop_id}"
-                    String transitEdgeString = stop.feed_id + ":" + routeId + "/" + stop.feed_id + ":"
-                            + stop.stop_id + "/" + stop.feed_id + ":" + nextStop.stop_id;
+                        // format: "{feed_id}:{route_id}/{feed_id}:{stop_id}/{feed_id}:{next_stop_id}"
+                        String transitEdgeString = stop.feed_id + ":" + routeId + "/" + stop.feed_id + ":"
+                                + stop.stop_id + "/" + stop.feed_id + ":" + nextStop.stop_id;
 
-                    rowsForFeed.add(getCsvLine(routeId, stop.feed_id, stop.stop_id, nextStop.stop_id,
+                        rowsForFeed.add(getCsvLine(routeId, stop.feed_id, stop.stop_id, nextStop.stop_id,
                             stop.stop_lat, stop.stop_lon, nextStop.stop_lat, nextStop.stop_lon,
                             stableEdgeIdString, transitEdgeString));
-                }
+                    }
+		}
             }
         }
         return rowsForFeed;
