@@ -66,7 +66,7 @@ public abstract class TraversalPermissionLabeler {
         validHighwayTagsConst.put("corridor", false); //Apparently indoor hallway
         validHighwayTags = Collections.unmodifiableMap(validHighwayTagsConst);
 
-        addPermissions("motorway", "access=yes;access=customers;bicycle=no;foot=no");
+        addPermissions("motorway", "access=yes;bicycle=no;foot=no");
         addPermissions("trunk|primary|secondary|tertiary|unclassified|residential|living_street|road|service|track", "access=yes");
         addPermissions("pedestrian", "access=no;foot=yes");
         addPermissions("path", "access=no;foot=yes;bicycle=yes");
@@ -476,11 +476,9 @@ public abstract class TraversalPermissionLabeler {
 
         private static boolean isNoThruTraffic(String access) {
             return  "destination".equals(access)
-                    || "customers".equals(access) || "delivery".equals(access)
-                    || "forestry".equals(access)  || "agricultural".equals(access)
-                    || "residents".equals(access) || "resident".equals(access)
-                    || "customer".equals(access)
-                    || "private".equals(access) ;
+                    || "delivery".equals(access) || "forestry".equals(access)
+                    || "agricultural".equals(access) || "residents".equals(access)
+                    || "resident".equals(access) || "private".equals(access) ;
         }
 
         public static Label fromTag (String tag) {
@@ -502,6 +500,8 @@ public abstract class TraversalPermissionLabeler {
                     || "share_busway".equals(tag)
                     //cycleway=crossing it should already have bicycle=yes from highway=cycleway or bicycle=yes
                     || "crossing".equals(tag)
+                    // express lanes/service ways/etc accessible only by paying customers
+                    || "customers".equals(tag) || "customer".equals(tag)
             ) {
                 return YES;
             } else if (isTagFalse(tag) || tag.equals("license")
