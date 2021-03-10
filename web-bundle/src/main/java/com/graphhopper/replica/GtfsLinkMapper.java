@@ -251,8 +251,8 @@ public class GtfsLinkMapper {
                             + stop.stop_id + "/" + stop.feed_id + ":" + nextStop.stop_id;
 
                     rowsForFeed.add(getCsvLine(routeId, stop.feed_id, stop.stop_id, nextStop.stop_id,
-                        stop.stop_lat, stop.stop_lon, nextStop.stop_lat, nextStop.stop_lon,
-                        stableEdgeIdString, transitEdgeString));
+                            stop.stop_lat, stop.stop_lon, nextStop.stop_lat, nextStop.stop_lon,
+                            stableEdgeIdString, transitEdgeString));
                 }
             }
         }
