@@ -109,6 +109,10 @@ public abstract class TraversalPermissionLabeler {
 
         applyDirectionalPermissions(way, forward, backward);
 
+        // Override access being disallowed for motorways+motorway_links with access=customers
+        // Wrong-way oneway motorway links marked as ALLOWS_CARS here will be fixed in oneway checks below
+        applyCustomerMotorwayPermissions(way, forward, backward);
+
         // check for one-way streets. Note that leaf nodes will always be labeled and there is no unknown,
         // so we need not traverse the tree
         EnumMap<Node, OneWay> dir = getDirectionalTree(way);
@@ -137,6 +141,22 @@ public abstract class TraversalPermissionLabeler {
         }
 
         return Lists.newArrayList(forward, backward);
+    }
+
+    // For any links with highway type "motorway" or "motorway_link", and an access tag of "customers"
+    // (or "customer", which is a common mistake in OSM), we want to assign an ALLOWS_CARS access flag,
+    // so the links won't be removed during the export step when we deal with wrong-way oneway highway links;
+    // Links matching this description include toll lanes on major highways, which we do not want removed.
+    private void applyCustomerMotorwayPermissions(Way way, EnumSet<EdgeFlag> forward, EnumSet<EdgeFlag> backward) {
+        for (String highway : new String[]{"motorway", "motorway_link"}) {
+            for (String accessTag : new String[]{"customer", "customers"}) {
+                if (way.hasTag("highway", highway) && way.hasTag("access", accessTag)) {
+                    forward.add(EdgeFlag.ALLOWS_CAR);
+                    backward.add(EdgeFlag.ALLOWS_CAR);
+                    return;
+                }
+            }
+        }
     }
 
     /**

@@ -49,6 +49,7 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
     private static final Logger logger = LoggerFactory.getLogger(ExportCommand.class);
 
     private static final List<String> HIGHWAY_FILTER_TAGS = Lists.newArrayList("bridleway", "steps");
+    private static final List<String> INACCESSIBLE_MOTORWAY_TAGS = Lists.newArrayList("motorway", "motorway_link");
     private static final String[] COLUMN_HEADERS = {"stableEdgeId", "startVertex", "endVertex", "startLat", "startLon",
             "endLat", "endLon", "geometry", "streetName", "distance", "osmid", "speed", "flags", "lanes", "highway"};
 
@@ -124,9 +125,12 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                     double endLat = nodes.getLat(endVertex);
                     double endLon = nodes.getLon(endVertex);
 
-                    // Get edge geometry and distance
+                    // Get edge geometry for both edge directions, and distance
                     PointList wayGeometry = edgeIterator.fetchWayGeometry(FetchMode.ALL);
                     String geometryString = wayGeometry.toLineString(false).toString();
+                    wayGeometry.reverse();
+                    String reverseGeometryString = wayGeometry.toLineString(false).toString();
+
                     long distanceMeters = Math.round(DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon));
 
                     // Convert GH's km/h speed to cm/s to match R5's implementation
@@ -187,13 +191,20 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                     // Copy R5's logic; filter out edges with unwanted highway tags and negative OSM IDs
                     // todo: do negative OSM ids happen in GH? This might have been R5-specific
                     if (!HIGHWAY_FILTER_TAGS.contains(highwayTag) && osmId >= 0) {
-                        // Print line for each edge direction
-                        printer.printRecord(forwardStableEdgeId, startVertex, endVertex,
-                                startLat, startLon, endLat, endLon, geometryString, streetName,
-                                distanceMillimeters, osmId, speedcms, forwardFlags, forwardLanes, highwayTag);
-                        printer.printRecord(backwardStableEdgeId, endVertex, startVertex,
-                                endLat, endLon, startLat, startLon, geometryString, streetName,
-                                distanceMillimeters, osmId, speedcms, backwardFlags, backwardLanes, highwayTag);
+                        // Print line for each edge direction, if edge is accessible.
+                        // Inaccessible edges have no flags set; flags are stored as stringified lists,
+                        // so innaccessible edges will have a flag equal to "[]", the empty list's toString().
+                        // Only remove inaccessible edges with highway tags of motorway or motorway_link
+                        if (!(forwardFlags.equals("[]") && INACCESSIBLE_MOTORWAY_TAGS.contains(highwayTag))) {
+                            printer.printRecord(forwardStableEdgeId, startVertex, endVertex,
+                                    startLat, startLon, endLat, endLon, geometryString, streetName,
+                                    distanceMillimeters, osmId, speedcms, forwardFlags, forwardLanes, highwayTag);
+                        }
+                        if (!(backwardFlags.equals("[]") && INACCESSIBLE_MOTORWAY_TAGS.contains(highwayTag))) {
+                            printer.printRecord(backwardStableEdgeId, endVertex, startVertex,
+                                    endLat, endLon, startLat, startLon, reverseGeometryString, streetName,
+                                    distanceMillimeters, osmId, speedcms, backwardFlags, backwardLanes, highwayTag);
+                        }
                     }
                 }
             }
