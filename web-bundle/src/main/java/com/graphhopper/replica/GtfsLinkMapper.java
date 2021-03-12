@@ -12,18 +12,12 @@ import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.gtfs.GtfsStorage;
 import com.graphhopper.util.details.PathDetail;
 import org.apache.commons.lang3.tuple.Pair;
-import org.mapdb.DB;
-import org.mapdb.DBMaker;
-import org.mapdb.HTreeMap;
-import org.mapdb.Serializer;
+import org.mapdb.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class GtfsLinkMapper {
@@ -54,10 +48,10 @@ public class GtfsLinkMapper {
                 .valueSerializer(Serializer.STRING)
                 .make();
 
-        HTreeMap<String, String> gtfsRouteInfo = db
+        HTreeMap<String, List<String>> gtfsRouteInfo = db
                 .createHashMap("gtfsRouteInfo")
                 .keySerializer(Serializer.STRING)
-                .valueSerializer(Serializer.STRING)
+                .valueSerializer(Serializer.JAVA)
                 .make();
 
         HTreeMap<String, String> gtfsFeedIdMap = db
@@ -83,11 +77,11 @@ public class GtfsLinkMapper {
             gtfsFeedIdMap.put(feedId, feed.feedId);
 
             // Store route information in db for _every_ route type
-            Map<String, String> routeInfoMap = feed.routes.keySet().stream()
+            Map<String, List<String>> routeInfoMap = feed.routes.keySet().stream()
                     .map(routeId -> feed.routes.get(routeId))
                     .collect(Collectors.toMap(
-                            route -> route.route_id,
-                            route -> getRouteInfoString(route, feed.agency.get(route.agency_id).agency_name)
+                            route -> feedId + ":" + route.route_id,
+                            route -> getRouteInfo(route, feed.agency.get(route.agency_id).agency_name)
                     ));
             gtfsRouteInfo.putAll(routeInfoMap);
 
@@ -219,9 +213,9 @@ public class GtfsLinkMapper {
         return odStopsForTrip;
     }
 
-    // Returns comma-separated string of agency_name,route_short_name,route_long_name,route_type
-    private static String getRouteInfoString(Route route, String agencyName) {
-        return agencyName + "," + route.route_short_name + "," + route.route_long_name + "," + route.route_type;
+    // Ordered list of strings: agency_name,route_short_name,route_long_name,route_type
+    private static List<String> getRouteInfo(Route route, String agencyName) {
+        return Lists.newArrayList(agencyName, route.route_short_name, route.route_long_name, "" + route.route_type);
     }
 
     // returns all CSV rows (as a list of Strings) derived from a single GTFS feed's data

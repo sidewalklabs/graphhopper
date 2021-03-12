@@ -10,6 +10,7 @@ import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.json.geo.JsonFeatureCollection;
 import com.graphhopper.reader.DataReader;
 import com.graphhopper.reader.ReaderElement;
+import com.graphhopper.reader.ReaderRelation;
 import com.graphhopper.reader.ReaderWay;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.reader.osm.OSMInput;
@@ -50,6 +51,12 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
     // Map of OSM way ID to access flags for each edge direction (each created from set
     // {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}), stored in list in order [forward, backward]
     private Map<Long, List<String>> osmIdToAccessFlags;
+    // Map of OSM ID to street name. Name is parsed directly from Way, unless name field isn't present,
+    // in which case the name is taken from the Relation containing the Way, if one exists
+    private Map<Long, String> osmIdToStreetName;
+    // Map of OSM ID to highway tag
+    private Map<Long, String> osmIdToHighwayTag;
+
 
     public CustomGraphHopperOSM(JsonFeatureCollection landmarkSplittingFeatureCollection, GraphHopperConfig ghConfig) {
         super(landmarkSplittingFeatureCollection);
@@ -57,6 +64,8 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
         this.osmIdToLaneTags = Maps.newHashMap();
         this.ghIdToOsmId = Maps.newHashMap();
         this.osmIdToAccessFlags = Maps.newHashMap();
+        this.osmIdToStreetName = Maps.newHashMap();
+        this.osmIdToHighwayTag = Maps.newHashMap();
     }
 
     @Override
@@ -89,7 +98,8 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
     }
 
     public void collectOsmInfo() {
-        LOG.info("Creating custom OSM reader; reading file and parsing lane tag info.");
+        LOG.info("Creating custom OSM reader; reading file and parsing lane tag and street name info.");
+        List<ReaderRelation> roadRelations = Lists.newArrayList();
         int readCount = 0;
         try (OSMInput input = new OSMInputFile(new File(osmPath)).setWorkerThreads(2).open()) {
             TraversalPermissionLabeler flagLabeler = new USTraversalPermissionLabeler();
@@ -101,6 +111,18 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
                     }
                     final ReaderWay ghReaderWay = (ReaderWay) next;
                     long osmId = ghReaderWay.getId();
+
+                    // Parse street name from Way, if it exists
+                    String wayName = getNameFromOsmElement(ghReaderWay);
+                    if (wayName != null) {
+                        osmIdToStreetName.put(osmId, wayName);
+                    }
+
+                    // Parse highway tag from Way, if it's present
+                    String highway = getHighwayFromOsmWay(ghReaderWay);
+                    if (highway != null) {
+                        osmIdToHighwayTag.put(osmId, highway);
+                    }
 
                     // Parse all tags needed for determining lane counts on edge
                     for (String laneTag : LANE_TAGS) {
@@ -130,11 +152,56 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
                     List<EnumSet<TraversalPermissionLabeler.EdgeFlag>> flags = flagLabeler.getPermissions(way);
                     List<String> flagStrings = Lists.newArrayList(flags.get(0).toString(), flags.get(1).toString());
                     osmIdToAccessFlags.put(ghReaderWay.getId(), flagStrings);
+                } else if (next.isType(ReaderElement.RELATION)) {
+                    if (next.hasTag("route", "road")) {
+                        roadRelations.add((ReaderRelation) next);
+                    }
                 }
             }
             LOG.info("Finished parsing lane tag info from OSM ways. " + readCount + " total ways were parsed.");
+
+            readCount = 0;
+            LOG.info("Scanning road relations to populate street names for Ways that didn't have them set.");
+            for (ReaderRelation relation : roadRelations) {
+                if (relation.hasTag("route", "road")) {
+                    if (++readCount % 1000 == 0) {
+                        LOG.info("Parsing tag info from OSM relations. " + readCount + " read so far.");
+                    }
+                    for (ReaderRelation.Member member : relation.getMembers()) {
+                        if (member.getType() == ReaderRelation.Member.WAY) {
+                            // If we haven't recorded a street name for a Way in this Relation,
+                            // use the Relation's name instead, if it exists
+                            if (!osmIdToStreetName.containsKey(member.getRef())) {
+                                String streetName = getNameFromOsmElement(relation);
+                                if (streetName != null) {
+                                    osmIdToStreetName.put(member.getRef(), streetName);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            LOG.info("Finished scanning road relations for additional street names. " + readCount + " total relations were considered.");
         } catch (Exception e) {
             throw new RuntimeException("Can't open OSM file provided at " + osmPath + "!");
+        }
+    }
+
+    private static String getHighwayFromOsmWay(ReaderWay way) {
+        if (way.hasTag("highway")) {
+            return way.getTag("highway");
+        } else {
+            return null;
+        }
+    }
+
+    private static String getNameFromOsmElement(ReaderElement wayOrRelation) {
+        if (wayOrRelation.hasTag("name")) {
+            return wayOrRelation.getTag("name");
+        } else if (wayOrRelation.hasTag("ref")) {
+            return wayOrRelation.getTag("ref");
+        } else {
+            return null;
         }
     }
 
@@ -148,5 +215,13 @@ public class CustomGraphHopperOSM extends GraphHopperOSM {
 
     public Map<Long, List<String>> getOsmIdToAccessFlags() {
         return osmIdToAccessFlags;
+    }
+
+    public Map<Long, String> getOsmIdToStreetName() {
+        return osmIdToStreetName;
+    }
+
+    public Map<Long, String> getOsmIdToHighwayTag() {
+        return osmIdToHighwayTag;
     }
 }

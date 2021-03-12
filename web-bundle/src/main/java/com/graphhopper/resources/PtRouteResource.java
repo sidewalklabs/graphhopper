@@ -37,7 +37,7 @@ public class PtRouteResource {
     private static final Logger logger = LoggerFactory.getLogger(PtRouteResource.class);
     private final PtRouter ptRouter;
     private static Map<String, String> gtfsLinkMappings;
-    private static Map<String, String> gtfsRouteInfo;
+    private static Map<String, List<String>> gtfsRouteInfo;
     private static Map<String, String> gtfsFeedIdMapping;
 
     // Statically load GTFS link mapping and GTFS route info maps for use in building responses
@@ -196,12 +196,12 @@ public class PtRouteResource {
         stableEdgeIdsList.clear();
         stableEdgeIdsList.addAll(stableEdgeIdsWithoutDuplicates);
 
-        // Split comma-separated GTFS route info string of agency_name,route_short_name,route_long_name,route_type
-        String[] routeInfo = gtfsRouteInfo.containsKey(leg.route_id)
-                ? gtfsRouteInfo.get(leg.route_id).split(",")
-                : new String[]{"", "", "", ""};
+        // Ordered list of GTFS route info, containing agency_name, route_short_name, route_long_name, route_type
+        List<String> routeInfo = gtfsRouteInfo.containsKey(gtfsRouteInfoKey(leg))
+                ? gtfsRouteInfo.get(gtfsRouteInfoKey(leg))
+                : Lists.newArrayList("", "", "", "");
 
-        if (!gtfsRouteInfo.containsKey(leg.route_id)) {
+        if (!gtfsRouteInfo.containsKey(gtfsRouteInfoKey(leg))) {
             logger.info("Failed to find route info for route " + leg.route_id + " for PT trip leg " + leg.toString());
         }
 
@@ -214,6 +214,11 @@ public class PtRouteResource {
                     stop.plannedDepartureTime, stop.predictedDepartureTime, stop.departureCancelled));
         }
 
-        return new CustomPtLeg(leg, stableEdgeIdsList, updatedStops, routeInfo[0], routeInfo[1], routeInfo[2], routeInfo[3]);
+        return new CustomPtLeg(leg, stableEdgeIdsList, updatedStops,
+                routeInfo.get(0), routeInfo.get(1), routeInfo.get(2), routeInfo.get(3));
+    }
+
+    private static String gtfsRouteInfoKey(Trip.PtLeg leg) {
+        return leg.feed_id + ":" + leg.route_id;
     }
 }

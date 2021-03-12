@@ -43,13 +43,11 @@ public class ImportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         if (gh instanceof CustomGraphHopperGtfs) {
             CustomGraphHopperGtfs customGh = (CustomGraphHopperGtfs) gh;
             customGh.collectOsmInfo();
-            OsmHelper.writeOsmInfoToMapDb(customGh.getOsmIdToLaneTags(),
-                    customGh.getGhIdToOsmId(), customGh.getOsmIdToAccessFlags());
+            OsmHelper.writeOsmInfoToMapDb(customGh);
         } else {
             CustomGraphHopperOSM customGh = (CustomGraphHopperOSM) gh;
             customGh.collectOsmInfo();
-            OsmHelper.writeOsmInfoToMapDb(customGh.getOsmIdToLaneTags(),
-                    customGh.getGhIdToOsmId(), customGh.getOsmIdToAccessFlags());
+            OsmHelper.writeOsmInfoToMapDb(customGh);
         }
         StableEdgeIdManager stableEdgeIdManager = new StableEdgeIdManager(gh);
         stableEdgeIdManager.setStableEdgeIds();
