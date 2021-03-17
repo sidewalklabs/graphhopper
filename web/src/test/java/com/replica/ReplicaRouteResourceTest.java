@@ -53,7 +53,7 @@ import static org.mockito.Mockito.when;
  * of stuff (which is different for PT than for the rest) is under test, too.
  */
 @ExtendWith(DropwizardExtensionsSupport.class)
-public class PtRouteResourceTest {
+public class ReplicaRouteResourceTest {
     private static final String DIR = "./target/gtfs-app-gh/";
     public static final DropwizardAppExtension<GraphHopperServerConfiguration> app = new DropwizardAppExtension<>(GraphHopperApplication.class, createConfig());
 
