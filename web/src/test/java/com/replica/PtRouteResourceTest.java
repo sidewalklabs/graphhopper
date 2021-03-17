@@ -21,12 +21,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.graphhopper.GHResponse;
 import com.graphhopper.config.Profile;
 import com.graphhopper.http.GraphHopperApplication;
+import com.graphhopper.http.GraphHopperBundle;
 import com.graphhopper.http.GraphHopperServerConfiguration;
+import com.graphhopper.http.cli.ImportCommand;
 import com.graphhopper.resources.InfoResource;
 import com.graphhopper.util.Helper;
 import io.dropwizard.Configuration;
+import io.dropwizard.cli.Cli;
+import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.testing.junit5.DropwizardAppExtension;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.util.JarLocation;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -35,9 +40,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import java.io.File;
+import java.io.PrintStream;
 import java.util.Collections;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests the entire app, not the resource, so that the plugging-together
@@ -52,14 +61,32 @@ public class PtRouteResourceTest {
         GraphHopperServerConfiguration config = new GraphHopperServerConfiguration();
         config.getGraphHopperConfiguration().
                 putObject("graph.flag_encoders", "foot").
-                putObject("datareader.file", "testdata/beatty.osm").
-                putObject("gtfs.file", "testdata/sample-feed.zip").
+                putObject("datareader.file", "test-data/beatty.osm").
+                putObject("gtfs.file", "test-data/sample-feed.zip").
                 putObject("graph.location", DIR).
                 setProfiles(Collections.singletonList(new Profile("foot").setVehicle("foot").setWeighting("fastest")));
         return config;
     }
 
     @BeforeAll
+    public static void setUp() {
+        Helper.removeDir(new File(DIR));
+
+        // Setup necessary mock
+        final JarLocation location = mock(JarLocation.class);
+        when(location.getVersion()).thenReturn(Optional.of("1.0.0"));
+
+        // Add commands you want to test
+        final Bootstrap<GraphHopperServerConfiguration> bootstrap = new Bootstrap<>(new GraphHopperApplication());
+        bootstrap.addBundle(new GraphHopperBundle());
+        bootstrap.addCommand(new ImportCommand());
+
+        // Build what'll run the command and interpret arguments
+        Cli cli = new Cli(location, bootstrap, System.out, System.err);
+        cli.run("import", "testdata/beatty-sample-feed-config.yml");
+        cli.run("gtfs_links", "testdata/beatty-sample-feed-config.yml");
+    }
+
     @AfterAll
     public static void cleanUp() {
         Helper.removeDir(new File(DIR));
