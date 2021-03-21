@@ -159,15 +159,6 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                     // Convert GH's distance in meters to millimeters to match R5's implementation
                     long distanceMillimeters = distanceMeters * 1000;
 
-                    logger.info("iteration for edge " + ghEdgeId);
-                    logger.info("OSM DB sizes: ");
-                    logger.info("osmIdToLaneTags: " + osmIdToLaneTags.size());
-                    logger.info("ghIdToOsmId: " + ghIdToOsmId.size());
-                    logger.info("osmIdToAccessFlags: " + osmIdToAccessFlags.size());
-                    logger.info("osmIdToStreetName: " + osmIdToStreetName.size());
-                    logger.info("osmIdToHighway: " + osmIdToHighway.size());
-
-
                     // Fetch OSM ID, skipping edges from PT meta-graph that have no IDs set (getOsmIdForGhEdge returns -1)
                     long osmId = OsmHelper.getOsmIdForGhEdge(edgeIterator.getEdge(), ghIdToOsmId);
                     if (osmId == -1L) {
