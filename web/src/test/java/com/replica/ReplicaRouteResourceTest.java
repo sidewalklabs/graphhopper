@@ -23,6 +23,7 @@ import com.graphhopper.config.Profile;
 import com.graphhopper.http.GraphHopperApplication;
 import com.graphhopper.http.GraphHopperBundle;
 import com.graphhopper.http.GraphHopperServerConfiguration;
+import com.graphhopper.http.cli.GtfsLinkMapperCommand;
 import com.graphhopper.http.cli.ImportCommand;
 import com.graphhopper.resources.InfoResource;
 import com.graphhopper.util.Helper;
@@ -80,11 +81,12 @@ public class ReplicaRouteResourceTest {
         final Bootstrap<GraphHopperServerConfiguration> bootstrap = new Bootstrap<>(new GraphHopperApplication());
         bootstrap.addBundle(new GraphHopperBundle());
         bootstrap.addCommand(new ImportCommand());
+        bootstrap.addCommand(new GtfsLinkMapperCommand());
 
         // Build what'll run the command and interpret arguments
         Cli cli = new Cli(location, bootstrap, System.out, System.err);
-        cli.run("import", "testdata/beatty-sample-feed-config.yml");
-        cli.run("gtfs_links", "testdata/beatty-sample-feed-config.yml");
+        cli.run("import", "test-data/beatty-sample-feed-config.yml");
+        cli.run("gtfs_links", "test-data/beatty-sample-feed-config.yml");
     }
 
     @AfterAll
