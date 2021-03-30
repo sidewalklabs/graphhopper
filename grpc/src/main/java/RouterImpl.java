@@ -89,11 +89,13 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         try {
             GHResponse ghResponse = graphHopper.route(ghRequest);
             if (ghResponse.getAll().size() == 0) {
+                String message = "Path could not be found between "
+                        + ghRequest.getPoints().get(0).lat + "," + ghRequest.getPoints().get(0).lon + " to "
+                        + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon;
+                // logger.warn(message);
                 Status status = Status.newBuilder()
                         .setCode(Code.NOT_FOUND.getNumber())
-                        .setMessage("Path could not be found between "
-                                + ghRequest.getPoints().get(0).lat + "," + ghRequest.getPoints().get(0).lon + " to "
-                                + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon)
+                        .setMessage(message)
                         .build();
                 responseObserver.onError(StatusProto.toStatusRuntimeException(status));
             } else {
@@ -124,11 +126,13 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                 responseObserver.onCompleted();
             }
         } catch (Exception e) {
+            String message = "GH internal error! Path could not be found between "
+                    + ghRequest.getPoints().get(0).lat + "," + ghRequest.getPoints().get(0).lon + " to "
+                    + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon;
+            logger.error(message, e);
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
-                    .setMessage("GH internal error! Path could not be found between "
-                            + ghRequest.getPoints().get(0).lat + "," + ghRequest.getPoints().get(0).lon + " to "
-                            + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon)
+                    .setMessage(message)
                     .build();
             responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         }
@@ -212,6 +216,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             responseObserver.onNext(result);
             responseObserver.onCompleted();
         } catch (Exception e) {
+            logger.error("Error while completing GraphHopper matrix request! ", e);
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
                     .setMessage("GH internal error! Matrix request could not be completed.")
@@ -287,10 +292,12 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             }
 
             if (pathsWithStableIds.size() == 0) {
+                String message = "Transit path could not be found between " + fromPoint.getLat() + "," +
+                        fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon();
+                // logger.warn(message);
                 Status status = Status.newBuilder()
                         .setCode(Code.NOT_FOUND.getNumber())
-                        .setMessage("Transit path could not be found between " + fromPoint.getLat() + "," +
-                                fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon())
+                        .setMessage(message)
                         .build();
                 responseObserver.onError(StatusProto.toStatusRuntimeException(status));
             } else {
@@ -361,15 +368,17 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                 responseObserver.onCompleted();
             }
         } catch (PointNotFoundException e) {
+            String message = "Path could not be found between " + fromPoint.getLat() + "," +
+                    fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon() +
+                    "; one or both endpoints could not be snapped to a road segment";
+            // logger.warn(message);
             Status status = Status.newBuilder()
                     .setCode(Code.NOT_FOUND.getNumber())
-                    .setMessage("Path could not be found between " + fromPoint.getLat() + "," +
-                            fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon() +
-                            "; one or both endpoints could not be snapped to a road segment")
+                    .setMessage(message)
                     .build();
             responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         } catch (Exception e) {
-            logger.error("ERRRRRRRROR! ", e);
+            logger.error("GraphHopper internal error! ", e);
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
                     .setMessage("GH internal error! Path could not be found between " + fromPoint.getLat() + "," +
@@ -441,6 +450,9 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
         // Ordered list of GTFS route info, containing agency_name, route_short_name, route_long_name, route_type
         List<String> routeInfo = gtfsRouteInfo.getOrDefault(gtfsRouteInfoKey(leg), Lists.newArrayList("", "", "", ""));
+
+        // Convert any missing info to empty string to prevent NPE
+        routeInfo = routeInfo.stream().map(info -> info == null ? "" : info).collect(toList());
 
         if (!gtfsRouteInfo.containsKey(gtfsRouteInfoKey(leg))) {
             logger.info("Failed to find route info for route " + leg.route_id + " for PT trip leg " + leg.toString());
