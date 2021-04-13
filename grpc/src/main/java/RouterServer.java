@@ -25,19 +25,13 @@ import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.gtfs.PtRouter;
 import com.graphhopper.gtfs.PtRouterImpl;
 import com.graphhopper.gtfs.RealtimeFeed;
-import com.graphhopper.http.GraphHopperBundle;
 import com.graphhopper.http.GraphHopperManaged;
-import com.graphhopper.http.RealtimeBundle;
 import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
-import com.graphhopper.resources.InfoResource;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
 import io.dropwizard.Application;
-import io.dropwizard.Configuration;
 import io.dropwizard.assets.AssetsBundle;
-import io.dropwizard.server.AbstractServerFactory;
-import io.dropwizard.server.DefaultServerFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.grpc.Server;
@@ -45,16 +39,12 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
 import io.grpcweb.GrpcPortNumRelay;
 import io.grpcweb.GrpcWebTrafficServlet;
-import io.grpcweb.JettyWebserverForGrpcwebTraffic;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -141,14 +131,11 @@ public class RouterServer {
             System.err.println("*** server shut down");
         }));
 
-        // Start the grpc-web proxy on grpc-web-port.
-        Configuration configuration = new Configuration();
-        int grpcWebPort = 8998;
-        new MyApplication().run("server", "config-proxy.yml");
+        // Start the grpc-web proxy on port 8998
+        new GrpcWebApplication().run("server", "config-proxy.yml");
 
         // grpc-web proxy needs to know the grpc-port# so it could connect to the grpc service.
         GrpcPortNumRelay.setGrpcPortNum(grpcPort);
-
     }
 
     private void stop() throws InterruptedException {
@@ -178,7 +165,7 @@ public class RouterServer {
         server.blockUntilShutdown();
     }
 
-    private static class MyApplication extends Application<MyConfiguration> {
+    private static class GrpcWebApplication extends Application<GrpcWebConfiguration> {
         @Override
         public void initialize(Bootstrap bootstrap) {
             bootstrap.addBundle(new AssetsBundle("/assets/", "/maps/", "index.html", "maps"));
@@ -186,9 +173,8 @@ public class RouterServer {
         }
 
         @Override
-        public void run(MyConfiguration configuration, Environment environment) throws Exception {
+        public void run(GrpcWebConfiguration configuration, Environment environment) throws Exception {
             environment.servlets().addServlet("grpc-web", GrpcWebTrafficServlet.class).addMapping("/api/*");
         }
-
     }
 }
