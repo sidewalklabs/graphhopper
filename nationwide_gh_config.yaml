@@ -1,0 +1,39 @@
+# Configuration file for standard GraphHopper routers.
+# 1 profile loaded with default speeds is defined for each vehicle type
+
+graphhopper:
+  datareader.file:
+  gtfs.file:
+  graph.location: transit_data/graphhopper
+  routing.ch.disabling_allowed: true
+  routing.max_visited_nodes: 1500000
+  graph.flag_encoders: car
+  prepare.ch.threads: 16
+
+  # Uncomment this if the export was done with turn-restriction-aware contraction hierarchies
+  # prepare.ch.edge_based: edge_and_node
+  # graph.flag_encoders: car|turn_costs=true
+  # graph.bytes_for_flags: 64
+
+  # Profiles specifying vehicle and weightings for each mode type.
+  profiles:
+    - name: car
+      vehicle: car
+      weighting: fastest
+
+  profiles_ch:
+    - profile: car
+
+server:
+  min_threads: 4
+  max_threads: 8
+  application_connectors:
+    - type: http
+      port: 8998
+      # for security reasons bind (localhost does not work with k8s svcs)
+      bind_host: 0.0.0.0
+      acceptor_threads: 1
+      selector_threads: 2
+      accept_queue_size: 8
+  request_log:
+    appenders: []
