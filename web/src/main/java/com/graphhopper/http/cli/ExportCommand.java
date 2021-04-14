@@ -1,7 +1,6 @@
 package com.graphhopper.http.cli;
 
 import com.google.common.collect.Lists;
-import com.graphhopper.CustomGraphHopperGtfs;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.http.GraphHopperServerConfiguration;
