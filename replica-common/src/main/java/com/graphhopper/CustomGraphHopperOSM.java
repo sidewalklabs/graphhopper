@@ -6,7 +6,6 @@ import com.google.common.collect.Sets;
 import com.graphhopper.export.TraversalPermissionLabeler;
 import com.graphhopper.export.USTraversalPermissionLabeler;
 import com.graphhopper.export.Way;
-import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.json.geo.JsonFeatureCollection;
 import com.graphhopper.reader.DataReader;
 import com.graphhopper.reader.ReaderElement;

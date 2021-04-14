@@ -61,8 +61,6 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
     @Override
     protected void run(Bootstrap<GraphHopperServerConfiguration> bootstrap, Namespace namespace,
                        GraphHopperServerConfiguration configuration) {
-        logger.info("In ExportCommand.run()");
-
         // Read in pre-built GH graph files from /transit_data/graphhopper
         final GraphHopperManaged graphHopper =
                 new GraphHopperManaged(configuration.getGraphHopperConfiguration(), bootstrap.getObjectMapper());
@@ -72,11 +70,6 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
                     configuredGraphHopper.getGraphHopperLocation());
         }
 
-        boolean isGtfs = false;
-        if (configuredGraphHopper instanceof CustomGraphHopperGtfs) isGtfs = true;
-        logger.info("done loading GH graph. GH is of type CustomGraphHopperGtfs: " + isGtfs);
-        logger.info("Loading OSM info now");
-
         // Load OSM info needed for export from MapDB database file
         DB db = DBMaker.newFileDB(new File("transit_data/osm_info.db")).make();
         Map<Long, Map<String, String>> osmIdToLaneTags = db.getHashMap("osmIdToLaneTags");
@@ -85,13 +78,6 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         Map<Long, String> osmIdToStreetName = db.getHashMap("osmIdToStreetName");
         Map<Long, String> osmIdToHighway = db.getHashMap("osmIdToHighway");
         logger.info("Done loading OSM info needed for CSV export from MapDB file.");
-
-        logger.info("OSM DB sizes: ");
-        logger.info("osmIdToLaneTags: " + osmIdToLaneTags.size());
-        logger.info("ghIdToOsmId: " + ghIdToOsmId.size());
-        logger.info("osmIdToAccessFlags: " + osmIdToAccessFlags.size());
-        logger.info("osmIdToStreetName: " + osmIdToStreetName.size());
-        logger.info("osmIdToHighway: " + osmIdToHighway.size());
 
         // Use loaded graph data to write street network out to CSV
         writeStreetEdgesCsv(configuredGraphHopper, osmIdToLaneTags, ghIdToOsmId,
@@ -110,11 +96,6 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
         AllEdgesIterator edgeIterator = graphHopperStorage.getAllEdges();
         NodeAccess nodes = graphHopperStorage.getNodeAccess();
-
-        logger.info(graphHopperStorage.toDetailsString());
-        logger.info(graphHopperStorage.toString());
-        logger.info("num edges: " + graphHopperStorage.getEdges());
-        logger.info("num nodes: " + graphHopperStorage.getNodes());
 
         // Setup encoders for determining speed and road type info for each edge
         EncodingManager encodingManager = configuredGraphHopper.getEncodingManager();

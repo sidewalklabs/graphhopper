@@ -53,7 +53,6 @@ public class OsmHelper {
 
         // todo: refactor to make this less awful
         if (graphHopper instanceof CustomGraphHopperOSM) {
-            logger.info("we have a CustomGraphHopperOSM");
             CustomGraphHopperOSM ghOsm = (CustomGraphHopperOSM) graphHopper;
             osmIdToLaneTags.putAll(ghOsm.getOsmIdToLaneTags());
             ghIdToOsmId.putAll(ghOsm.getGhIdToOsmId());
@@ -61,7 +60,6 @@ public class OsmHelper {
             osmIdToStreetName.putAll(ghOsm.getOsmIdToStreetName());
             osmIdToHighway.putAll(ghOsm.getOsmIdToHighwayTag());
         } else {
-            logger.info("we have a CustomGraphHopperGTFS");
             CustomGraphHopperGtfs ghGtfs = (CustomGraphHopperGtfs) graphHopper;
             osmIdToLaneTags.putAll(ghGtfs.getOsmIdToLaneTags());
             ghIdToOsmId.putAll(ghGtfs.getGhIdToOsmId());
