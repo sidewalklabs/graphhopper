@@ -84,7 +84,7 @@ export default class Waypoint {
   _initializeName(prevApiLeg, nextApiLeg) {
     if (nextApiLeg) {
       if (nextApiLeg.type === Mode.PT) {
-        this._name = nextApiLeg.getStopsList()[0].getStopName();
+        this._name = nextApiLeg.getAgencyName() + ":" + nextApiLeg.getRouteId() + ":" + nextApiLeg.getRouteShortName() + ":" + nextApiLeg.getRouteLongName() + " @ " + nextApiLeg.getStopsList()[0].getStopName();
       } else if (prevApiLeg) {
         this._name = this._findArrivalLocation(prevApiLeg);
       } else {

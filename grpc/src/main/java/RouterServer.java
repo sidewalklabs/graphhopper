@@ -144,7 +144,7 @@ public class RouterServer {
         // Start the grpc-web proxy on grpc-web-port.
         Configuration configuration = new Configuration();
         int grpcWebPort = 8998;
-        new MyApplication().run("server", "config-proxy.yml");
+        new MyApplication().run("server", "config-proxy.yaml");
 
         // grpc-web proxy needs to know the grpc-port# so it could connect to the grpc service.
         GrpcPortNumRelay.setGrpcPortNum(grpcPort);
