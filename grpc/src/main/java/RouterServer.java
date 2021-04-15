@@ -32,6 +32,8 @@ import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
 import io.dropwizard.Application;
 import io.dropwizard.assets.AssetsBundle;
+import io.dropwizard.bundles.redirect.PathRedirect;
+import io.dropwizard.bundles.redirect.RedirectBundle;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.grpc.Server;
@@ -172,6 +174,7 @@ public class RouterServer {
         public void initialize(Bootstrap bootstrap) {
             bootstrap.addBundle(new AssetsBundle("/assets/", "/maps/", "index.html", "maps"));
             bootstrap.addBundle(new AssetsBundle("/META-INF/resources/webjars", "/webjars", "index.html", "webjars"));
+            bootstrap.addBundle(new RedirectBundle(new PathRedirect("/maps/pt", "/maps/pt/")));
         }
 
         @Override
