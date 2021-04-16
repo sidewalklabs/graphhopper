@@ -25,6 +25,7 @@ import com.graphhopper.*;
 import com.graphhopper.gtfs.PtRouter;
 import com.graphhopper.gtfs.Request;
 import com.graphhopper.routing.*;
+import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.exceptions.PointNotFoundException;
 import com.graphhopper.util.shapes.GHPoint;
@@ -225,6 +226,13 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     }
 
     @Override
+    public void info(InfoRequest request, StreamObserver<InfoReply> responseObserver) {
+        GraphHopperStorage storage = graphHopper.getGraphHopperStorage();
+        responseObserver.onNext(InfoReply.newBuilder().addAllBbox(Arrays.asList(storage.getBounds().minLon, storage.getBounds().minLat, storage.getBounds().maxLon, storage.getBounds().maxLat)).build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
     public void routePt(PtRouteRequest request, StreamObserver<PtRouteReply> responseObserver) {
         Point fromPoint = request.getPoints(0);
         Point toPoint = request.getPoints(1);
@@ -326,8 +334,8 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                                     .setTripId(leg.trip_id)
                                     .setRouteId(leg.route_id)
                                     .setAgencyName(leg.agencyName)
-                                    .setRouteShortName(leg.routeShortName)
-                                    .setRouteLongName(leg.routeLongName)
+                                    .setRouteShortName(leg.routeShortName != null ? leg.routeShortName : "")
+                                    .setRouteLongName(leg.routeLongName != null ? leg.routeLongName : "")
                                     .setRouteType(leg.routeType)
                                     .setDirection(leg.trip_headsign)
                                     .addAllStops(leg.stops.stream().map(stop -> Stop.newBuilder()

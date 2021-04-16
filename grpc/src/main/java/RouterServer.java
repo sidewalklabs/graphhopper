@@ -30,16 +30,23 @@ import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
+import io.dropwizard.Application;
+import io.dropwizard.assets.AssetsBundle;
+import io.dropwizard.bundles.redirect.PathRedirect;
+import io.dropwizard.bundles.redirect.RedirectBundle;
+import io.dropwizard.setup.Bootstrap;
+import io.dropwizard.setup.Environment;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
+import io.grpcweb.GrpcPortNumRelay;
+import io.grpcweb.GrpcWebTrafficServlet;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -56,7 +63,7 @@ public class RouterServer {
         this.configPath = configPath;
     }
 
-    private void start() throws IOException {
+    private void start() throws Exception {
         // Start GH instance based on config given as command-line arg
         ObjectMapper yaml = Jackson.initObjectMapper(new ObjectMapper(new YAMLFactory()));
         yaml.registerModule(new GraphHopperConfigModule());
@@ -103,7 +110,8 @@ public class RouterServer {
         */
 
         // Start server
-        server = NettyServerBuilder.forPort(50051)
+        int grpcPort = 50051;
+        server = NettyServerBuilder.forPort(grpcPort)
                 .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, gtfsFeedIdMapping))
                 .addService(ProtoReflectionService.newInstance())
                 .maxConnectionAge(10, TimeUnit.SECONDS)
@@ -124,6 +132,14 @@ public class RouterServer {
             }
             System.err.println("*** server shut down");
         }));
+
+        // Start the grpc-web proxy on grpc-web-port.
+        new MyApplication().run("server", "config-proxy.yaml");
+        logger.info("Started grpc-web proxy server");
+
+        // grpc-web proxy needs to know the grpc-port# so it could connect to the grpc service.
+        GrpcPortNumRelay.setGrpcPortNum(grpcPort);
+
     }
 
     private void stop() throws InterruptedException {
@@ -144,12 +160,26 @@ public class RouterServer {
     /**
      * Main launches the server from the command line.
      */
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws Exception {
         if (args.length != 1) {
             throw new RuntimeException("Must include path to GH config in order to start server!");
         }
         final RouterServer server = new RouterServer(args[0]);
         server.start();
         server.blockUntilShutdown();
+    }
+
+    private static class MyApplication extends Application<MyConfiguration> {
+        @Override
+        public void initialize(Bootstrap bootstrap) {
+            bootstrap.addBundle(new AssetsBundle("/assets/", "/maps/", "index.html", "maps"));
+            bootstrap.addBundle(new AssetsBundle("/META-INF/resources/webjars", "/webjars", "index.html", "webjars"));
+            bootstrap.addBundle(new RedirectBundle(new PathRedirect("/maps/pt", "/maps/pt/")));
+        }
+
+        @Override
+        public void run(MyConfiguration configuration, Environment environment) throws Exception {
+            environment.servlets().addServlet("grpc-web", GrpcWebTrafficServlet.class).addMapping("/api/*");
+        }
     }
 }

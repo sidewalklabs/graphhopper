@@ -225,6 +225,9 @@ public class GtfsLinkMapper {
         List<String> rowsForFeed = Lists.newArrayList();
         for (String routeId : routeIdToTripsInRoute.keySet()) {
             for (String tripIdInRoute : routeIdToTripsInRoute.get(routeId)) {
+                if (!tripIdToStopPairsInTrip.containsKey(tripIdInRoute)) {
+                    continue;
+                }
                 for (Pair<Stop, Stop> stopStopPair : tripIdToStopPairsInTrip.get(tripIdInRoute)) {
                     // Filter out stop-stop pairs where the stops are identical
                     if (stopStopPair.getLeft().stop_id.equals(stopStopPair.getRight().stop_id)) {
