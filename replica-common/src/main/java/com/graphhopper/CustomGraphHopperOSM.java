@@ -1,14 +1,17 @@
-package com.graphhopper.export;
+package com.graphhopper;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.graphhopper.GraphHopperConfig;
-import com.graphhopper.gtfs.GraphHopperGtfs;
+import com.graphhopper.export.TraversalPermissionLabeler;
+import com.graphhopper.export.USTraversalPermissionLabeler;
+import com.graphhopper.export.Way;
+import com.graphhopper.json.geo.JsonFeatureCollection;
 import com.graphhopper.reader.DataReader;
 import com.graphhopper.reader.ReaderElement;
 import com.graphhopper.reader.ReaderRelation;
 import com.graphhopper.reader.ReaderWay;
+import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.reader.osm.OSMInput;
 import com.graphhopper.reader.osm.OSMInputFile;
 import com.graphhopper.reader.osm.OSMReader;
@@ -33,8 +36,8 @@ import java.util.Set;
  * data about a particular region's GH street network.
  */
 
-public class CustomGraphHopperGtfs extends GraphHopperGtfs {
-    private static final Logger LOG = LoggerFactory.getLogger(CustomGraphHopperGtfs.class);
+public class CustomGraphHopperOSM extends GraphHopperOSM {
+    private static final Logger LOG = LoggerFactory.getLogger(CustomGraphHopperOSM.class);
 
     // Tags considered by R5 when calculating the value of the `lanes` column
     private static final Set<String> LANE_TAGS = Sets.newHashSet("lanes", "lanes:forward", "lanes:backward");
@@ -54,8 +57,8 @@ public class CustomGraphHopperGtfs extends GraphHopperGtfs {
     private Map<Long, String> osmIdToHighwayTag;
 
 
-    public CustomGraphHopperGtfs(GraphHopperConfig ghConfig) {
-        super(ghConfig);
+    public CustomGraphHopperOSM(JsonFeatureCollection landmarkSplittingFeatureCollection, GraphHopperConfig ghConfig) {
+        super(landmarkSplittingFeatureCollection);
         this.osmPath = ghConfig.getString("datareader.file", "");
         this.osmIdToLaneTags = Maps.newHashMap();
         this.ghIdToOsmId = Maps.newHashMap();

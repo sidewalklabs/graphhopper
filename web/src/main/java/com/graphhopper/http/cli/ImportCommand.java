@@ -18,8 +18,9 @@
 
 package com.graphhopper.http.cli;
 
+import com.graphhopper.CustomGraphHopperOSM;
 import com.graphhopper.GraphHopper;
-import com.graphhopper.export.CustomGraphHopperGtfs;
+import com.graphhopper.CustomGraphHopperGtfs;
 import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.http.GraphHopperServerConfiguration;
 import com.graphhopper.replica.OsmHelper;
@@ -40,8 +41,13 @@ public class ImportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         GraphHopper gh = graphHopper.getGraphHopper();
         gh.importOrLoad();
         if (gh instanceof CustomGraphHopperGtfs) {
-            ((CustomGraphHopperGtfs) gh).collectOsmInfo();
-            OsmHelper.writeOsmInfoToMapDb((CustomGraphHopperGtfs) gh);
+            CustomGraphHopperGtfs customGh = (CustomGraphHopperGtfs) gh;
+            customGh.collectOsmInfo();
+            OsmHelper.writeOsmInfoToMapDb(customGh);
+        } else {
+            CustomGraphHopperOSM customGh = (CustomGraphHopperOSM) gh;
+            customGh.collectOsmInfo();
+            OsmHelper.writeOsmInfoToMapDb(customGh);
         }
         StableEdgeIdManager stableEdgeIdManager = new StableEdgeIdManager(gh);
         stableEdgeIdManager.setStableEdgeIds();
