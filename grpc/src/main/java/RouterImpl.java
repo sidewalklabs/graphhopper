@@ -44,6 +44,8 @@ import static java.util.stream.Collectors.toList;
 
 public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
+    final Set<Integer> STREET_BASED_ROUTE_TYPES = Sets.newHashSet(0, 3, 5);
+
     private static final Logger logger = LoggerFactory.getLogger(RouterImpl.class);
     private final GraphHopper graphHopper;
     private final PtRouter ptRouter;
@@ -425,31 +427,33 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     }
 
     private CustomPtLeg getCustomPtLeg(Trip.PtLeg leg) {
-        List<Trip.Stop> stops = leg.stops;
-
-        // Retrieve stable edge IDs for each stop->stop segment of leg
-        List<String> stableEdgeIdSegments = Lists.newArrayList();
-        for (int i = 0; i < stops.size() - 1; i++) {
-            String stopPair = stops.get(i).stop_id + "," + stops.get(i + 1).stop_id;
-            if (gtfsLinkMappings.containsKey(stopPair)) {
-                if (!gtfsLinkMappings.get(stopPair).isEmpty()) {
-                    stableEdgeIdSegments.add(gtfsLinkMappings.get(stopPair));
-                }
-            }
-        }
-
-        List<String> stableEdgeIdsList = stableEdgeIdSegments.stream()
-                .flatMap(segment -> Arrays.stream(segment.split(",")))
-                .collect(toList());
-
-        // Remove duplicates from stable ID list while retaining order;
-        // needed because start/end of sequential segments overlap by 1 edge
-        Set<String> stableEdgeIdsWithoutDuplicates = Sets.newLinkedHashSet(stableEdgeIdsList);
-        stableEdgeIdsList.clear();
-        stableEdgeIdsList.addAll(stableEdgeIdsWithoutDuplicates);
-
         // Ordered list of GTFS route info, containing agency_name, route_short_name, route_long_name, route_type
         List<String> routeInfo = gtfsRouteInfo.getOrDefault(gtfsRouteInfoKey(leg), Lists.newArrayList("", "", "", ""));
+        String routeType = routeInfo.get(3);
+
+        List<String> stableEdgeIdsList = Lists.newArrayList();
+        if (STREET_BASED_ROUTE_TYPES.contains(routeType)) {
+            // Retrieve stable edge IDs for each stop->stop segment of leg
+            List<Trip.Stop> stops = leg.stops;
+            List<String> stableEdgeIdSegments = Lists.newArrayList();
+            for (int i = 0; i < stops.size() - 1; i++) {
+                String stopPair = stops.get(i).stop_id + "," + stops.get(i + 1).stop_id;
+                if (gtfsLinkMappings.containsKey(stopPair)) {
+                    if (!gtfsLinkMappings.get(stopPair).isEmpty()) {
+                        stableEdgeIdSegments.add(gtfsLinkMappings.get(stopPair));
+                    }
+                }
+            }
+            stableEdgeIdsList = stableEdgeIdSegments.stream()
+                    .flatMap(segment -> Arrays.stream(segment.split(",")))
+                    .collect(toList());
+
+            // Remove duplicates from stable ID list while retaining order;
+            // needed because start/end of sequential segments overlap by 1 edge
+            Set<String> stableEdgeIdsWithoutDuplicates = Sets.newLinkedHashSet(stableEdgeIdsList);
+            stableEdgeIdsList.clear();
+            stableEdgeIdsList.addAll(stableEdgeIdsWithoutDuplicates);
+        }
 
         // Convert any missing info to empty string to prevent NPE
         routeInfo = routeInfo.stream().map(info -> info == null ? "" : info).collect(toList());
@@ -468,7 +472,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         }
 
         return new CustomPtLeg(leg, stableEdgeIdsList, updatedStops,
-                routeInfo.get(0), routeInfo.get(1), routeInfo.get(2), routeInfo.get(3));
+                routeInfo.get(0), routeInfo.get(1), routeInfo.get(2), routeType);
     }
 
     private static String gtfsRouteInfoKey(Trip.PtLeg leg) {
