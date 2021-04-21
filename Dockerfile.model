@@ -4,7 +4,15 @@ ARG GRAPHHOPPER_TOKEN
 ARG GIT_USER_ID
 ARG GIT_PERSONAL_ACCESS
 
-RUN apt-get update && apt-get install -y wget
+RUN apt-get update && apt-get install -y wget \
+    && DEBIAN_FRONTEND=noninteractive \
+        apt-get install --no-install-recommends --assume-yes protobuf-compiler \
+    && apt-get install -y git-core curl build-essential openssl libssl-dev \
+    && git clone https://github.com/nodejs/node.git \
+    && cd node \
+    && ./configure \
+    && make \
+    && sudo make install
 
 WORKDIR /graphhopper
 
