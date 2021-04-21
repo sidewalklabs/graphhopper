@@ -3,7 +3,6 @@
 
 graphhopper:
   datareader.file:
-  gtfs.file:
   graph.location: transit_data/graphhopper
   routing.ch.disabling_allowed: true
   routing.max_visited_nodes: 1500000

@@ -72,7 +72,7 @@ public class GraphHopperManaged implements Managed {
             logger.error("Problem while reading border map GeoJSON. Skipping this.", e1);
             landmarkSplittingFeatureCollection = null;
         }
-        if (!configuration.getString("gtfs.file", "").isEmpty()) {
+        if (configuration.has("gtfs.file")) {
             graphHopper = new CustomGraphHopperGtfs(configuration);
         } else {
             graphHopper = new CustomGraphHopperOSM(landmarkSplittingFeatureCollection, configuration).forServer();
