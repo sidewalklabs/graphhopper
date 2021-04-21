@@ -1,8 +1,4 @@
-FROM maven:3.6.3-adoptopenjdk-14 as build
-
-ARG GRAPHHOPPER_TOKEN
-ARG GIT_USER_ID
-ARG GIT_PERSONAL_ACCESS
+FROM python:3.8-slim AS setup
 
 RUN apt-get update && apt-get install -y wget \
     && DEBIAN_FRONTEND=noninteractive \
@@ -13,6 +9,12 @@ RUN apt-get update && apt-get install -y wget \
     && ./configure \
     && make \
     && sudo make install
+
+FROM maven:3.6.3-adoptopenjdk-14 as build
+
+ARG GRAPHHOPPER_TOKEN
+ARG GIT_USER_ID
+ARG GIT_PERSONAL_ACCESS
 
 WORKDIR /graphhopper
 
