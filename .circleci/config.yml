@@ -18,7 +18,7 @@ jobs:
             echo ${GCLOUD_SERVICE_KEY} | base64 -d > ${HOME}/gcp-key.json
             gcloud auth activate-service-account --key-file ${HOME}/gcp-key.json
             gcloud --quiet config set project model-159019
-      - setup_remote_docker
+      - setup_remote_docker:
           docker_layer_caching: true
       - run:
           name: Choose a tag
