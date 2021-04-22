@@ -2,9 +2,9 @@ FROM python:3.8
 
 # install protoc
 ENV PROTOC_ZIP=protoc-3.15.6-linux-x86_64.zip
-RUN sudo curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/$PROTOC_ZIP | bash \
-    && sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc \
-    && sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*' \
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/$PROTOC_ZIP | bash \
+    && unzip -o $PROTOC_ZIP -d /usr/local bin/protoc \
+    && unzip -o $PROTOC_ZIP -d /usr/local 'include/*' \
     && rm -f $PROTOC_ZIP
 
 FROM node:14-alpine
