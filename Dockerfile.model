@@ -35,7 +35,6 @@ COPY --from=protoc-build ./graphhopper/grpc ./grpc
 RUN npm install
 RUN npm run build
 
-
 # RUN cd grpc/src/main/resources/assets/pt
 # RUN ../../../../../../node_modules/.bin/webpack
 
