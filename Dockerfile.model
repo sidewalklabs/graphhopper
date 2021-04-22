@@ -8,11 +8,20 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15
     && rm -f $PROTOC_ZIP
 ENV PATH="/usr/local/bin/protoc:${PATH}"
 
-FROM node:14-alpine
+RUN mkdir -p ./grpc/src/main/proto \
+    && cp ./idls/model/router.proto ./grpc/src/main/proto/router.proto \
+    && mkdir -p ./grpc/src/main/resources/assets/pt/src/grpc
+RUN protoc grpc/src/main/proto/router.proto --js_out=import_style=commonjs:grpc/src/main/resources/assets/pt/src/grpc --grpc-web_out=import_style=commonjs,mode=grpcwebtext:grpc/src/main/resources/assets/pt/src/grpc
 
+
+FROM node:14-alpine
 WORKDIR /graphhopper
 COPY . .
-RUN ./build_web.sh
+
+RUN npm install
+RUN cd grpc/src/main/resources/assets/pt
+RUN ../../../../../../node_modules/.bin/webpack
+RUN cd ../../../../../..
 
 FROM maven:3.6.3-adoptopenjdk-14 as build
 
