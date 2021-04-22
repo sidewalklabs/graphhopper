@@ -12,6 +12,7 @@ RUN echo $PATH
 
 WORKDIR /graphhopper
 COPY . .
+RUN echo $PATH
 RUN ./build_web.sh
 
 FROM maven:3.6.3-adoptopenjdk-14 as build
