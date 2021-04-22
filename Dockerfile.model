@@ -1,12 +1,11 @@
-FROM node:14-alpine
+FROM curlimages/curl:7.76.1
 
 # install protoc
-RUN apk add protobuf protobuf-dev
-
-RUN which protoc
-RUN protoc --version
-
-ENV PROTOC ../usr/bin/protoc
+PROTOC_ZIP=protoc-3.15.6-linux-x86_64.zip
+curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/$PROTOC_ZIP
+sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
+sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
+rm -f $PROTOC_ZIP
 
 WORKDIR /graphhopper
 COPY . .
