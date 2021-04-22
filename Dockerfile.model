@@ -32,7 +32,7 @@ WORKDIR /graphhopper
 COPY . .
 RUN rm -r grpc
 COPY --from=protoc-build ./graphhopper/grpc ./grpc
-RUN npm install
+RUN cd web && npm install && cd .. && npm install
 RUN cd grpc/src/main/resources/assets/pt
 RUN ../../../../../../node_modules/.bin/webpack
 
