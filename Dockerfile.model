@@ -1,5 +1,8 @@
 FROM curlimages/curl:7.76.1
 
+WORKDIR /graphhopper
+COPY . .
+
 # install protoc
 ENV PROTOC_ZIP=protoc-3.15.6-linux-x86_64.zip
 RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/$PROTOC_ZIP \
@@ -7,8 +10,6 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15
     && sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*' \
     && rm -f $PROTOC_ZIP
 
-WORKDIR /graphhopper
-COPY . .
 RUN ./build_web.sh
 
 FROM maven:3.6.3-adoptopenjdk-14 as build
