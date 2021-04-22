@@ -26,8 +26,6 @@ RUN mkdir -p ./grpc/src/main/proto \
     && mkdir -p ./grpc/src/main/resources/assets/pt/src/grpc
 RUN protoc grpc/src/main/proto/router.proto --js_out=import_style=commonjs:grpc/src/main/resources/assets/pt/src/grpc --grpc-web_out=import_style=commonjs,mode=grpcwebtext:grpc/src/main/resources/assets/pt/src/grpc
 
-RUN ls -lr grpc
-
 FROM node:14-alpine as node-build
 # Build node modules
 WORKDIR /graphhopper
@@ -35,4 +33,4 @@ COPY . .
 RUN rm -r grpc
 COPY --from=protoc-build ./graphhopper/grpc .
 
-RUN ls -lr grpc
+RUN npm install
