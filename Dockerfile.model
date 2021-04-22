@@ -9,32 +9,3 @@ RUN protoc --version
 RUN echo $PATH
 ENV PATH="/usr/bin/protoc:${PATH}"
 RUN echo $PATH
-
-WORKDIR /graphhopper
-COPY . .
-RUN echo $PATH
-RUN ./build_web.sh
-
-FROM maven:3.6.3-adoptopenjdk-14 as build
-
-ARG GRAPHHOPPER_TOKEN
-ARG GIT_USER_ID
-ARG GIT_PERSONAL_ACCESS
-
-RUN mvn -s maven_settings.xml --projects grpc -am -DskipTests=true package \
-    && mvn -s maven_settings.xml --projects web -am -DskipTests=true package
-
-FROM openjdk:14.0.2-jdk
-
-RUN mkdir -p /data
-
-WORKDIR /graphhopper
-
-COPY --from=build /graphhopper/grpc/target/*.jar ./grpc/target/
-COPY --from=build /graphhopper/web/target/*.jar ./web/target/
-# pom.xml is used to get the jar file version. see https://github.com/graphhopper/graphhopper/pull/1990#discussion_r409438806
-COPY ./pom.xml ./default_gh_config.yaml ./nationwide_gh_config.yaml ./config-proxy.yaml ./
-
-VOLUME [ "/data" ]
-
-EXPOSE 50051
