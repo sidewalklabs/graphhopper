@@ -33,8 +33,11 @@ COPY . .
 RUN rm -r grpc
 COPY --from=protoc-build ./graphhopper/grpc ./grpc
 RUN npm install
-RUN cd grpc/src/main/resources/assets/pt
-RUN ../../../../../../node_modules/.bin/webpack
+RUN npm run build
+
+
+# RUN cd grpc/src/main/resources/assets/pt
+# RUN ../../../../../../node_modules/.bin/webpack
 
 
 FROM maven:3.6.3-adoptopenjdk-14 as maven-build
