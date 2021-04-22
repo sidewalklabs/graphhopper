@@ -3,7 +3,7 @@ FROM node:14
 # install protoc
 RUN apt-get update && apt-get install -y wget \
     && DEBIAN_FRONTEND=noninteractive \
-    apt-get install --no-install-recommends --assume-yes protobuf-compile
+    apt-get install --no-install-recommends --assume-yes protobuf-compiler
 
 RUN ./build_web.sh
 
