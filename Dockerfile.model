@@ -6,6 +6,10 @@ RUN apk add protobuf-dev
 RUN which protoc
 RUN protoc --version
 
+RUN echo $PATH
+ENV PATH="/usr/bin/protoc:${PATH}"
+RUN echo $PATH
+
 WORKDIR /graphhopper
 COPY . .
 RUN ./build_web.sh
