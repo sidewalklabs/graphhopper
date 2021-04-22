@@ -1,9 +1,10 @@
-FROM node:14
+FROM node:14-alpine
 
 # install protoc
-RUN apt-get update && apt-get install -y wget \
-    && DEBIAN_FRONTEND=noninteractive \
-    apt-get install --no-install-recommends --assume-yes protobuf-compiler
+RUN apk add protobuf-dev
+
+RUN which protoc
+RUN protoc --version
 
 WORKDIR /graphhopper
 COPY . .
