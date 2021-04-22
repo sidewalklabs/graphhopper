@@ -6,7 +6,44 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15
     && unzip -o $PROTOC_ZIP -d /usr/local bin/protoc \
     && unzip -o $PROTOC_ZIP -d /usr/local 'include/*' \
     && rm -f $PROTOC_ZIP
-ENV PATH="/usr/local/bin/protoc:${PATH}"
 
 WORKDIR /graphhopper
 COPY . .
+ENV PATH="/usr/local/bin/protoc:${PATH}"
+
+RUN mkdir -p ./grpc/src/main/proto \
+    && cp ./idls/model/router.proto ./grpc/src/main/proto/router.proto \
+    && mkdir -p ./grpc/src/main/resources/assets/pt/src/grpc
+RUN protoc grpc/src/main/proto/router.proto --js_out=import_style=commonjs:grpc/src/main/resources/assets/pt/src/grpc --grpc-web_out=import_style=commonjs,mode=grpcwebtext:grpc/src/main/resources/assets/pt/src/grpc
+
+
+FROM node:14-alpine
+
+RUN npm install
+RUN cd grpc/src/main/resources/assets/pt
+RUN ../../../../../../node_modules/.bin/webpack
+RUN cd ../../../../../..
+
+FROM maven:3.6.3-adoptopenjdk-14 as build
+
+ARG GRAPHHOPPER_TOKEN
+ARG GIT_USER_ID
+ARG GIT_PERSONAL_ACCESS
+
+RUN mvn -s maven_settings.xml --projects grpc -am -DskipTests=true package \
+    && mvn -s maven_settings.xml --projects web -am -DskipTests=true package
+
+FROM openjdk:14.0.2-jdk
+
+RUN mkdir -p /data
+
+WORKDIR /graphhopper
+
+COPY --from=build /graphhopper/grpc/target/*.jar ./grpc/target/
+COPY --from=build /graphhopper/web/target/*.jar ./web/target/
+# pom.xml is used to get the jar file version. see https://github.com/graphhopper/graphhopper/pull/1990#discussion_r409438806
+COPY ./pom.xml ./default_gh_config.yaml ./nationwide_gh_config.yaml ./config-proxy.yaml ./
+
+VOLUME [ "/data" ]
+
+EXPOSE 50051
