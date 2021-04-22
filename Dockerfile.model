@@ -6,11 +6,7 @@ RUN apk add protobuf protobuf-dev
 RUN which protoc
 RUN protoc --version
 
-ENV PROTOC /usr/bin/protoc
-
-# RUN echo $PATH
-# ENV PATH="/usr/bin/protoc:${PATH}"
-# RUN echo $PATH
+ENV PROTOC ../usr/bin/protoc
 
 WORKDIR /graphhopper
 COPY . .
