@@ -1,28 +1,68 @@
-FROM maven:3.6.3-adoptopenjdk-14 as build
+# install protoc and protoc-gen-grpc-web
+FROM python:3.8 as protoc-build
+
+ENV PROTOC_ZIP=protoc-3.15.6-linux-x86_64.zip
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/$PROTOC_ZIP | bash \
+    && unzip -o $PROTOC_ZIP -d /usr/local bin/protoc \
+    && unzip -o $PROTOC_ZIP -d /usr/local 'include/*' \
+    && rm -f $PROTOC_ZIP
+
+ENV PROTOC_GEN_FILE=protoc-gen-grpc-web-1.2.1-linux-x86_64
+RUN curl -OL https://github.com/grpc/grpc-web/releases/download/1.2.1/$PROTOC_GEN_FILE | bash \
+    && mv $PROTOC_GEN_FILE /usr/local/bin/protoc-gen-grpc-web \
+    && chmod +x /usr/local/bin/protoc-gen-grpc-web
+
+ENV PATH="/usr/local/bin/protoc:/usr/local/bin/protoc-gen-grpc-web:${PATH}"
+
+# run protoc command to build router protos + JS/web assets needed for GUI
+WORKDIR /graphhopper
+COPY . .
+
+RUN mkdir -p ./grpc/src/main/proto \
+    && cp ./idls/model/router.proto ./grpc/src/main/proto/router.proto \
+    && mkdir -p ./grpc/src/main/resources/assets/pt/src/grpc
+RUN protoc grpc/src/main/proto/router.proto --js_out=import_style=commonjs:grpc/src/main/resources/assets/pt/src/grpc --grpc-web_out=import_style=commonjs,mode=grpcwebtext:grpc/src/main/resources/assets/pt/src/grpc
+
+
+# Build node modules
+FROM node:14-alpine as node-build
+
+WORKDIR /graphhopper
+COPY . .
+RUN rm -r grpc
+COPY --from=protoc-build ./graphhopper/grpc ./grpc
+RUN npm install
+RUN npm run build -- --config grpc/src/main/resources/assets/pt/webpack.config.js
+
+
+# Build java code with Maven
+FROM maven:3.6.3-adoptopenjdk-14 as maven-build
 
 ARG GRAPHHOPPER_TOKEN
 ARG GIT_USER_ID
 ARG GIT_PERSONAL_ACCESS
 
-RUN apt-get update && apt-get install -y wget
-
 WORKDIR /graphhopper
-
 COPY . .
+RUN rm -r grpc
+COPY --from=node-build ./graphhopper/grpc ./grpc
 
-RUN ./build_with_proto.sh
+RUN mvn -s maven_settings.xml --projects grpc -am -DskipTests=true package \
+    && mvn -s maven_settings.xml --projects web -am -DskipTests=true package
 
+
+# copy over JARs + web assets + config YAMLs for running server
 FROM openjdk:14.0.2-jdk
 
 RUN mkdir -p /data
-
 WORKDIR /graphhopper
-
-COPY --from=build /graphhopper/grpc/target/*.jar ./grpc/target/
-COPY --from=build /graphhopper/web/target/*.jar ./web/target/
+COPY --from=maven-build /graphhopper/grpc/target/*.jar ./grpc/target/
+COPY --from=maven-build /graphhopper/web/target/*.jar ./web/target/
+COPY --from=maven-build /graphhopper/grpc/src/main/resources ./grpc/src/main/resources
 # pom.xml is used to get the jar file version. see https://github.com/graphhopper/graphhopper/pull/1990#discussion_r409438806
 COPY ./pom.xml ./default_gh_config.yaml ./nationwide_gh_config.yaml ./config-proxy.yaml ./
 
 VOLUME [ "/data" ]
 
 EXPOSE 50051
+EXPOSE 8998
