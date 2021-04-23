@@ -11,12 +11,7 @@ protoc grpc/src/main/proto/router.proto --js_out=import_style=commonjs:grpc/src/
 
 # Install both JS dependencies and the webpack build tool
 npm install
-
-# Use the locally installed webpack CLI to build the JS app
-# (Change to JS project root first, I don't know how to do this more elegantly)
-cd grpc/src/main/resources/assets/pt
-../../../../../../node_modules/.bin/webpack
-cd ../../../../../..
+npm run build -- --config grpc/src/main/resources/assets/pt/webpack.config.js
 
 mvn -s maven_settings.xml --projects grpc -am -DskipTests=true package
 mvn -s maven_settings.xml --projects web -am -DskipTests=true package
