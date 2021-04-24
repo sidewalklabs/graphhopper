@@ -249,7 +249,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         ghPtRequest.setArriveBy(false);
         ghPtRequest.setPathDetails(Lists.newArrayList("stable_edge_ids"));
         ghPtRequest.setProfileQuery(true);
-        ghPtRequest.setMaxProfileDuration(Duration.ofMinutes(5));
+        ghPtRequest.setMaxProfileDuration(Duration.ofMinutes(12));
 
         try {
             GHResponse ghResponse = ptRouter.route(ghPtRequest);
