@@ -33,6 +33,7 @@ export default class App extends React.Component {
             departureDateTime: new moment(),
             limitSolutions: 3,
             maxProfileDuration: 5,
+            betaWalkTime: 1.0,
             routes: {
                 query: null,
                 isFetching: false
@@ -85,6 +86,7 @@ export default class App extends React.Component {
                     ptRouteRequest.setEarliestDepartureTime(timestampFromDate);
                     ptRouteRequest.setLimitSolutions(this.state.limitSolutions);
                     ptRouteRequest.setMaxProfileDuration(this.state.maxProfileDuration);
+                    ptRouteRequest.setBetaWalkTime(this.state.betaWalkTime);
                     var component = this;
                     var router = new Router.RouterClient('/api');
                     router.routePt(ptRouteRequest, null, function(err, response) {
