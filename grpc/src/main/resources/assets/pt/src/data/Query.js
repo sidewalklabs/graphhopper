@@ -23,6 +23,7 @@ const CreateQuery = (baseUrl, search) => {
     url.searchParams.set("locale", "en-US");
     url.searchParams.set("profile", "pt");
     url.searchParams.set("pt.limit_solutions", search.limitSolutions);
+    url.searchParams.set("pt.max_profile_duration", search.maxProfileDuration);
     return url.toString();
 };
 
