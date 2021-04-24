@@ -250,6 +250,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         ghPtRequest.setPathDetails(Lists.newArrayList("stable_edge_ids"));
         ghPtRequest.setProfileQuery(true);
         ghPtRequest.setMaxProfileDuration(Duration.ofMinutes(5));
+        ghPtRequest.setBetaWalkTime(1.3);
 
         try {
             GHResponse ghResponse = ptRouter.route(ghPtRequest);
