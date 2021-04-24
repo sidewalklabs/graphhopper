@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import router.RouterOuterClass.*;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -247,6 +248,8 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         ghPtRequest.setLocale(Locale.US);
         ghPtRequest.setArriveBy(false);
         ghPtRequest.setPathDetails(Lists.newArrayList("stable_edge_ids"));
+        ghPtRequest.setProfileQuery(true);
+        ghPtRequest.setMaxProfileDuration(Duration.ofMinutes(5));
 
         try {
             GHResponse ghResponse = ptRouter.route(ghPtRequest);
