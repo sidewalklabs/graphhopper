@@ -31,9 +31,9 @@ export default class App extends React.Component {
             from: null,
             to: null,
             departureDateTime: new moment(),
-            limitSolutions: 3,
-            maxProfileDuration: 5,
-            betaWalkTime: 1.0,
+            limitSolutions: 4,
+            maxProfileDuration: 10,
+            betaWalkTime: 1.5,
             routes: {
                 query: null,
                 isFetching: false
