@@ -28,8 +28,9 @@ RUN protoc grpc/src/main/proto/router.proto --js_out=import_style=commonjs:grpc/
 FROM node:14-alpine as node-build
 
 WORKDIR /graphhopper
-COPY ./web ./web-bundle ./package.json ./
-RUN ls -la ./web
+COPY ./web .
+COPY ./web-bundle .
+COPY ./package.json .
 COPY --from=protoc-build ./graphhopper/grpc ./grpc
 RUN npm install
 RUN npm run build -- --config grpc/src/main/resources/assets/pt/webpack.config.js
