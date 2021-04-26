@@ -200,10 +200,10 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     }
 
                     long time = element.getTime();
-                    timeRow.add(time == Long.MAX_VALUE ? null : Math.round((double)time / 1000.0D));
+                    timeRow.add(time == Long.MAX_VALUE ? -1 : Math.round((double)time / 1000.0D));
 
                     double distance = element.getDistance();
-                    distanceRow.add(distance == Double.MAX_VALUE ? null : Math.round(distance));
+                    distanceRow.add(distance == Double.MAX_VALUE ? -1 : Math.round(distance));
 
                     debugBuilder.append(element.getDebugInfo());
                 }
