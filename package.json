@@ -1,0 +1,34 @@
+{
+  "name": "graphhopper",
+  "version": "1.0.0",
+  "description": "The GraphHopper web service wrapper. Forked from the [GraphHopper repo](https://github.com/graphhopper/graphhopper), but modified to mix in Replica-specific extensions. GraphHopper itself (the routing library) is included as a dependency through Maven.",
+  "main": "index.js",
+  "dependencies": {
+    "css-loader": "^5.2.1",
+    "google-protobuf": "^3.15.8",
+    "graphhopper-js-ui": "file:web",
+    "grpc": "^1.24.6",
+    "grpc-web": "^1.2.1",
+    "protoc-gen-grpc-web": "^1.2.1",
+    "script-loader": "^0.7.2",
+    "style-loader": "^2.0.0",
+    "web-bundle": "^1.1.4",
+    "webpack": "^5.35.0",
+    "webpack-cli": "^4.6.0",
+    "webpack-dev-server": "^3.11.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/replicahq/graphhopper.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/replicahq/graphhopper/issues"
+  },
+  "homepage": "https://github.com/replicahq/graphhopper#readme"
+}
