@@ -29,6 +29,7 @@ FROM node:14-alpine as node-build
 
 WORKDIR /graphhopper
 COPY ./web ./web-bundle ./package.json ./
+RUN ls -la ./web
 COPY --from=protoc-build ./graphhopper/grpc ./grpc
 RUN npm install
 RUN npm run build -- --config grpc/src/main/resources/assets/pt/webpack.config.js
