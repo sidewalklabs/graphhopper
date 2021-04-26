@@ -23,6 +23,8 @@ const CreateQuery = (baseUrl, search) => {
     url.searchParams.set("locale", "en-US");
     url.searchParams.set("profile", "pt");
     url.searchParams.set("pt.limit_solutions", search.limitSolutions);
+    url.searchParams.set("pt.max_profile_duration", search.maxProfileDuration);
+    url.searchParams.set("pt.beta_walk_time", search.betaWalkTime);
     return url.toString();
 };
 
@@ -62,6 +64,8 @@ const ParseQuery = (search, searchParams) => {
     parse("pt.profile_duration", "rangeQueryDuration", searchParams);
     parse("pt.limit_street_time", "limitStreetTime", searchParams);
     parse("pt.ignore_transfers", "ignoreTransfers", searchParams);
+    parse("pt.max_profile_duration", "maxProfileDuration", searchParams);
+    parse("pt.beta_walk_time", "betaWalkTime", searchParams);
     return search;
 };
 

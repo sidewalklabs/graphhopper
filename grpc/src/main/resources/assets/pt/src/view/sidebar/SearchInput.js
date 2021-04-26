@@ -68,6 +68,18 @@ class SearchInput extends React.Component {
                 label: "Limit # solutions",
                 onChange: this.handleInputChange,
                 actionType: "limitSolutions"
+            }),
+            React.createElement(NumberInput, {
+                value: this.props.search.maxProfileDuration,
+                label: "Max profile duration (minutes)",
+                onChange: this.handleInputChange,
+                actionType: "maxProfileDuration"
+            }),
+            React.createElement(NumberInput, {
+                value: this.props.search.betaWalkTime,
+                label: "Beta walk time (values > 1.0 disincentivize walking)",
+                onChange: this.handleInputChange,
+                actionType: "betaWalkTime"
             })
         ) : ""));
     }
