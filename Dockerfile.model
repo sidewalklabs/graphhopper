@@ -67,3 +67,8 @@ VOLUME [ "/data" ]
 
 EXPOSE 50051
 EXPOSE 8998
+
+CMD java -server -Xmx${HEAP_XMX_GB:-13}g -Xms6g \
+  -XX:+UseG1GC -XX:MetaspaceSize=100M \
+  -classpath grpc/target/graphhopper-grpc-1.0-SNAPSHOT.jar \
+  RouterServer default_gh_config.yaml
