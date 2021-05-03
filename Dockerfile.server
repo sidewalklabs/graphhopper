@@ -1,6 +1,7 @@
-FROM us.gcr.io/model-159019/gh:2.9
+ARG BASE_IMAGE_TAG
+FROM us.gcr.io/model-159019/gh:${BASE_IMAGE_TAG}
 
-CMD java -server -Xmx${{HEAP_XMX_GB:-13}}g -Xms6g \
+CMD java -server -Xmx${HEAP_XMX_GB:-13}g -Xms6g \
   -XX:+UseG1GC -XX:MetaspaceSize=100M \
   -classpath grpc/target/graphhopper-grpc-1.0-SNAPSHOT.jar \
   RouterServer {gh_config}

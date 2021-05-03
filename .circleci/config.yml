@@ -28,14 +28,14 @@ jobs:
           command: docker build --build-arg GRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN --build-arg GIT_USER_ID=$GIT_USER_ID --build-arg GIT_PERSONAL_ACCESS=$GIT_PERSONAL_ACCESS . -f Dockerfile.base -t us.gcr.io/model-159019/gh:$(cat /tmp/tag)
       - run:
           name: Build server image
-          command: docker build . -f Dockerfile.server -t us.gcr.io/model-159019/gh-server:$(cat /tmp/tag)
+          command: docker build --build-arg BASE_IMAGE_TAG=$(cat /tmp/tag) . -f Dockerfile.server -t us.gcr.io/model-159019/gh:$(cat /tmp/tag)-server
       - run:
           name: Push base image
           command: gcloud docker -- push us.gcr.io/model-159019/gh:$(cat /tmp/tag)
       - run:
           name: Push server image
           command: gcloud docker -- push us.gcr.io/model-159019/gh-server:$(cat /tmp/tag)
-          
+
 workflows:
   version: 2
   build-and-publish:
