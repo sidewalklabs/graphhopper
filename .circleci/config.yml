@@ -34,7 +34,7 @@ jobs:
           command: gcloud docker -- push us.gcr.io/model-159019/gh:$(cat /tmp/tag)
       - run:
           name: Push server image
-          command: gcloud docker -- push us.gcr.io/model-159019/gh-server:$(cat /tmp/tag)
+          command: gcloud docker -- push us.gcr.io/model-159019/gh:$(cat /tmp/tag)-server
 
 workflows:
   version: 2
