@@ -30,6 +30,7 @@ import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
+import com.graphhopper.util.Parameters;
 import io.dropwizard.Application;
 import io.dropwizard.assets.AssetsBundle;
 import io.dropwizard.bundles.redirect.PathRedirect;
@@ -109,6 +110,8 @@ public class RouterServer {
         logger.info("Datadog agent host IP is: " + System.getenv("DD_AGENT_HOST"));
         */
 
+        int numThreads = graphHopperConfiguration.getInt("server.threads", 3);
+
         // Start server
         int grpcPort = 50051;
         server = NettyServerBuilder.forPort(grpcPort)
@@ -116,7 +119,7 @@ public class RouterServer {
                 .addService(ProtoReflectionService.newInstance())
                 .maxConnectionAge(10, TimeUnit.SECONDS)
                 .maxConnectionAgeGrace(30, TimeUnit.SECONDS)
-                .executor(Executors.newFixedThreadPool(16))
+                .executor(Executors.newFixedThreadPool(numThreads))
                 .build()
                 .start();
 
