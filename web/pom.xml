@@ -4,7 +4,7 @@
 
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.replica</groupId>
-    <artifactId>graphhopper-web</artifactId>
+    <artifactId>graphhopper-web</artifactId>e
     <packaging>jar</packaging>
     <version>1.0-SNAPSHOT</version>
     <name>GraphHopper Web</name>
