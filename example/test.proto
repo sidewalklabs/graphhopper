@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package test;
+
+import "google/protobuf/timestamp.proto";
+
+message Empty {}
+
+message Coordinate {
+  double latitude = 1;
+  double longitude = 2;
+  double elevation = 3;
+}
+
+message GeoUnit {
+  string id = 1;
+  string label = 2;
+}
+
+message BuildingUnit {
+  string id = 1;
+  string primary_geo_unit_id = 3;
+  Coordinate location = 4;
+  repeated GeoUnit geo_units = 5;
+}
+
+message Household {
+  reserved 4 to 5;
+  string id = 1;
+  repeated string person_ids = 2;
+  int64 income = 3;
+  BuildingUnit housing_unit = 6;
+}
+
+message TourType {
+  enum TourTypeEnum {
+    OTHER_TOUR_TYPE = 0;
+    COMMUTE = 1;
+    WORK_BASED = 2;
+    OTHER_HOME_BASED = 3;
+    UNDIRECTED = 4;
+  }
+}
+
+message Tour {
+  string id = 1;
+  string person_id = 2;
+  TourType.TourTypeEnum type = 3;
+  repeated string activity_ids = 4;
+}
+
+message Activity {
+  string id = 1;
+  google.protobuf.Timestamp start_time = 2;
+}
+
+message Activities {
+  repeated Activity activities = 1;
+}
