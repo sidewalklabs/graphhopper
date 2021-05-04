@@ -30,7 +30,6 @@ import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
-import com.graphhopper.util.Parameters;
 import io.dropwizard.Application;
 import io.dropwizard.assets.AssetsBundle;
 import io.dropwizard.bundles.redirect.PathRedirect;
@@ -58,10 +57,16 @@ public class RouterServer {
     private static final Logger logger = LoggerFactory.getLogger(RouterServer.class);
     private Server server;
     private String configPath;
+    private int numThreads;
+    private int maxConnTime;
+    private int maxConcCalls;
     private GraphHopperManaged graphHopperManaged;
 
-    public RouterServer(String configPath) {
+    public RouterServer(String configPath, int numThreads, int maxConnTime, int maxConcCalls) {
         this.configPath = configPath;
+        this.numThreads = numThreads;
+        this.maxConnTime = maxConnTime;
+        this.maxConcCalls = maxConcCalls;
     }
 
     private void start() throws Exception {
@@ -110,21 +115,20 @@ public class RouterServer {
         logger.info("Datadog agent host IP is: " + System.getenv("DD_AGENT_HOST"));
         */
 
-        int numThreads = graphHopperConfiguration.getInt("server.threads", 3);
-        int maxConnectionAge = graphHopperConfiguration.getInt("server.max_conn_age", 10);
-
         // Start server
         int grpcPort = 50051;
         server = NettyServerBuilder.forPort(grpcPort)
                 .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, gtfsFeedIdMapping))
                 .addService(ProtoReflectionService.newInstance())
-                .maxConnectionAge(maxConnectionAge, TimeUnit.SECONDS)
+                .maxConnectionAge(maxConnTime, TimeUnit.SECONDS)
                 .maxConnectionAgeGrace(30, TimeUnit.SECONDS)
+                .maxConcurrentCallsPerConnection(maxConcCalls)
                 .executor(Executors.newFixedThreadPool(numThreads))
                 .build()
                 .start();
 
-        logger.info("Started server with max conn age of " + maxConnectionAge + " seconds and " + numThreads + " threads");
+        logger.info("Started server with max conn age of " + maxConnTime + " seconds, " + numThreads + " threads, " +
+                "and " + maxConcCalls + " max concurrent calls per connection.");
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.err.println("*** shutting down gRPC server since JVM is shutting down");
@@ -163,12 +167,53 @@ public class RouterServer {
 
     /**
      * Main launches the server from the command line.
+     *
+     * Required arg:
+     * GH config file
+     *
+     * Optional args, specified with <arg name>=<arg value>:
+     * number of server threads (arg name: num_threads; default: 3)
+     * max connection time (arg name: max_conn_time; default: 10 seconds)
+     * max concurrent calls per connection (arg name: max_conc_calls; default: 500)
+     *
+     * Example:
+     * java -server -Xmx16g -Xms1g -XX:+UseG1GC -XX:MetaspaceSize=100M \
+     * -classpath grpc/target/graphhopper-grpc-1.0-SNAPSHOT.jar  RouterServer default_gh_config.yaml \
+     * max_conn_time=10 max_conn_calls=100
+     *
      */
     public static void main(String[] args) throws Exception {
-        if (args.length != 1) {
+        if (!(args.length >= 1)) {
             throw new RuntimeException("Must include path to GH config in order to start server!");
         }
-        final RouterServer server = new RouterServer(args[0]);
+        String config = args[0];
+
+        // Set defaults for other args
+        int numThreads = 3;
+        int maxConnTime = 10;
+        int maxConcCalls = 500;
+
+        // Parse any non-config args that were passed in
+        for (int i = 1; i < args.length; i++) {
+            String argName = args[i].split("=")[0];
+            String argValue = args[i].split("=")[1];
+            switch(argName) {
+                case "num_threads":
+                    numThreads = Integer.parseInt(argValue);
+                    break;
+                case "max_conc_calls":
+                    maxConcCalls = Integer.parseInt(argValue);
+                    break;
+                case "max_conn_time":
+                    maxConnTime = Integer.parseInt(argValue);
+                    break;
+                default:
+                    logger.warn(argName + " was passed in, but is not recognized as a valid argument! Check for typos?");
+            }
+
+        }
+
+        final RouterServer server = new RouterServer(config, numThreads, maxConnTime, maxConcCalls);
         server.start();
         server.blockUntilShutdown();
     }

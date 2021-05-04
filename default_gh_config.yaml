@@ -10,8 +10,6 @@ graphhopper:
   routing.max_visited_nodes: 1500000
   graph.flag_encoders: car,bike,foot,truck
   prepare.ch.threads: 16
-  server.threads:
-  server.max_conn_age:
 
   # Uncomment this if the export was done with turn-restriction-aware contraction hierarchies
   # prepare.ch.edge_based: edge_and_node
