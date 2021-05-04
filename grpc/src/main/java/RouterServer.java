@@ -111,19 +111,20 @@ public class RouterServer {
         */
 
         int numThreads = graphHopperConfiguration.getInt("server.threads", 3);
+        int maxConnectionAge = graphHopperConfiguration.getInt("server.max_conn_age", 10);
 
         // Start server
         int grpcPort = 50051;
         server = NettyServerBuilder.forPort(grpcPort)
                 .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, gtfsFeedIdMapping))
                 .addService(ProtoReflectionService.newInstance())
-                .maxConnectionAge(10, TimeUnit.SECONDS)
+                .maxConnectionAge(maxConnectionAge, TimeUnit.SECONDS)
                 .maxConnectionAgeGrace(30, TimeUnit.SECONDS)
                 .executor(Executors.newFixedThreadPool(numThreads))
                 .build()
                 .start();
 
-        logger.info("Started server with max conn age of 10 seconds");
+        logger.info("Started server with max conn age of " + maxConnectionAge + " seconds and " + numThreads + " threads");
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.err.println("*** shutting down gRPC server since JVM is shutting down");
