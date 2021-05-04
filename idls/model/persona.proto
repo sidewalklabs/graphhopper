@@ -1,0 +1,91 @@
+syntax = "proto3";
+option java_package = "sidewalklabs.model.persona";
+
+
+package persona;
+
+import "map_service.proto";
+import "replica.proto";
+import "sociodemographics.proto";
+
+message MatchPersonaRequest {
+  replica.Person person = 1;
+}
+
+message MatchPersonaResponse {
+  string persona_filepath = 1; // Deprecated
+  persona.Persona persona = 2;
+}
+
+service MatchPersonaService {
+  rpc MatchPersona(MatchPersonaRequest) returns (MatchPersonaResponse) {}
+}
+
+message Persona {
+  reserved 14;
+  string id = 1;
+  Habitat habitat = 2;
+  string codebase_version = 3;
+  string python_version = 4;
+  string dependencies = 5; // All project dependencies
+  string platform_architecture = 6;
+  oneof activity_sequence {
+    string activity_sequence_model_filepath = 15; // Deprecated
+    PickledModel activity_sequence_model = 7;
+  }
+  oneof location_choice {
+    string location_choice_model_filepath = 16; // Deprecated
+    PickledModel location_choice_model = 8;
+  }
+  oneof mode_choice {
+    string mode_choice_model_filepath = 17; // Deprecated
+    PickledModel mode_choice_model = 9;
+  }
+  oneof vehicle_ownership {
+    string vehicle_ownership_model_filepath = 18; // Deprecated
+    PickledModel vehicle_ownership_model = 10;
+  }
+  int64 income = 11;
+  int32 age = 12;
+  sociodemographics.Sex.SexEnum sex = 13;
+  bool is_fixture = 19; // Ignore privacy restrictions for synthetic data
+  persona.PersonaType.PersonaTypeEnum type = 20;
+  sociodemographics.HasAccessToVehicle.HasAccessToVehicleEnum has_access_to_vehicle = 21;
+}
+
+message OriginDestinationCount {
+  int32 origin_id = 1;
+  int32 destination_id = 2;
+  int32 count = 3;
+}
+
+message Habitat {
+  repeated map_service.Site sites = 1;
+  repeated OriginDestinationCount origin_destination_counts = 2; 
+}
+
+message ModelLibraryType {
+  enum ModelLibraryTypeEnum {
+    UNKNOWN_MODEL_LIBRARY_TYPE = 0;
+    CUSTOM = 1;
+    SCIKIT = 2;
+    PYLOGIT = 3;
+  }
+}
+  
+message PickledModel {
+  bytes model = 1; // Pickled model data
+  string library_version = 2;
+  string library_dependencies = 3;
+  string training_data_id = 4; // Reference to data used in training
+  ModelLibraryType.ModelLibraryTypeEnum library_type = 5;
+}
+
+message PersonaType {
+  enum PersonaTypeEnum {
+    UNKNOWN_PERSONA_TYPE = 0;
+    RESIDENT = 1;
+    TOURIST = 2;
+    STUDENT = 3;
+  }
+}
