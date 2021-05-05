@@ -189,8 +189,8 @@ public class RouterServer {
         String config = args[0];
 
         // Set defaults for other args
-        int numThreads = 3;
-        int maxConnTime = 10;
+        int numThreads = 14;
+        int maxConnTime = 200;
         int maxConcCalls = 500;
 
         // Parse any non-config args that were passed in
