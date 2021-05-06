@@ -30,6 +30,8 @@ import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
+import com.timgroup.statsd.NonBlockingStatsDClientBuilder;
+import com.timgroup.statsd.StatsDClient;
 import io.dropwizard.Application;
 import io.dropwizard.assets.AssetsBundle;
 import io.dropwizard.bundles.redirect.PathRedirect;
@@ -105,7 +107,6 @@ public class RouterServer {
             logger.info("No GTFS link mapping mapdb file found! Skipped loading GTFS link mappings.");
         }
 
-        /*
         // Initialize Datadog client
         StatsDClient statsDClient = new NonBlockingStatsDClientBuilder()
                 .hostname(System.getenv("DD_AGENT_HOST"))
@@ -113,12 +114,11 @@ public class RouterServer {
                 .build();
 
         logger.info("Datadog agent host IP is: " + System.getenv("DD_AGENT_HOST"));
-        */
 
         // Start server
         int grpcPort = 50051;
         server = NettyServerBuilder.forPort(grpcPort)
-                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, gtfsFeedIdMapping))
+                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, gtfsFeedIdMapping, statsDClient))
                 .addService(ProtoReflectionService.newInstance())
                 .maxConnectionAge(maxConnTime, TimeUnit.SECONDS)
                 .maxConnectionAgeGrace(30, TimeUnit.SECONDS)
@@ -190,7 +190,7 @@ public class RouterServer {
 
         // Set defaults for other args
         int numThreads = 3;
-        int maxConnTime = 30;
+        int maxConnTime = 100;
         int maxConcCalls = 500;
 
         // Parse any non-config args that were passed in
