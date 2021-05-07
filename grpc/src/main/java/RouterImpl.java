@@ -100,7 +100,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                         + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon;
                 // logger.warn(message);
 
-                long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
+                double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
                 String[] tags = {"mode:" + request.getProfile(), "api:grpc", "routes_found:false"};
                 sendDatadogStats(statsDClient, tags, durationSeconds);
 
@@ -128,7 +128,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     );
                 }
 
-                long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
+                double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
                 String[] tags = {"mode:" + request.getProfile(), "api:grpc", "routes_found:true"};
                 sendDatadogStats(statsDClient, tags, durationSeconds);
 
@@ -141,7 +141,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon;
             logger.error(message, e);
 
-            long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
+            double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
             String[] tags = {"mode:" + request.getProfile(), "api:grpc", "routes_found:error"};
             sendDatadogStats(statsDClient, tags, durationSeconds);
 
@@ -225,7 +225,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             List<MatrixRow> distanceRows = distanceList.stream()
                     .map(row -> MatrixRow.newBuilder().addAllValues(row).build()).collect(toList());
 
-            long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
+            double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
             String[] tags = {"mode:" + request.getMode() + "_matrix", "api:grpc", "routes_found:true"};
             sendDatadogStats(statsDClient, tags, durationSeconds);
 
@@ -235,7 +235,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         } catch (Exception e) {
             logger.error("Error while completing GraphHopper matrix request! ", e);
 
-            long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
+            double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
             String[] tags = {"mode:" + request.getMode() + "_matrix", "api:grpc", "routes_found:false"};
             sendDatadogStats(statsDClient, tags, durationSeconds);
 
@@ -323,7 +323,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                         fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon();
                 // logger.warn(message);
 
-                long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
+                double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
                 String[] tags = {"mode:pt", "api:grpc", "routes_found:false"};
                 sendDatadogStats(statsDClient, tags, durationSeconds);
 
@@ -391,7 +391,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     );
                 }
 
-                long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
+                double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
                 String[] tags = {"mode:pt", "api:grpc", "routes_found:true"};
                 sendDatadogStats(statsDClient, tags, durationSeconds);
 
@@ -404,7 +404,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     "; one or both endpoints could not be snapped to a road segment";
             // logger.warn(message);
 
-            long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
+            double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
             String[] tags = {"mode:pt", "api:grpc", "routes_found:false"};
             sendDatadogStats(statsDClient, tags, durationSeconds);
 
@@ -416,7 +416,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         } catch (Exception e) {
             logger.error("GraphHopper internal error! ", e);
 
-            long durationSeconds = (System.currentTimeMillis() - startTime) / 1000;
+            double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
             String[] tags = {"mode:pt", "api:grpc", "routes_found:error"};
             sendDatadogStats(statsDClient, tags, durationSeconds);
 
@@ -518,7 +518,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         return leg.feed_id + ":" + leg.route_id;
     }
 
-    private static void sendDatadogStats(StatsDClient statsDClient, String[] tags, long durationSeconds) {
+    private static void sendDatadogStats(StatsDClient statsDClient, String[] tags, double durationSeconds) {
         statsDClient.incrementCounter("routers.num_requests", tags);
         statsDClient.distribution("routers.request_seconds", durationSeconds, tags);
     }
