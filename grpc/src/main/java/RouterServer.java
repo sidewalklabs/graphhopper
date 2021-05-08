@@ -40,6 +40,7 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.grpc.netty.shaded.io.netty.channel.epoll.EpollServerSocketChannel;
 import io.grpc.netty.shaded.io.netty.channel.nio.NioEventLoopGroup;
 import io.grpc.protobuf.services.ProtoReflectionService;
 import io.grpcweb.GrpcPortNumRelay;
@@ -127,6 +128,7 @@ public class RouterServer {
                 .executor(Executors.newFixedThreadPool(numThreads))
                 .workerEventLoopGroup(new NioEventLoopGroup(1))
                 .bossEventLoopGroup(new NioEventLoopGroup(1))
+                .channelType(EpollServerSocketChannel.class)
                 .build()
                 .start();
 
