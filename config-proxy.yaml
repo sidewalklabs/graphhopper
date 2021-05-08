@@ -1,13 +1,13 @@
 server:
-  minThreads: 4
-  maxThreads: 8
+  minThreads: 1
+  maxThreads: 1
   applicationConnectors:
     - type: http
       port: 8998
       # for security reasons bind (localhost does not work with k8s svcs)
       bindHost: 0.0.0.0
       acceptorThreads: 1
-      selectorThreads: 2
+      selectorThreads: 1
       acceptQueueSize: 8
   requestLog:
     appenders: []
