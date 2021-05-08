@@ -21,7 +21,11 @@ import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup;
+import io.grpc.netty.shaded.io.netty.channel.epoll.EpollServerSocketChannel;
+
 import java.lang.invoke.MethodHandles;
+import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 /**
@@ -36,8 +40,9 @@ class GrpcServiceConnectionManager {
   GrpcServiceConnectionManager(int grpcPortNum) {
     // TODO: Manage a connection pool.
     mChannel = ManagedChannelBuilder.forAddress("localhost", grpcPortNum)
-        .usePlaintext()
-        .build();
+            .usePlaintext()
+            .executor(Executors.newFixedThreadPool(1))
+            .build();
     LOG.info("**** connection channel initiated");
   }
 
