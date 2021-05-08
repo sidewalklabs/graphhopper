@@ -1,6 +1,6 @@
 server:
   minThreads: 1
-  maxThreads: 1
+  maxThreads: 4
   applicationConnectors:
     - type: http
       port: 8998
