@@ -40,8 +40,8 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup;
 import io.grpc.netty.shaded.io.netty.channel.epoll.EpollServerSocketChannel;
-import io.grpc.netty.shaded.io.netty.channel.nio.NioEventLoopGroup;
 import io.grpc.protobuf.services.ProtoReflectionService;
 import io.grpcweb.GrpcPortNumRelay;
 import io.grpcweb.GrpcWebTrafficServlet;
@@ -126,8 +126,8 @@ public class RouterServer {
                 .maxConnectionAgeGrace(30, TimeUnit.SECONDS)
                 .maxConcurrentCallsPerConnection(maxConcCalls)
                 .executor(Executors.newFixedThreadPool(numThreads))
-                .workerEventLoopGroup(new NioEventLoopGroup(1))
-                .bossEventLoopGroup(new NioEventLoopGroup(1))
+                .workerEventLoopGroup(new EpollEventLoopGroup(1))
+                .bossEventLoopGroup(new EpollEventLoopGroup(1))
                 .channelType(EpollServerSocketChannel.class)
                 .build()
                 .start();
