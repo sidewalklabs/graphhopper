@@ -40,6 +40,7 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.grpc.netty.shaded.io.netty.channel.nio.NioEventLoopGroup;
 import io.grpc.protobuf.services.ProtoReflectionService;
 import io.grpcweb.GrpcPortNumRelay;
 import io.grpcweb.GrpcWebTrafficServlet;
@@ -124,6 +125,8 @@ public class RouterServer {
                 .maxConnectionAgeGrace(30, TimeUnit.SECONDS)
                 .maxConcurrentCallsPerConnection(maxConcCalls)
                 .executor(Executors.newFixedThreadPool(numThreads))
+                .workerEventLoopGroup(new NioEventLoopGroup(1))
+                .bossEventLoopGroup(new NioEventLoopGroup(1))
                 .build()
                 .start();
 
@@ -189,7 +192,7 @@ public class RouterServer {
         String config = args[0];
 
         // Set defaults for other args
-        int numThreads = 3;
+        int numThreads = 2;
         int maxConnTime = 100;
         int maxConcCalls = 500;
 
