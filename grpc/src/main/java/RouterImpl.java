@@ -519,7 +519,9 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     }
 
     private static void sendDatadogStats(StatsDClient statsDClient, String[] tags, double durationSeconds) {
-        statsDClient.incrementCounter("routers.num_requests", tags);
-        statsDClient.distribution("routers.request_seconds", durationSeconds, tags);
+        if (statsDClient != null) {
+            statsDClient.incrementCounter("routers.num_requests", tags);
+            statsDClient.distribution("routers.request_seconds", durationSeconds, tags);
+        }
     }
 }
