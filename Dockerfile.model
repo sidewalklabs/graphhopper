@@ -67,6 +67,7 @@ VOLUME [ "/data" ]
 
 EXPOSE 50051
 EXPOSE 8998
+EXPOSE 9010
 
 CMD java -server -Xms${HEAP_XMS_GB:-6}g -Xmx${HEAP_XMX_GB:-13}g \
   -Dcom.sun.management.jmxremote \
