@@ -41,7 +41,7 @@ public class GtfsLinkMapper {
 
         // Initialize mapdb database to store link mappings and route info
         logger.info("Initializing new mapdb file to store link mappings");
-        DB db = DBMaker.newFileDB(new File("gtfs_link_mappings.db")).make();
+        DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
         HTreeMap<String, String> gtfsLinkMappings = db
                 .createHashMap("gtfsLinkMappings")
                 .keySerializer(Serializer.STRING)
@@ -61,7 +61,7 @@ public class GtfsLinkMapper {
                 .make();
 
         // Output file location for CSV containing all GTFS link mappings
-        File gtfsLinksCsvOutput = new File("gtfs_link_mapping.csv");
+        File gtfsLinksCsvOutput = new File(graphHopper.getGraphHopperLocation() + "/gtfs_link_mapping.csv");
         List<String> gtfsLinkMappingCsvRows = Lists.newArrayList();
 
         // For testing
