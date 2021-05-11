@@ -76,7 +76,7 @@ CMD java -server -Xms${HEAP_XMS_GB:-6}g -Xmx${HEAP_XMX_GB:-13}g \
   -Dcom.sun.management.jmxremote.local.only=false \
   -Dcom.sun.management.jmxremote.port=9010 \
   -Dcom.sun.management.jmxremote.rmi.port=9010 \
-  -Djava.rmi.server.hostname=127.0.0.1
+  -Djava.rmi.server.hostname=127.0.0.1 \
   -XX:+UseG1GC -XX:MetaspaceSize=100M \
   -classpath grpc/target/graphhopper-grpc-1.0-SNAPSHOT.jar \
   RouterServer default_gh_config.yaml
