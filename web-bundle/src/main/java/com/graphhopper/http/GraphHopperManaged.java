@@ -139,6 +139,7 @@ public class GraphHopperManaged implements Managed {
         graphHopper.setEncodedValueFactory(new EncodedValueFactoryWithStableId());
         graphHopper.init(configuration);
         graphHopper.setPathDetailsBuilderFactory(new PathDetailsBuilderFactoryWithStableId());
+        graphHopper.setAllowWrites(!Boolean.parseBoolean(System.getenv("GRAPHHOPPER_READ_ONLY")));
     }
 
     @Override
