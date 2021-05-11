@@ -42,7 +42,7 @@ public class PtRouteResource {
 
     // Statically load GTFS link mapping and GTFS route info maps for use in building responses
     static {
-        DB db = DBMaker.newFileDB(new File("gtfs_link_mappings.db")).make();
+        DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
         gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
         gtfsRouteInfo = db.getHashMap("gtfsRouteInfo");
         gtfsFeedIdMapping = db.getHashMap("gtfsFeedIdMap");

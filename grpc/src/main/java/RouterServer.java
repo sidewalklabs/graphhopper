@@ -111,7 +111,7 @@ public class RouterServer {
         Map<String, List<String>> gtfsRouteInfo = null;
         Map<String, String> gtfsFeedIdMapping = null;
 
-        File linkMappingsDbFile = new File("gtfs_link_mappings.db");
+        File linkMappingsDbFile = new File("transit_data/gtfs_link_mappings.db");
         if (linkMappingsDbFile.exists()) {
             DB db = DBMaker.newFileDB(linkMappingsDbFile).make();
             gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");

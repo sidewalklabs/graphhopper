@@ -19,7 +19,7 @@ public class OsmHelper {
 
     public static void writeOsmInfoToMapDb(GraphHopperOSM graphHopper) {
         logger.info("Initializing new MapDB database files to store OSM info.");
-        DB db = DBMaker.newFileDB(new File("osm_info.db")).make();
+        DB db = DBMaker.newFileDB(new File("transit_data/osm_info.db")).make();
 
         HTreeMap<Long, Map<String, String>> osmIdToLaneTags = db
                 .createHashMap("osmIdToLaneTags")
