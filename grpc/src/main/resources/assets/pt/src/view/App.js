@@ -34,6 +34,7 @@ export default class App extends React.Component {
             limitSolutions: 4,
             maxProfileDuration: 10,
             betaWalkTime: 1.5,
+            limitStreetTimeSeconds: 1440,
             routes: {
                 query: null,
                 isFetching: false
@@ -87,6 +88,7 @@ export default class App extends React.Component {
                     ptRouteRequest.setLimitSolutions(this.state.limitSolutions);
                     ptRouteRequest.setMaxProfileDuration(this.state.maxProfileDuration);
                     ptRouteRequest.setBetaWalkTime(this.state.betaWalkTime);
+                    ptRouteRequest.setLimitStreetTimeSeconds(this.state.limitStreetTimeSeconds)
                     var component = this;
                     var router = new Router.RouterClient('/api');
                     router.routePt(ptRouteRequest, null, function(err, response) {

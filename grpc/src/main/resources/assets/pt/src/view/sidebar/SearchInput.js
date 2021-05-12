@@ -80,6 +80,12 @@ class SearchInput extends React.Component {
                 label: "Beta walk time (values > 1.0 disincentivize walking)",
                 onChange: this.handleInputChange,
                 actionType: "betaWalkTime"
+            }),
+            React.createElement(NumberInput, {
+                value: this.props.search.limitStreetTimeSeconds,
+                label: "Limit on walking time (seconds)",
+                onChange: this.handleInputChange,
+                actionType: "limitStreetTimeSeconds"
             })
         ) : ""));
     }
