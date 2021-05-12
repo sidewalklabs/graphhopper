@@ -272,6 +272,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         ghPtRequest.setProfileQuery(true);
         ghPtRequest.setMaxProfileDuration(Duration.ofMinutes(request.getMaxProfileDuration()));
         ghPtRequest.setBetaWalkTime(request.getBetaWalkTime());
+        ghPtRequest.setLimitStreetTime(Duration.ofSeconds(request.getLimitStreetTimeSeconds()));
 
         try {
             GHResponse ghResponse = ptRouter.route(ghPtRequest);
