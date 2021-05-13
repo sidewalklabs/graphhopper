@@ -60,7 +60,9 @@ public class PerformanceTest {
         RouterClient client = new RouterClient("localhost", 50051);
         List<RouterPerformanceResult> results = Lists.newArrayList();
 
-        requests.forEach(request -> {
+        int numComplete = 0;
+        for (RouterOuterClass.PtRouteRequest request : requests) {
+            logger.info("Running request number " + numComplete++);
             String from = request.getPoints(0).getLat() + "," + request.getPoints(0).getLon();
             String to = request.getPoints(1).getLat() + "," + request.getPoints(1).getLon();
             String departureTime = request.getEarliestDepartureTime().toString();
@@ -77,7 +79,7 @@ public class PerformanceTest {
                 results.add(new RouterPerformanceResult(from, to, departureTime, usePareto, executionTime, Lists.newArrayList(0), true));
                 return;
             }
-        });
+        }
 
         logger.info("Finished making requests! Writing results to CSV output file");
         try (CSVPrinter printer = new CSVPrinter(new FileWriter(outputFile), CSVFormat.DEFAULT.withHeader(OUTPUT_FILE_COLUMN_HEADERS))) {
