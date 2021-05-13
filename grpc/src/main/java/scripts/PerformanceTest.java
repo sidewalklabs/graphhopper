@@ -32,35 +32,51 @@ public class PerformanceTest {
 
         logger.info("Reading input O/D pairs from file " + odFilePath + " with usePareto set to " + usePareto +
                 ". Writing output to " + outputFilePath);
+        /*
+        List<RouterOuterClass.PtRouteRequest> requests = Files.lines(Paths.get(odFilePath))
+                .skip(1)
+                .map(line -> line.split(","))
+                .map(line -> RouterOuterClass.PtRouteRequest.newBuilder()
+                        .addPoints(0, RouterOuterClass.Point.newBuilder()
+                                .setLat(Double.parseDouble(line[1]))
+                                .setLon(Double.parseDouble(line[0]))
+                                .build())
+                        .addPoints(1, RouterOuterClass.Point.newBuilder()
+                                .setLat(Double.parseDouble(line[3]))
+                                .setLon(Double.parseDouble(line[2]))
+                                .build())
+                        .setEarliestDepartureTime(Timestamp.newBuilder()
+                                .setSeconds(Instant.parse("2019-10-15T18:00:00Z").toEpochMilli() / 1000)
+                                .build())
+                        .setLimitSolutions(4)
+                        .setMaxProfileDuration(10)
+                        .setBetaWalkTime(1.5)
+                        .setLimitStreetTimeSeconds(1440)
+                        .setUsePareto(usePareto)
+                        .build())
+                .collect(Collectors.toList());
+         */
 
         List<RouterOuterClass.PtRouteRequest> requests = Lists.newArrayList();
-        Files.lines(Paths.get(odFilePath)).skip(1).forEach(line -> {
-            String[] parsedLine = line.split(",");
-            double fromLat = Double.parseDouble(parsedLine[1]);
-            double fromLon = Double.parseDouble(parsedLine[0]);
-            double toLat = Double.parseDouble(parsedLine[3]);
-            double toLon = Double.parseDouble(parsedLine[2]);
-            System.out.println(fromLat + " " + fromLon + " " + toLat + " " + toLon);
-            RouterOuterClass.PtRouteRequest request = RouterOuterClass.PtRouteRequest.newBuilder()
-                    .addPoints(0, RouterOuterClass.Point.newBuilder()
-                            .setLat(fromLat)
-                            .setLon(fromLon)
-                            .build())
-                    .addPoints(1, RouterOuterClass.Point.newBuilder()
-                            .setLat(toLat)
-                            .setLon(toLon)
-                            .build())
-                    .setEarliestDepartureTime(Timestamp.newBuilder()
-                            .setSeconds(Instant.parse("2019-10-15T18:00:00Z").toEpochMilli() / 1000)
-                            .build())
-                    .setLimitSolutions(4)
-                    .setMaxProfileDuration(10)
-                    .setBetaWalkTime(1.5)
-                    .setLimitStreetTimeSeconds(1440)
-                    .setUsePareto(usePareto)
-                    .build();
-            requests.add(request);
-        });
+        requests.add(RouterOuterClass.PtRouteRequest.newBuilder()
+                .addPoints(0, RouterOuterClass.Point.newBuilder()
+                        .setLat(38.574242277328715)
+                        .setLon(-121.48559052544903)
+                        .build())
+                .addPoints(1, RouterOuterClass.Point.newBuilder()
+                        .setLat(38.56726327785146)
+                        .setLon(-121.50481659959726)
+                        .build())
+                .setEarliestDepartureTime(Timestamp.newBuilder()
+                        .setSeconds(Instant.parse("2019-10-15T18:00:00Z").toEpochMilli() / 1000)
+                        .build())
+                .setLimitSolutions(4)
+                .setMaxProfileDuration(10)
+                .setBetaWalkTime(1.5)
+                .setLimitStreetTimeSeconds(1440)
+                .setUsePareto(usePareto)
+                .build());
+
         logger.info(requests.size() + " requests generated for performance testing");
 
         RouterClient client = new RouterClient("localhost", 50051);
@@ -78,7 +94,7 @@ public class PerformanceTest {
                 List<Integer> numTransfers = reply.getPathsList().stream().map(path -> path.getPtLegsList().size() - 1).collect(Collectors.toList());
                 results.add(new RouterPerformanceResult(from, to, departureTime, usePareto, executionTime, numTransfers, false));
             } catch (StatusRuntimeException e) {
-                logger.warn("RPC failed: {0}", e.getStatus());
+                logger.warn("RPC failed: " + e.getMessage() + ";;;;;" + e.getStatus(), e.getStatus());
                 double executionTime = (System.nanoTime() - startTime) / 1000_000.0;
                 results.add(new RouterPerformanceResult(from, to, departureTime, usePareto, executionTime, Lists.newArrayList(0), true));
                 return;
