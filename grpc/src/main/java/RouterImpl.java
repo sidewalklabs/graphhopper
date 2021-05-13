@@ -56,12 +56,14 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     private Map<String, List<String>> gtfsRouteInfo;
     private Map<String, String> gtfsFeedIdMapping;
     private final StatsDClient statsDClient;
+    private String regionName;
 
     public RouterImpl(GraphHopper graphHopper, PtRouter ptRouter, MatrixAPI matrixAPI,
                       Map<String, String> gtfsLinkMappings,
                       Map<String, List<String>> gtfsRouteInfo,
                       Map<String, String> gtfsFeedIdMapping,
-                      StatsDClient statsDClient) {
+                      StatsDClient statsDClient,
+                      String regionName) {
         this.graphHopper = graphHopper;
         this.ptRouter = ptRouter;
         this.matrixAPI = matrixAPI;
@@ -69,6 +71,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         this.gtfsRouteInfo = gtfsRouteInfo;
         this.gtfsFeedIdMapping = gtfsFeedIdMapping;
         this.statsDClient = statsDClient;
+        this.regionName = regionName;
     }
 
     @Override
@@ -102,6 +105,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
                 double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
                 String[] tags = {"mode:" + request.getProfile(), "api:grpc", "routes_found:false"};
+                tags = applyRegionName(tags, regionName);
                 sendDatadogStats(statsDClient, tags, durationSeconds);
 
                 Status status = Status.newBuilder()
@@ -130,6 +134,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
                 double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
                 String[] tags = {"mode:" + request.getProfile(), "api:grpc", "routes_found:true"};
+                tags = applyRegionName(tags, regionName);
                 sendDatadogStats(statsDClient, tags, durationSeconds);
 
                 responseObserver.onNext(replyBuilder.build());
@@ -143,6 +148,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
             double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
             String[] tags = {"mode:" + request.getProfile(), "api:grpc", "routes_found:error"};
+            tags = applyRegionName(tags, regionName);
             sendDatadogStats(statsDClient, tags, durationSeconds);
 
             Status status = Status.newBuilder()
@@ -227,6 +233,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
             double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
             String[] tags = {"mode:" + request.getMode() + "_matrix", "api:grpc", "routes_found:true"};
+            tags = applyRegionName(tags, regionName);
             sendDatadogStats(statsDClient, tags, durationSeconds);
 
             MatrixRouteReply result = MatrixRouteReply.newBuilder().addAllTimes(timeRows).addAllDistances(distanceRows).build();
@@ -237,6 +244,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
             double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
             String[] tags = {"mode:" + request.getMode() + "_matrix", "api:grpc", "routes_found:false"};
+            tags = applyRegionName(tags, regionName);
             sendDatadogStats(statsDClient, tags, durationSeconds);
 
             Status status = Status.newBuilder()
@@ -327,6 +335,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
                 double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
                 String[] tags = {"mode:pt", "api:grpc", "routes_found:false"};
+                tags = applyRegionName(tags, regionName);
                 sendDatadogStats(statsDClient, tags, durationSeconds);
 
                 Status status = Status.newBuilder()
@@ -395,6 +404,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
                 double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
                 String[] tags = {"mode:pt", "api:grpc", "routes_found:true"};
+                tags = applyRegionName(tags, regionName);
                 sendDatadogStats(statsDClient, tags, durationSeconds);
 
                 responseObserver.onNext(replyBuilder.build());
@@ -408,6 +418,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
             double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
             String[] tags = {"mode:pt", "api:grpc", "routes_found:false"};
+            tags = applyRegionName(tags, regionName);
             sendDatadogStats(statsDClient, tags, durationSeconds);
 
             Status status = Status.newBuilder()
@@ -420,6 +431,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
             double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
             String[] tags = {"mode:pt", "api:grpc", "routes_found:error"};
+            tags = applyRegionName(tags, regionName);
             sendDatadogStats(statsDClient, tags, durationSeconds);
 
             Status status = Status.newBuilder()
@@ -524,6 +536,17 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         if (statsDClient != null) {
             statsDClient.incrementCounter("routers.num_requests", tags);
             statsDClient.distribution("routers.request_seconds", durationSeconds, tags);
+        }
+    }
+
+    // If a region name has been set, add it to tag list
+    private static String[] applyRegionName(String[] tags, String regionName) {
+        if (regionName == null) {
+            return tags;
+        } else {
+            List<String> newTags = Lists.newArrayList(tags);
+            newTags.add(regionName);
+            return newTags.toArray(new String[newTags.size()]);
         }
     }
 }

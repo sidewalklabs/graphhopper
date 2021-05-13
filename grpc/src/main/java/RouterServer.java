@@ -67,6 +67,7 @@ public class RouterServer {
     private String configPath;
     private Map<String, Integer> defaultProperties;
     private Map<String, Integer> userDefinedProperties;
+    private String regionName;
     private GraphHopperManaged graphHopperManaged;
     public static final Set<String> SETTABLE_PARAMETERS = Sets.newHashSet(
             "SERVER_THREADS",
@@ -80,10 +81,12 @@ public class RouterServer {
             "FLOW_CONTROL_WINDOW_BYTES"
     );
 
-    public RouterServer(String configPath, Map<String, Integer> defaultProperties, Map<String, Integer> userDefinedProperties) {
+    public RouterServer(String configPath, Map<String, Integer> defaultProperties,
+                        Map<String, Integer> userDefinedProperties, String regionName) {
         this.configPath = configPath;
         this.defaultProperties = defaultProperties;
         this.userDefinedProperties = userDefinedProperties;
+        this.regionName = regionName;
     }
 
     private void start() throws Exception {
@@ -137,7 +140,7 @@ public class RouterServer {
         // Start server
         int grpcPort = 50051;
         server = NettyServerBuilder.forPort(grpcPort)
-                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, gtfsFeedIdMapping, statsDClient))
+                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings, gtfsRouteInfo, gtfsFeedIdMapping, statsDClient, regionName))
                 .addService(ProtoReflectionService.newInstance())
                 .maxConnectionAge(userDefinedProperties.getOrDefault("CONN_TIME_MAX_AGE_SECS", defaultProperties.get("CONN_TIME_MAX_AGE_SECS")), TimeUnit.SECONDS)
                 .maxConnectionAgeGrace(userDefinedProperties.getOrDefault("CONN_TIME_GRACE_PERIOD_SECS", defaultProperties.get("CONN_TIME_GRACE_PERIOD_SECS")), TimeUnit.SECONDS)
@@ -216,7 +219,12 @@ public class RouterServer {
             }
         }
 
-        final RouterServer server = new RouterServer(config, defaultProperties, userProvidedProperties);
+        String regionName = null;
+        if (envVars.containsKey("REGION_NAME")) {
+            regionName = envVars.get("REGION_NAME");
+        }
+
+        final RouterServer server = new RouterServer(config, defaultProperties, userProvidedProperties, regionName);
         server.start();
         server.blockUntilShutdown();
     }
