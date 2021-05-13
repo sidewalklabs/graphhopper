@@ -77,7 +77,7 @@ public class PerformanceTest {
                 logger.warn("RPC failed: " + e.getMessage() + ";;;;;" + e.getStatus(), e.getStatus());
                 double executionTime = (System.nanoTime() - startTime) / 1000_000.0;
                 results.add(new RouterPerformanceResult(from, to, departureTime, usePareto, executionTime, Lists.newArrayList(0), true));
-                return;
+                continue;
             }
         }
 
