@@ -545,7 +545,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             return tags;
         } else {
             List<String> newTags = Lists.newArrayList(tags);
-            newTags.add(regionName);
+            newTags.add("replica_region:" + regionName);
             return newTags.toArray(new String[newTags.size()]);
         }
     }
