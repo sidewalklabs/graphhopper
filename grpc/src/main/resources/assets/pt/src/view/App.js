@@ -35,6 +35,7 @@ export default class App extends React.Component {
             maxProfileDuration: 10,
             betaWalkTime: 1.5,
             limitStreetTimeSeconds: 1440,
+            usePareto: true,
             routes: {
                 query: null,
                 isFetching: false
@@ -89,6 +90,7 @@ export default class App extends React.Component {
                     ptRouteRequest.setMaxProfileDuration(this.state.maxProfileDuration);
                     ptRouteRequest.setBetaWalkTime(this.state.betaWalkTime);
                     ptRouteRequest.setLimitStreetTimeSeconds(this.state.limitStreetTimeSeconds)
+                    ptRouteRequest.setUsePareto(this.state.usePareto);
                     var component = this;
                     var router = new Router.RouterClient('/api');
                     router.routePt(ptRouteRequest, null, function(err, response) {
