@@ -15,6 +15,7 @@ const SearchActionType = {
     DEPARTURE_TIME: "SearchActionType_DEPARTURE_TIME",
     DEPARTURE_DATE: "SearchActionType_DEPARTURE_DATE",
     TIME_OPTION: "SearchActionType_TIME_OPTION",
+    PARETO_OPTION: "SearchActionType_PARETO_OPTION"
 };
 
 class SearchInput extends React.Component {
@@ -86,7 +87,18 @@ class SearchInput extends React.Component {
                 label: "Limit on walking time (seconds)",
                 onChange: this.handleInputChange,
                 actionType: "limitStreetTimeSeconds"
-            })
+            }),
+            /*
+            React.createElement("div", {
+                className: "checkbox"
+            },React.createElement("input", {
+                type: 'checkbox',
+                value: this.props.search.usePareto,
+                label: "Use pareto search (if unset, uses earliest-arrival-time algorithm)",
+                onChange: this.handleInputChange,
+                actionType: "usePareto"
+            }))
+            */
         ) : ""));
     }
 
@@ -143,8 +155,19 @@ class SearchInput extends React.Component {
                 });
                 break;
 
+             /*
+            case SearchActionType.PARETO_OPTION:
+                if (action.value) {
+                    this.props.onSearchChange({"usePareto": true});
+                } else {
+
+                }
+                this.props.onSearchChange({"usePareto": action.value});
+               */
+
             default:
                 break;
+
         }
     }
 
