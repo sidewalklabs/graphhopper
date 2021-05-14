@@ -85,8 +85,10 @@ public class PerformanceTestJava {
             try {
                 GHResponse ghResponse = ptRouter.route(request);
                 double executionTime = (System.nanoTime() - startTime) / 1000_000.0;
-                List<Integer> numTransfers = ghResponse.getAll().stream().map(path -> (int) path.getLegs().stream().filter(leg -> leg.type.equals("pt")).count()).collect(Collectors.toList());
-                results.add(new RouterPerformanceResult(from, to, "2019-10-13T18:00:00Z", usePareto, executionTime, numTransfers, false));
+                List<Integer> numTransfers = ghResponse.getAll().stream().map(path -> (int) path.getLegs().stream().filter(leg -> leg.type.equals("pt")).count() - 1).collect(Collectors.toList());
+                boolean error = false;
+                if (ghResponse.getAll().size() == 0) error = true;
+                results.add(new RouterPerformanceResult(from, to, "2019-10-13T18:00:00Z", usePareto, executionTime, numTransfers, error));
             } catch (Exception e) {
                 logger.warn("Request failed: " + e.getMessage());
                 double executionTime = (System.nanoTime() - startTime) / 1000_000.0;
