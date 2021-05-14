@@ -270,9 +270,9 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         Point toPoint = request.getPoints(1);
 
         Request ghPtRequest = new Request(fromPoint.getLat(), fromPoint.getLon(), toPoint.getLat(), toPoint.getLon());
-        ghPtRequest.setEarliestDepartureTime(Instant.ofEpochSecond(
-                request.getEarliestDepartureTime().getSeconds(), request.getEarliestDepartureTime().getNanos())
-        );
+        logger.info("Old departure date set to " + Instant.ofEpochSecond(request.getEarliestDepartureTime().getSeconds(), request.getEarliestDepartureTime().getNanos()));
+        logger.info("New departure date set to " + Instant.ofEpochSecond(request.getEarliestDepartureTime().getSeconds()));
+        ghPtRequest.setEarliestDepartureTime(Instant.ofEpochSecond(request.getEarliestDepartureTime().getSeconds()));
         ghPtRequest.setLimitSolutions(request.getLimitSolutions());
         ghPtRequest.setLocale(Locale.US);
         ghPtRequest.setArriveBy(false);
