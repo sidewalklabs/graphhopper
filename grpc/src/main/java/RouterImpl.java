@@ -282,6 +282,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         ghPtRequest.setBetaWalkTime(request.getBetaWalkTime());
         ghPtRequest.setLimitStreetTime(Duration.ofSeconds(request.getLimitStreetTimeSeconds()));
         ghPtRequest.setIgnoreTransfers(!request.getUsePareto()); // ignoreTransfers=true means pareto queries are off
+        ghPtRequest.setBetaTransfers(request.getBetaTransfers());
 
         try {
             GHResponse ghResponse = ptRouter.route(ghPtRequest);

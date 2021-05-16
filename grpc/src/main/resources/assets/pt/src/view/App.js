@@ -36,6 +36,7 @@ export default class App extends React.Component {
             betaWalkTime: 1.5,
             limitStreetTimeSeconds: 1440,
             usePareto: true,
+            betaTransfers: 0.0,
             routes: {
                 query: null,
                 isFetching: false
@@ -91,6 +92,7 @@ export default class App extends React.Component {
                     ptRouteRequest.setBetaWalkTime(this.state.betaWalkTime);
                     ptRouteRequest.setLimitStreetTimeSeconds(this.state.limitStreetTimeSeconds)
                     ptRouteRequest.setUsePareto(this.state.usePareto);
+                    ptRouteRequest.setBetaTransfers(this.state.betaTransfers);
                     var component = this;
                     var router = new Router.RouterClient('/api');
                     router.routePt(ptRouteRequest, null, function(err, response) {
