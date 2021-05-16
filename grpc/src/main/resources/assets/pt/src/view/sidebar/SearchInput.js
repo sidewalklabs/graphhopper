@@ -88,6 +88,12 @@ class SearchInput extends React.Component {
                 onChange: this.handleInputChange,
                 actionType: "limitStreetTimeSeconds"
             }),
+            React.createElement(NumberInput, {
+                value: this.props.search.betaTransfers,
+                label: "Beta transfers (values > 0 disincentivize transfers)",
+                onChange: this.handleInputChange,
+                actionType: "betaTransfers"
+            }),
             /*
             React.createElement("div", {
                 className: "checkbox"
