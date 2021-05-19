@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package router;
+
+import "google/protobuf/timestamp.proto";
+
+service Router {
+  rpc RouteStreetMode (StreetRouteRequest) returns (StreetRouteReply) {}
+  rpc RoutePt (PtRouteRequest) returns (PtRouteReply) {}
+  rpc RouteMatrix (MatrixRouteRequest) returns (MatrixRouteReply) {}
+  rpc Info (InfoRequest) returns (InfoReply) {}
+}
+
+message InfoRequest {}
+
+message InfoReply {
+  repeated double bbox = 1;
+}
+
+message Point {
+  double lat = 1;
+  double lon = 2;
+}
+
+// Request type used for auto, bike, and ped routing
+message StreetRouteRequest {
+  string profile = 1; // ie, vehicle type - auto, bike, foot, pt, or truck
+  repeated Point points = 2;
+  int32 alternate_route_max_paths = 3; // If set >1, alternative routes algo is used 
+  double alternate_route_max_weight_factor = 4;
+  double alternate_route_max_share_factor = 5;
+}
+
+// Main reply type for auto, bike, and ped routing
+message StreetRouteReply {
+  repeated StreetPath paths = 1;
+}
+
+// A single path returned as part of an auto, bike, or ped response
+message StreetPath {
+  int64 duration_millis = 1;
+  double distance_meters = 2;
+  repeated string stable_edge_ids = 3;
+  repeated int64 edge_durations_millis = 4; // Duration of travel on each edge of path
+  string points = 5; // Points of path encoded as a polyline string
+}
+
+// Request type used for transit routing
+message PtRouteRequest {
+  repeated Point points = 1;
+  google.protobuf.Timestamp earliest_departure_time = 2;
+  int32 limit_solutions = 3;
+  int32 max_profile_duration = 4;
+  double beta_walk_time = 5;
+}
+
+// Main reply type for transit routing
+message PtRouteReply {
+  repeated PtPath paths = 1;
+}
+
+// A single path returned as part of a transit response
+message PtPath {
+  int64 duration_millis = 1;
+  double distance_meters = 2;
+  int32 transfers = 3;
+  repeated FootLeg foot_legs = 4;
+  repeated PtLeg pt_legs = 5;
+}
+
+// A single walking leg that makes up part of a PtPath
+message FootLeg {
+  google.protobuf.Timestamp departure_time = 1;
+  google.protobuf.Timestamp arrival_time = 2;
+  double distance_meters = 3;
+  repeated string stable_edge_ids = 4;
+  string travel_segment_type = 5; // ACCESS, EGRESS, or TRANSFER
+}
+
+// A single transit leg that makes up part of a PtPath
+message PtLeg {
+  google.protobuf.Timestamp departure_time = 1;
+  google.protobuf.Timestamp arrival_time = 2;
+  double distance_meters = 3; // placeholder for when PT leg distances are working
+  repeated string stable_edge_ids = 4;
+  string trip_id = 5;
+  string route_id = 6;
+  string agency_name = 7;
+  string route_short_name = 8;
+  string route_long_name = 9;
+  string route_type = 10;
+  string direction = 11;
+  repeated Stop stops = 12;
+}
+
+// Representation of a stop along a PtLeg of a transit response path
+message Stop {
+  string stop_id = 1;
+  string stop_name = 2;
+  google.protobuf.Timestamp arrival_time = 3;
+  google.protobuf.Timestamp departure_time = 4;
+  Point point = 5;
+}
+
+// Request type used for matrix requests
+message MatrixRouteRequest {
+  repeated Point from_points = 1;
+  repeated Point to_points = 2;
+  string mode = 3;
+  repeated string out_arrays = 4;
+  bool fail_fast = 5;
+}
+
+message MatrixRouteReply {
+  repeated MatrixRow distances = 1;
+  repeated MatrixRow times = 2;
+}
+
+message MatrixRow {
+  repeated int64 values = 1;
+}
