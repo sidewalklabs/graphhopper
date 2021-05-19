@@ -66,7 +66,7 @@ public class ExportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         }
 
         // Load OSM info needed for export from MapDB database file
-        DB db = DBMaker.newFileDB(new File("transit_data/osm_info.db")).make();
+        DB db = DBMaker.newFileDB(new File("transit_data/osm_info.db")).readOnly().make();
         Map<Long, Map<String, String>> osmIdToLaneTags = db.getHashMap("osmIdToLaneTags");
         Map<Integer, Long> ghIdToOsmId = db.getHashMap("ghIdToOsmId");
         Map<Long, List<String>> osmIdToAccessFlags = db.getHashMap("osmIdToAccessFlags");
