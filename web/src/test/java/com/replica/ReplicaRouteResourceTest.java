@@ -80,7 +80,7 @@ public class ReplicaRouteResourceTest {
         // Add commands you want to test
         final Bootstrap<GraphHopperServerConfiguration> bootstrap = new Bootstrap<>(new GraphHopperApplication());
         bootstrap.addBundle(new GraphHopperBundle());
-        bootstrap.addCommand(new ImportCommand());
+        bootstrap.addCommand(new ImportCommand(true));
         bootstrap.addCommand(new GtfsLinkMapperCommand());
 
         // Build what'll run the command and interpret arguments

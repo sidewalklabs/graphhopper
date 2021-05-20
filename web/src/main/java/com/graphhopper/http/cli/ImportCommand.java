@@ -31,8 +31,16 @@ import net.sourceforge.argparse4j.inf.Namespace;
 
 public class ImportCommand extends ConfiguredCommand<GraphHopperServerConfiguration> {
 
+    private boolean localTest;
+
     public ImportCommand() {
         super("import", "creates the graphhopper files used for later (faster) starts");
+        this.localTest = false;
+    }
+
+    public ImportCommand(boolean localTest) {
+        super("import", "creates the graphhopper files used for later (faster) starts");
+        this.localTest = localTest;
     }
 
     @Override
@@ -43,11 +51,19 @@ public class ImportCommand extends ConfiguredCommand<GraphHopperServerConfigurat
         if (gh instanceof CustomGraphHopperGtfs) {
             CustomGraphHopperGtfs customGh = (CustomGraphHopperGtfs) gh;
             customGh.collectOsmInfo();
-            OsmHelper.writeOsmInfoToMapDb(customGh);
+            if (this.localTest) {
+                OsmHelper.writeOsmInfoToMapDb(customGh);
+            } else {
+                OsmHelper.writeOsmInfoToMapDb(customGh, "test-data/osm_info.db");
+            }
         } else {
             CustomGraphHopperOSM customGh = (CustomGraphHopperOSM) gh;
             customGh.collectOsmInfo();
-            OsmHelper.writeOsmInfoToMapDb(customGh);
+            if (this.localTest) {
+                OsmHelper.writeOsmInfoToMapDb(customGh);
+            } else {
+                OsmHelper.writeOsmInfoToMapDb(customGh, "test-data/osm_info.db");
+            }
         }
         StableEdgeIdManager stableEdgeIdManager = new StableEdgeIdManager(gh);
         stableEdgeIdManager.setStableEdgeIds();
