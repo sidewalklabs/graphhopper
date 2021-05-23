@@ -36,6 +36,7 @@ class GrpcServiceConnectionManager {
   GrpcServiceConnectionManager(int grpcPortNum) {
     // TODO: Manage a connection pool.
     mChannel = ManagedChannelBuilder.forAddress("localhost", grpcPortNum)
+        .keepAliveWithoutCalls(true)
         .usePlaintext()
         .build();
     LOG.info("**** connection channel initiated");
