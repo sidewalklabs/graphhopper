@@ -16,15 +16,10 @@ import java.util.Map;
 
 public class OsmHelper {
     private static final Logger logger = LoggerFactory.getLogger(OsmHelper.class);
-    private static final String defaultOsmInfoPath = "transit_data/osm_info.db";
 
     public static void writeOsmInfoToMapDb(GraphHopperOSM graphHopper) {
-        writeOsmInfoToMapDb(graphHopper, defaultOsmInfoPath);
-    }
-
-    public static void writeOsmInfoToMapDb(GraphHopperOSM graphHopper, String osmInfoPath) {
-        logger.info("Initializing new MapDB database files to store OSM info at path: " + osmInfoPath);
-        DB db = DBMaker.newFileDB(new File(osmInfoPath)).make();
+        logger.info("Initializing new MapDB database files to store OSM info.");
+        DB db = DBMaker.newFileDB(new File("transit_data/osm_info.db")).make();
 
         HTreeMap<Long, Map<String, String>> osmIdToLaneTags = db
                 .createHashMap("osmIdToLaneTags")

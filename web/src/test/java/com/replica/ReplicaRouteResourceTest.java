@@ -18,6 +18,7 @@
 package com.replica;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.base.Preconditions;
 import com.graphhopper.GHResponse;
 import com.graphhopper.config.Profile;
 import com.graphhopper.http.GraphHopperApplication;
@@ -41,7 +42,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import java.io.File;
-import java.io.PrintStream;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -55,7 +55,8 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class ReplicaRouteResourceTest {
-    private static final String DIR = "./target/gtfs-app-gh/";
+    private static final String TARGET_DIR = "./target/gtfs-app-gh/";
+    private static final String TRANSIT_DATA_DIR = "transit_data/";
     public static final DropwizardAppExtension<GraphHopperServerConfiguration> app = new DropwizardAppExtension<>(GraphHopperApplication.class, createConfig());
 
     private static GraphHopperServerConfiguration createConfig() {
@@ -64,14 +65,21 @@ public class ReplicaRouteResourceTest {
                 putObject("graph.flag_encoders", "foot").
                 putObject("datareader.file", "test-data/beatty.osm").
                 putObject("gtfs.file", "test-data/sample-feed.zip").
-                putObject("graph.location", DIR).
+                putObject("graph.location", TARGET_DIR).
                 setProfiles(Collections.singletonList(new Profile("foot").setVehicle("foot").setWeighting("fastest")));
         return config;
     }
 
     @BeforeAll
     public static void setUp() {
-        Helper.removeDir(new File(DIR));
+        // Fresh target directory
+        Helper.removeDir(new File(TARGET_DIR));
+        // Create new empty directory for GTFS/OSM resources
+        File transitDataDir = new File(TRANSIT_DATA_DIR);
+        if (transitDataDir.exists()) {
+            throw new IllegalStateException(TRANSIT_DATA_DIR + " directory should not already exist.");
+        }
+        Preconditions.checkState(transitDataDir.mkdir(), "could not create directory " + TRANSIT_DATA_DIR);
 
         // Setup necessary mock
         final JarLocation location = mock(JarLocation.class);
@@ -80,7 +88,7 @@ public class ReplicaRouteResourceTest {
         // Add commands you want to test
         final Bootstrap<GraphHopperServerConfiguration> bootstrap = new Bootstrap<>(new GraphHopperApplication());
         bootstrap.addBundle(new GraphHopperBundle());
-        bootstrap.addCommand(new ImportCommand(true));
+        bootstrap.addCommand(new ImportCommand());
         bootstrap.addCommand(new GtfsLinkMapperCommand());
 
         // Build what'll run the command and interpret arguments
@@ -91,7 +99,8 @@ public class ReplicaRouteResourceTest {
 
     @AfterAll
     public static void cleanUp() {
-        Helper.removeDir(new File(DIR));
+        Helper.removeDir(new File(TARGET_DIR));
+        Helper.removeDir(new File(TRANSIT_DATA_DIR));
     }
 
     @Test
@@ -109,7 +118,7 @@ public class ReplicaRouteResourceTest {
 
     @Test
     public void testPointPointQuery() {
-        final Response response = clientTarget(app, "/route")
+        final Response response = clientTarget(app, "/route-pt")
                 .queryParam("point", "36.914893,-116.76821") // NADAV stop
                 .queryParam("point", "36.914944,-116.761472") //NANAA stop
                 .queryParam("vehicle", "pt")
