@@ -1,5 +1,0 @@
-graphhopper:
-  graph.flag_encoders: foot
-  datareader.file: test-data/beatty.osm
-  gtfs.file: test-data/sample-feed.zip
-  graph.location: ./target/gtfs-app-gh/
