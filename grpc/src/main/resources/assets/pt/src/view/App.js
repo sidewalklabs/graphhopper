@@ -35,8 +35,8 @@ export default class App extends React.Component {
             maxProfileDuration: 10,
             betaWalkTime: 1.5,
             limitStreetTimeSeconds: 1440,
-            usePareto: true,
-            betaTransfers: 0.0,
+            usePareto: false,
+            betaTransfers: 1440000.0,
             routes: {
                 query: null,
                 isFetching: false
