@@ -42,6 +42,10 @@ public class GtfsLinkMapper {
         // Initialize mapdb database to store link mappings and route info
         logger.info("Initializing new mapdb file to store link mappings");
         DB db = DBMaker.newFileDB(new File("transit_data/gtfs_link_mappings.db")).make();
+        // These should be safe for parallel writes; from HTreeMap doc[1]:
+        //     > It is thread safe, and supports parallel writes by using multiple segments, each with separate ReadWriteLock.
+        //
+        // 1: https://jankotek.gitbooks.io/mapdb/content/htreemap/
         HTreeMap<String, String> gtfsLinkMappings = db
                 .createHashMap("gtfsLinkMappings")
                 .keySerializer(Serializer.STRING)
@@ -62,15 +66,17 @@ public class GtfsLinkMapper {
 
         // Output file location for CSV containing all GTFS link mappings
         File gtfsLinksCsvOutput = new File(graphHopper.getGraphHopperLocation() + "/gtfs_link_mapping.csv");
-        List<String> gtfsLinkMappingCsvRows = Lists.newArrayList();
+        List<String> gtfsLinkMappingCsvRows = Collections.synchronizedList(Lists.newArrayList());
 
         // For testing
         // Set<String> allStableIds = Sets.newHashSet();
 
         // For each GTFS feed, pull out all stops for trips on GTFS routes that travel on the street network,
         // and then for each trip, route via car between each stop pair in sequential order, storing the returned IDs
-        for (String feedId : gtfsFeedMap.keySet()) {
-            GTFSFeed feed = gtfsFeedMap.get(feedId);
+        gtfsFeedMap.entrySet().parallelStream().forEach((feedEntry) -> {
+            String feedId = feedEntry.getKey();
+            GTFSFeed feed = feedEntry.getValue();
+
             logger.info("Processing GTFS feed " + feed.feedId);
 
             // Record mapping of internal GH feed ID -> GTFS feed ID
@@ -133,7 +139,7 @@ public class GtfsLinkMapper {
                             + feed.feedId + " processed so far; " + nonUniqueODPairs + "/" + odStopCount
                             + " O/D stop pairs were non-unique, and were not routed between.");
                 }
-                
+
                 // Fetch all sequentially-ordered stop->stop pairs for this trip
                 List<Pair<Stop, Stop>> odStopsForTrip = getODStopsForTrip(tripIdToStopsInTrip.get(tripId), stopsForStreetBasedTrips);
                 tripIdToStopPairsInTrip.put(tripId, odStopsForTrip);
@@ -186,12 +192,14 @@ public class GtfsLinkMapper {
                     + " stop->stop pairs were not found");
 
             gtfsLinkMappingCsvRows.addAll(getGtfsLinkCsvRowsForFeed(routeIdToTripsInRoute, tripIdToStopPairsInTrip, gtfsLinkMappings));
-        }
+        });
         db.commit();
         db.close();
         logger.info("Done creating GTFS link mappings for " + gtfsFeedMap.size() + " GTFS feeds");
 
-        writeGtfsLinksToCsv(gtfsLinkMappingCsvRows, gtfsLinksCsvOutput);
+        synchronized(gtfsLinkMappingCsvRows) {
+            writeGtfsLinksToCsv(gtfsLinkMappingCsvRows, gtfsLinksCsvOutput);
+        }
 
         // For testing
         // logger.info("All stable edge IDs: ");
