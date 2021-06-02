@@ -194,9 +194,7 @@ public class GtfsLinkMapper {
     }
 
     private String formatStopIds(Stop stop, Stop nextStop) {
-        // TODO(RAD-2403): These stop ID values are *not* unique across feeds. This causes the _last_ feed to process a
-        // given stop ID pair to "win", masking the street edge mapping of other feed.
-        return stop.stop_id + "," + nextStop.stop_id;
+        return stop.feed_id + ":" + stop.stop_id + "," + nextStop.stop_id;
     }
 
     // Given a set of StopTimes for a trip, and an overall mapping of stop IDs->Stop,
