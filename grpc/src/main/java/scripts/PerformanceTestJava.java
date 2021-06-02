@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 
 public class PerformanceTestJava {
     private static final String[] OUTPUT_FILE_COLUMN_HEADERS = {"from", "to", "departure_time", "use_pareto", "duration", "num_transfers", "error"};
-    private static final Logger logger = LoggerFactory.getLogger(PerformanceTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(PerformanceTestJava.class);
 
     public static void main(String[] args) throws IOException {
         String odFilePath = args[0];
