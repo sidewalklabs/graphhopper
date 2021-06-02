@@ -115,8 +115,6 @@ public class GtfsLinkMapper {
                     .collect(Collectors.toMap(stop -> stop.stop_id, stop -> stop));
 
             // We only care to track the unique stop->stop pairs for each route (ignoring trips).
-            //
-            // If there are many Pair<Stop, Stop> dups *across* routes, could route the unique pairs and join back.
             SetMultimap<String, Pair<Stop, Stop>> routeIdToStopPairs = HashMultimap.create();
             tripIdToStopsInTrip.keySet().stream()
                 .forEach(tripId -> {
@@ -125,28 +123,27 @@ public class GtfsLinkMapper {
                             routeIdToStopPairs.put(feed.trips.get(tripId).route_id, stopPair);
                         });
                 });
+            Set<Pair<Stop, Stop>> uniqueStopPairs = routeIdToStopPairs.values().stream().collect(Collectors.toSet());
 
             logger.info("There are " + streetBasedRouteIdsForFeed.size() + " GTFS routes containing "
                     + tripsForStreetBasedRoutes.size() + " total trips to process for this feed. Routes to be computed for "
-                    + routeIdToStopPairs.size() + " unique stop->stop pairs");
+                    + uniqueStopPairs.size() + " unique stop->stop pairs");
 
             AtomicInteger pairCountAtomic = new AtomicInteger();
             AtomicInteger routeNotFoundCountAtomic = new AtomicInteger();
 
             // Route a car between each stop->stop pair, and store the returned stable edge IDs in mapdb map
-            routeIdToStopPairs.entries().parallelStream().forEach(routeStopPairEntry -> {
-                String routeId = routeStopPairEntry.getKey();
-                Pair<Stop, Stop> stopPair = routeStopPairEntry.getValue();
+            uniqueStopPairs.parallelStream().forEach(stopPair -> {
                 Stop stop = stopPair.getLeft();
                 Stop nextStop = stopPair.getRight();
 
                 int pairCount = pairCountAtomic.incrementAndGet();
                 boolean shouldLog = (
-                        routeIdToStopPairs.keySet().size() > 10 &&
-                        pairCount % (routeIdToStopPairs.size() / 10) == 0
+                        uniqueStopPairs.size() > 10 &&
+                        pairCount % (uniqueStopPairs.size() / 10) == 0
                 );
                 if (shouldLog) {
-                    logger.info("Processed ~" + pairCount + "/" + routeIdToStopPairs.size() + " stop pairs so far for feed " + feed.feedId);
+                    logger.info("Processed ~" + pairCount + "/" + uniqueStopPairs.size() + " stop pairs so far for feed " + feed.feedId);
                 };
 
                 // Form stop->stop auto routing requests and request a route
@@ -176,7 +173,7 @@ public class GtfsLinkMapper {
                 String pathStableEdgeIdString = pathEdgeIds.stream().collect(Collectors.joining(","));
                 gtfsLinkMappings.put(formatStopIds(stop, nextStop), pathStableEdgeIdString);
             });
-            logger.info("Done processing GTFS feed " + feed.feedId + "; " + routeIdToStopPairs.size() +
+            logger.info("Done processing GTFS feed " + feed.feedId + "; " + uniqueStopPairs.size() +
                     " total stop pairs processed; routes for " + routeNotFoundCountAtomic.get() +
                     " stop->stop pairs were not found");
 
