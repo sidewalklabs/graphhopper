@@ -29,6 +29,7 @@ public class PerformanceTest {
         String outputFilePath = args[1];
         File outputFile = new File(outputFilePath);
         boolean usePareto = Boolean.parseBoolean(args[2]);
+        String departureTime = args.length == 4 ? args[3] : "2019-10-13T18:00:00Z";
 
         logger.info("Reading input O/D pairs from file " + odFilePath + " with usePareto set to " + usePareto +
                 ". Writing output to " + outputFilePath);
@@ -45,7 +46,7 @@ public class PerformanceTest {
                                 .setLon(Double.parseDouble(line[3]))
                                 .build())
                         .setEarliestDepartureTime(Timestamp.newBuilder()
-                                .setSeconds(Instant.parse("2019-10-13T18:00:00Z").toEpochMilli() / 1000)
+                                .setSeconds(Instant.parse(departureTime).toEpochMilli() / 1000)
                                 .build())
                         .setLimitSolutions(4)
                         .setMaxProfileDuration(10)
@@ -65,7 +66,6 @@ public class PerformanceTest {
             logger.info("Running request number " + numComplete++);
             String from = request.getPoints(0).getLat() + "," + request.getPoints(0).getLon();
             String to = request.getPoints(1).getLat() + "," + request.getPoints(1).getLon();
-            String departureTime = request.getEarliestDepartureTime().toString();
 
             long startTime = System.nanoTime();
             try {
@@ -77,7 +77,6 @@ public class PerformanceTest {
                 logger.warn("RPC failed: " + e.getMessage() + ";;;;;" + e.getStatus(), e.getStatus());
                 double executionTime = (System.nanoTime() - startTime) / 1000_000.0;
                 results.add(new RouterPerformanceResult(from, to, departureTime, usePareto, executionTime, Lists.newArrayList(0), true));
-                continue;
             }
         }
 
@@ -105,27 +104,6 @@ public class PerformanceTest {
             ManagedChannel channel = channelBuilder.build();
             this.blockingStub = router.RouterGrpc.newBlockingStub(channel);
             this.asyncStub = router.RouterGrpc.newStub(channel);
-        }
-    }
-
-    private static class RouterPerformanceResult {
-        private String from;
-        private String to;
-        private String departureTime;
-        private boolean usePareto;
-        private double duration;
-        private List<Integer> numTransfers;
-        private boolean error;
-
-        public RouterPerformanceResult(String from, String to, String departureTime, boolean usePareto,
-                                       double duration, List<Integer> numTransfers, boolean error) {
-            this.from = from;
-            this.to = to;
-            this.departureTime = departureTime;
-            this.usePareto = usePareto;
-            this.duration = duration;
-            this.numTransfers = numTransfers;
-            this.error = error;
         }
     }
 }

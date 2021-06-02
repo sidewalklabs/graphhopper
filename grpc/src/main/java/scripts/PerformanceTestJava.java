@@ -37,6 +37,7 @@ public class PerformanceTestJava {
         File outputFile = new File(outputFilePath);
         boolean usePareto = Boolean.parseBoolean(args[2]);
         String configPath = args[3];
+        String departureTime = args.length == 5 ? args[4] : "2019-10-13T18:00:00Z";
 
         logger.info("Reading input O/D pairs from file " + odFilePath + " with usePareto set to " + usePareto +
                 ". Writing output to " + outputFilePath);
@@ -60,7 +61,7 @@ public class PerformanceTestJava {
                 .map(line -> line.split(","))
                 .map(line -> {
                     Request ghPtRequest = new Request(Double.parseDouble(line[0]), Double.parseDouble(line[1]), Double.parseDouble(line[2]), Double.parseDouble(line[3]));
-                    ghPtRequest.setEarliestDepartureTime(Instant.parse("2019-10-13T18:00:00Z"));
+                    ghPtRequest.setEarliestDepartureTime(Instant.parse(departureTime));
                     ghPtRequest.setLimitSolutions(4);
                     ghPtRequest.setLocale(Locale.US);
                     ghPtRequest.setArriveBy(false);
@@ -88,12 +89,11 @@ public class PerformanceTestJava {
                 List<Integer> numTransfers = ghResponse.getAll().stream().map(path -> (int) path.getLegs().stream().filter(leg -> leg.type.equals("pt")).count() - 1).collect(Collectors.toList());
                 boolean error = false;
                 if (ghResponse.getAll().size() == 0) error = true;
-                results.add(new RouterPerformanceResult(from, to, "2019-10-13T18:00:00Z", usePareto, executionTime, numTransfers, error));
+                results.add(new RouterPerformanceResult(from, to, departureTime, usePareto, executionTime, numTransfers, error));
             } catch (Exception e) {
                 logger.warn("Request failed: " + e.getMessage());
                 double executionTime = (System.nanoTime() - startTime) / 1000_000.0;
-                results.add(new RouterPerformanceResult(from, to, "2019-10-13T18:00:00Z", usePareto, executionTime, Lists.newArrayList(0), true));
-                return;
+                results.add(new RouterPerformanceResult(from, to, departureTime, usePareto, executionTime, Lists.newArrayList(0), true));
             }
         }
 
@@ -106,26 +106,5 @@ public class PerformanceTestJava {
             }
         }
         logger.info("Done! CSV output file has been written at " + outputFilePath);
-    }
-
-    private static class RouterPerformanceResult {
-        private String from;
-        private String to;
-        private String departureTime;
-        private boolean usePareto;
-        private double duration;
-        private List<Integer> numTransfers;
-        private boolean error;
-
-        public RouterPerformanceResult(String from, String to, String departureTime, boolean usePareto,
-                                       double duration, List<Integer> numTransfers, boolean error) {
-            this.from = from;
-            this.to = to;
-            this.departureTime = departureTime;
-            this.usePareto = usePareto;
-            this.duration = duration;
-            this.numTransfers = numTransfers;
-            this.error = error;
-        }
     }
 }
