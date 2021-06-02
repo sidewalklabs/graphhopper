@@ -71,6 +71,7 @@ public class PerformanceTestJava {
                     ghPtRequest.setBetaWalkTime(1.5);
                     ghPtRequest.setLimitStreetTime(Duration.ofSeconds(1440));
                     ghPtRequest.setIgnoreTransfers(!usePareto); // ignoreTransfers=true means pareto queries are off
+                    ghPtRequest.setBetaTransfers(1440000);
                     return ghPtRequest;
                 }).collect(Collectors.toList());
 

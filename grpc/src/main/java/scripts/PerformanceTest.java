@@ -53,6 +53,7 @@ public class PerformanceTest {
                         .setBetaWalkTime(1.5)
                         .setLimitStreetTimeSeconds(1440)
                         .setUsePareto(usePareto)
+                        .setBetaTransfers(1440000)
                         .build())
                 .collect(Collectors.toList());
 
