@@ -61,8 +61,8 @@ public class PerformanceTest {
 
         RouterClient client = new RouterClient("localhost", 50051);
         List<RouterPerformanceResult> results = Lists.newArrayList();
-
         int numComplete = 0;
+
         for (RouterOuterClass.PtRouteRequest request : requests) {
             logger.info("Running request number " + numComplete++);
             String from = request.getPoints(0).getLat() + "," + request.getPoints(0).getLon();
@@ -83,7 +83,6 @@ public class PerformanceTest {
 
         logger.info("Finished making requests! Writing results to CSV output file");
         try (CSVPrinter printer = new CSVPrinter(new FileWriter(outputFile), CSVFormat.DEFAULT.withHeader(OUTPUT_FILE_COLUMN_HEADERS))) {
-            //"from", "to", "departure_time", "use_pareto", "duration", "num_transfers", "error"};
             for (RouterPerformanceResult result : results) {
                 printer.printRecord(result.from, result.to, result.departureTime, result.usePareto,
                         result.duration, result.numTransfers, result.error);
@@ -94,17 +93,14 @@ public class PerformanceTest {
 
     private static class RouterClient {
         private router.RouterGrpc.RouterBlockingStub blockingStub;
-        private router.RouterGrpc.RouterStub asyncStub;
 
         public RouterClient(String host, int port) {
             this(ManagedChannelBuilder.forAddress(host, port).usePlaintext());
         }
 
-        /** Construct client for accessing RouteGuide server using the existing channel. */
         public RouterClient(ManagedChannelBuilder<?> channelBuilder) {
             ManagedChannel channel = channelBuilder.build();
             this.blockingStub = router.RouterGrpc.newBlockingStub(channel);
-            this.asyncStub = router.RouterGrpc.newStub(channel);
         }
     }
 }

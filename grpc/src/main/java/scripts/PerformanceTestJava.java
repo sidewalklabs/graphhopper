@@ -42,7 +42,6 @@ public class PerformanceTestJava {
         logger.info("Reading input O/D pairs from file " + odFilePath + " with usePareto set to " + usePareto +
                 ". Writing output to " + outputFilePath);
 
-
         // Start GH instance based on config given as command-line arg
         ObjectMapper yaml = Jackson.initObjectMapper(new ObjectMapper(new YAMLFactory()));
         yaml.registerModule(new GraphHopperConfigModule());
@@ -52,15 +51,23 @@ public class PerformanceTestJava {
         GraphHopperManaged graphHopperManaged = new GraphHopperManaged(graphHopperConfiguration, json);
         graphHopperManaged.start();
 
-        // Grab instances of auto/bike/ped router and PT router (if applicable)
+        // Grab instance of PT router
         GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
-        final PtRouter ptRouter = new PtRouterImpl(graphHopper.getTranslationMap(), graphHopper.getGraphHopperStorage(), graphHopper.getLocationIndex(), ((GraphHopperGtfs) graphHopper).getGtfsStorage(), RealtimeFeed.empty(((GraphHopperGtfs) graphHopper).getGtfsStorage()), graphHopper.getPathDetailsBuilderFactory());
+        final PtRouter ptRouter = new PtRouterImpl(
+                graphHopper.getTranslationMap(), graphHopper.getGraphHopperStorage(),
+                graphHopper.getLocationIndex(), ((GraphHopperGtfs) graphHopper).getGtfsStorage(),
+                RealtimeFeed.empty(((GraphHopperGtfs) graphHopper).getGtfsStorage()),
+                graphHopper.getPathDetailsBuilderFactory()
+        );
 
         List<Request> requests = Files.lines(Paths.get(odFilePath))
                 .skip(1)
                 .map(line -> line.split(","))
                 .map(line -> {
-                    Request ghPtRequest = new Request(Double.parseDouble(line[0]), Double.parseDouble(line[1]), Double.parseDouble(line[2]), Double.parseDouble(line[3]));
+                    Request ghPtRequest = new Request(
+                            Double.parseDouble(line[0]), Double.parseDouble(line[1]),
+                            Double.parseDouble(line[2]), Double.parseDouble(line[3])
+                    );
                     ghPtRequest.setEarliestDepartureTime(Instant.parse(departureTime));
                     ghPtRequest.setLimitSolutions(4);
                     ghPtRequest.setLocale(Locale.US);
@@ -79,6 +86,7 @@ public class PerformanceTestJava {
 
         List<RouterPerformanceResult> results = Lists.newArrayList();
         int numComplete = 0;
+
         for (Request request : requests) {
             logger.info("Running request number " + numComplete++);
             String from = request.getPoints().get(0).toString();
@@ -100,7 +108,6 @@ public class PerformanceTestJava {
 
         logger.info("Finished making requests! Writing results to CSV output file");
         try (CSVPrinter printer = new CSVPrinter(new FileWriter(outputFile), CSVFormat.DEFAULT.withHeader(OUTPUT_FILE_COLUMN_HEADERS))) {
-            //"from", "to", "departure_time", "use_pareto", "duration", "num_transfers", "error"};
             for (RouterPerformanceResult result : results) {
                 printer.printRecord(result.from, result.to, result.departureTime, result.usePareto,
                         result.duration, result.numTransfers, result.error);
