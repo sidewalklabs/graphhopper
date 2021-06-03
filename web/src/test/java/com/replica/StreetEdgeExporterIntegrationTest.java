@@ -13,10 +13,12 @@ import io.dropwizard.Application;
 import io.dropwizard.cli.Cli;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.testing.junit5.DropwizardAppExtension;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.util.JarLocation;
 import org.junit.Test;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.File;
 import java.util.Collections;
@@ -25,6 +27,7 @@ import java.util.Optional;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(DropwizardExtensionsSupport.class)
 public class StreetEdgeExporterIntegrationTest {
 
     private static final String TARGET_DIR = "./target/gtfs-app-gh/";
@@ -43,6 +46,7 @@ public class StreetEdgeExporterIntegrationTest {
 
     @BeforeAll
     public static void setUp() {
+        System.out.println("********** HERE ************");
         // Fresh target directory
         Helper.removeDir(new File(TARGET_DIR));
         // Create new empty directory for GTFS/OSM resources
