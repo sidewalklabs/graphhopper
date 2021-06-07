@@ -33,6 +33,7 @@ public class StreetEdgeExporter {
     private static final List<String> INACCESSIBLE_MOTORWAY_TAGS = Lists.newArrayList("motorway", "motorway_link");
     private static final String[] COLUMN_HEADERS = {"stableEdgeId", "startVertex", "endVertex", "startLat", "startLon",
             "endLat", "endLon", "geometry", "streetName", "distance", "osmid", "speed", "flags", "lanes", "highway"};
+    public static final CSVFormat CSV_FORMAT = CSVFormat.DEFAULT.withHeader(COLUMN_HEADERS);
 
     public static void writeStreetEdgesCsv(GraphHopper configuredGraphHopper,
                                             Map<Long, Map<String, String>> osmIdToLaneTags,
@@ -63,7 +64,7 @@ public class StreetEdgeExporter {
         int skippedEdgeCount = 0;
         try {
             FileWriter out = new FileWriter(outputFile);
-            try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(COLUMN_HEADERS))) {
+            try (CSVPrinter printer = new CSVPrinter(out, CSV_FORMAT)) {
                 while (edgeIterator.next()) {
                     totalEdgeCount++;
                     // Fetch starting and ending vertices
