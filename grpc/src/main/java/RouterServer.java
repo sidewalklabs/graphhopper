@@ -66,20 +66,20 @@ public class RouterServer {
     private Server server;
     private String configPath;
     private Map<String, Integer> defaultProperties;
-    private Map<String, Integer> userDefinedProperties;
+    private Map<SETTABLE_PARAMETERS, Integer> userDefinedProperties;
     private String regionName;
     private GraphHopperManaged graphHopperManaged;
-    public static final Set<String> SETTABLE_PARAMETERS = Sets.newHashSet(
-            "SERVER_THREADS",
-            "BOSS_EVENT_LOOP_THREADS",
-            "WORKER_EVENT_LOOP_THREADS",
-            "CONN_TIME_MAX_AGE_SECS",
-            "CONN_TIME_GRACE_PERIOD_SECS",
-            "MAX_CONC_CALLS_PER_CONN",
-            "KEEP_ALIVE_TIME_SECS",
-            "KEEP_ALIVE_TIMEOUT_SECS",
-            "FLOW_CONTROL_WINDOW_BYTES"
-    );
+    public enum SETTABLE_PARAMETERS {
+            SERVER_THREADS,
+            BOSS_EVENT_LOOP_THREADS,
+            WORKER_EVENT_LOOP_THREADS,
+            CONN_TIME_MAX_AGE_SECS,
+            CONN_TIME_GRACE_PERIOD_SECS,
+            MAX_CONC_CALLS_PER_CONN,
+            KEEP_ALIVE_TIME_SECS,
+            KEEP_ALIVE_TIMEOUT_SECS,
+            FLOW_CONTROL_WINDOW_BYTES
+    }
 
     public RouterServer(String configPath, Map<String, Integer> defaultProperties,
                         Map<String, Integer> userDefinedProperties, String regionName) {
