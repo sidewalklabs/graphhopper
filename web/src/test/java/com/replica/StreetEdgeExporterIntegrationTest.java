@@ -34,11 +34,11 @@ public class StreetEdgeExporterIntegrationTest {
     private static GraphHopperServerConfiguration createConfig() {
         GraphHopperServerConfiguration config = new GraphHopperServerConfiguration();
         config.getGraphHopperConfiguration().
-                putObject("graph.flag_encoders", "foot").
+                putObject("graph.flag_encoders", "car,foot").
                 putObject("datareader.file", "test-data/beatty.osm").
                 putObject("gtfs.file", "test-data/sample-feed.zip").
                 putObject("graph.location", TARGET_DIR).
-                setProfiles(Collections.singletonList(new Profile("foot").setVehicle("foot").setWeighting("fastest")));
+                setProfiles(Collections.singletonList(new Profile("car").setVehicle("car").setWeighting("fastest")));
         return config;
     }
 
@@ -81,8 +81,8 @@ public class StreetEdgeExporterIntegrationTest {
 
         // Build what'll run the command and interpret arguments
         Cli cli = new Cli(location, bootstrap, System.out, System.err);
-        cli.run("import", "test-data/beatty-sample-feed-config.yml");
-//        cli.run("export", "sadfsadfasd");
+        cli.run("import", "test-data/beatty-sample-feed-config-car.yml");
+        cli.run("export", "test-data/beatty-sample-feed-config-car.yml");
         System.out.println("df");
     }
 
