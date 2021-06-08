@@ -12,6 +12,7 @@ import com.graphhopper.stableid.StableIdEncodedValues;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.util.DistanceCalcEarth;
+import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.FetchMode;
 import com.graphhopper.util.PointList;
 import org.apache.commons.csv.CSVFormat;
@@ -44,21 +45,31 @@ public class StreetEdgeExporter {
     private Map<Long, String> osmIdToHighway;
     //
     private NodeAccess nodes;
+    private DecimalEncodedValue avgSpeedEnc;
+    StableIdEncodedValues stableIdEncodedValues;
+    EnumEncodedValue<RoadClass> roadClassEnc;
 
-    public List<StreetEdgeExportRecord> generateRecords(int ghEdgeId, int startVertex, int endVertex, PointList wayGeometry, int speedCms, String edgeName) {
+    public List<StreetEdgeExportRecord> generateRecords(EdgeIteratorState iteratorState) {
         List<StreetEdgeExportRecord> output = new ArrayList<>();
 
-        String geometryString = wayGeometry.toLineString(false).toString();
-        wayGeometry.reverse();
-        String reverseGeometryString = wayGeometry.toLineString(false).toString();
-
+        int ghEdgeId = iteratorState.getEdge();
+        int startVertex = iteratorState.getBaseNode();
+        int endVertex = iteratorState.getAdjNode();
 
         double startLat = nodes.getLat(startVertex);
         double startLon = nodes.getLon(startVertex);
         double endLat = nodes.getLat(endVertex);
         double endLon = nodes.getLon(endVertex);
 
+        // Get edge geometry for both edge directions, and distance
+        PointList wayGeometry = iteratorState.fetchWayGeometry(FetchMode.ALL);
+        String geometryString = wayGeometry.toLineString(false).toString();
+        wayGeometry.reverse();
+        String reverseGeometryString = wayGeometry.toLineString(false).toString();
+
         long distanceMeters = Math.round(DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon));
+        int speedcms = getSpeedcms(iteratorState, avgSpeedEnc);
+
         // Convert GH's distance in meters to millimeters to match R5's implementation
         long distanceMillimeters = distanceMeters * 1000;
 
@@ -69,10 +80,67 @@ public class StreetEdgeExporter {
         }
 
         // Use street name parsed from Ways/Relations, if it exists; otherwise, use default GH edge name
-        String streetName = osmIdToStreetName.getOrDefault(osmId, edgeName);
+        String streetName = osmIdToStreetName.getOrDefault(osmId, iteratorState.getName());
 
+        // Grab OSM highway type and encoded stable IDs for both edge directions
+        String highwayTag = osmIdToHighway.getOrDefault(osmId, iteratorState.get(roadClassEnc).toString());
+        String forwardStableEdgeId = stableIdEncodedValues.getStableId(false, iteratorState);
+        String backwardStableEdgeId = stableIdEncodedValues.getStableId(true, iteratorState);
 
+        // Set accessibility flags for each edge direction
+        // Returned flags are from the set {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}
+        String forwardFlags = OsmHelper.getFlagsForGhEdge(ghEdgeId, false, osmIdToAccessFlags, ghIdToOsmId);
+        String backwardFlags = OsmHelper.getFlagsForGhEdge(ghEdgeId, true, osmIdToAccessFlags, ghIdToOsmId);
 
+        // Calculate number of lanes for edge, as done in R5, based on OSM tags + edge direction
+        int overallLanes = parseLanesTag(osmId, osmIdToLaneTags, "lanes");
+        int forwardLanes = parseLanesTag(osmId, osmIdToLaneTags, "lanes:forward");
+        int backwardLanes = parseLanesTag(osmId, osmIdToLaneTags, "lanes:backward");
+
+        if (!backwardFlags.contains("ALLOWS_CAR")) {
+            backwardLanes = 0;
+        }
+        if (backwardLanes == -1) {
+            if (overallLanes != -1) {
+                if (forwardLanes != -1) {
+                    backwardLanes = overallLanes - forwardLanes;
+                }
+            }
+        }
+
+        if (!forwardFlags.contains("ALLOWS_CAR")) {
+            forwardLanes = 0;
+        }
+        if (forwardLanes == -1) {
+            if (overallLanes != -1) {
+                if (backwardLanes != -1) {
+                    forwardLanes = overallLanes - backwardLanes;
+                } else if (forwardFlags.contains("ALLOWS_CAR")) {
+                    forwardLanes = overallLanes / 2;
+                }
+            }
+        }
+
+        // Copy R5's logic; filter out edges with unwanted highway tags and negative OSM IDs
+        // todo: do negative OSM ids happen in GH? This might have been R5-specific
+        if (!HIGHWAY_FILTER_TAGS.contains(highwayTag) && osmId >= 0) {
+            // Print line for each edge direction, if edge is accessible.
+            // Inaccessible edges have no flags set; flags are stored as stringified lists,
+            // so innaccessible edges will have a flag equal to "[]", the empty list's toString().
+            // Only remove inaccessible edges with highway tags of motorway or motorway_link
+            if (!(forwardFlags.equals("[]") && INACCESSIBLE_MOTORWAY_TAGS.contains(highwayTag))) {
+                output.add(new StreetEdgeExportRecord(forwardStableEdgeId, startVertex, endVertex,
+                        startLat, startLon, endLat, endLon, geometryString, streetName,
+                        distanceMillimeters, osmId, speedcms, forwardFlags, forwardLanes, highwayTag));
+            }
+            if (!(backwardFlags.equals("[]") && INACCESSIBLE_MOTORWAY_TAGS.contains(highwayTag))) {
+                output.add(new StreetEdgeExportRecord(backwardStableEdgeId, endVertex, startVertex,
+                        endLat, endLon, startLat, startLon, reverseGeometryString, streetName,
+                        distanceMillimeters, osmId, speedcms, backwardFlags, backwardLanes, highwayTag));
+            }
+        }
+
+        return output;
     }
 
 
@@ -211,7 +279,7 @@ public class StreetEdgeExporter {
         }
     }
 
-    private static int getSpeedcms(AllEdgesIterator edgeIterator, DecimalEncodedValue avgSpeedEnc) {
+    private static int getSpeedcms(EdgeIteratorState edgeIterator, DecimalEncodedValue avgSpeedEnc) {
         // Convert GH's km/h speed to cm/s to match R5's implementation
         // Note that this is dependent on edgesIterator state
         return (int) (edgeIterator.get(avgSpeedEnc) / 3.6 * 100);
