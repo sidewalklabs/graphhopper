@@ -47,6 +47,7 @@ public class StreetEdgeExporterTest {
     private static final String TARGET_DIR = "./target/gtfs-app-gh/";
     private static final String TRANSIT_DATA_DIR = "transit_data/";
 
+    private Bootstrap<GraphHopperServerConfiguration> bootstrap;
     private Cli cli;
 
     @BeforeAll
@@ -65,7 +66,7 @@ public class StreetEdgeExporterTest {
         when(location.getVersion()).thenReturn(Optional.of("1.0.0"));
 
         // Add commands you want to test
-        final Bootstrap<GraphHopperServerConfiguration> bootstrap = new Bootstrap<>(new GraphHopperApplication());
+        bootstrap = new Bootstrap<>(new GraphHopperApplication());
         bootstrap.addBundle(new GraphHopperBundle());
         bootstrap.addCommand(new ImportCommand());
         bootstrap.addCommand(new ExportCommand());
@@ -101,11 +102,6 @@ public class StreetEdgeExporterTest {
                 putObject("graph.location", TARGET_DIR).
                 setProfiles(Collections.singletonList(new Profile("foot").setVehicle("foot").setWeighting("fastest")));
 
-        // TODO copied from setUp
-        // Add commands you want to test
-        final Bootstrap<GraphHopperServerConfiguration> bootstrap = new Bootstrap<>(new GraphHopperApplication());
-        bootstrap.addBundle(new GraphHopperBundle());
-
         // TODO copied from ExportCommand
         // Read in pre-built GH graph files from /transit_data/graphhopper
         final GraphHopperManaged graphHopper =
@@ -129,5 +125,6 @@ public class StreetEdgeExporterTest {
         edgeIterator.next();
         List<StreetEdgeExportRecord> records = exporter.generateRecords(edgeIterator);
         assertEquals(2, records.size());
+
     }
 }
