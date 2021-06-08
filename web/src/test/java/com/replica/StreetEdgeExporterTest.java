@@ -122,9 +122,18 @@ public class StreetEdgeExporterTest {
         GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
         AllEdgesIterator edgeIterator = graphHopperStorage.getAllEdges();
 
+        // Generate the rows for the first item in the edge iterator
         edgeIterator.next();
         List<StreetEdgeExportRecord> records = exporter.generateRecords(edgeIterator);
+        // Expect that two items will be generated
         assertEquals(2, records.size());
+        // They should be each other's reverse edges
+        StreetEdgeExportRecord record0 = records.get(0);
+        StreetEdgeExportRecord record1 = records.get(1);
+        assertEquals(record0.startVertexId, record1.endVertexId);
+        assertEquals(record0.endVertexId, record1.startVertexId);
+        assertEquals(record0.startLat, record1.endLat);
+        assertEquals(record0.startLon, record1.endLon);
 
     }
 }
