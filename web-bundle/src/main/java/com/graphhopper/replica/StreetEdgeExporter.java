@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,47 @@ public class StreetEdgeExporter {
     private static final String[] COLUMN_HEADERS = {"stableEdgeId", "startVertex", "endVertex", "startLat", "startLon",
             "endLat", "endLon", "geometry", "streetName", "distance", "osmid", "speed", "flags", "lanes", "highway"};
     public static final CSVFormat CSV_FORMAT = CSVFormat.DEFAULT.withHeader(COLUMN_HEADERS);
+
+    // Some sticky members
+    private Map<Long, Map<String, String>> osmIdToLaneTags;
+    private Map<Integer, Long> ghIdToOsmId;
+    private Map<Long, List<String>> osmIdToAccessFlags;
+    private Map<Long, String> osmIdToStreetName;
+    private Map<Long, String> osmIdToHighway;
+    //
+    private NodeAccess nodes;
+
+    public List<StreetEdgeExportRecord> generateRecords(int ghEdgeId, int startVertex, int endVertex, PointList wayGeometry, int speedCms, String edgeName) {
+        List<StreetEdgeExportRecord> output = new ArrayList<>();
+
+        String geometryString = wayGeometry.toLineString(false).toString();
+        wayGeometry.reverse();
+        String reverseGeometryString = wayGeometry.toLineString(false).toString();
+
+
+        double startLat = nodes.getLat(startVertex);
+        double startLon = nodes.getLon(startVertex);
+        double endLat = nodes.getLat(endVertex);
+        double endLon = nodes.getLon(endVertex);
+
+        long distanceMeters = Math.round(DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon));
+        // Convert GH's distance in meters to millimeters to match R5's implementation
+        long distanceMillimeters = distanceMeters * 1000;
+
+        // Fetch OSM ID, skipping edges from PT meta-graph that have no IDs set (getOsmIdForGhEdge returns -1)
+        long osmId = OsmHelper.getOsmIdForGhEdge(ghEdgeId, ghIdToOsmId);
+        if (osmId == -1L) {
+            return output;
+        }
+
+        // Use street name parsed from Ways/Relations, if it exists; otherwise, use default GH edge name
+        String streetName = osmIdToStreetName.getOrDefault(osmId, edgeName);
+
+
+
+    }
+
+
 
     public static void writeStreetEdgesCsv(GraphHopper configuredGraphHopper,
                                             Map<Long, Map<String, String>> osmIdToLaneTags,
@@ -84,8 +126,7 @@ public class StreetEdgeExporter {
 
                     long distanceMeters = Math.round(DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon));
 
-                    // Convert GH's km/h speed to cm/s to match R5's implementation
-                    int speedcms = (int) (edgeIterator.get(avgSpeedEnc) / 3.6 * 100);
+                    int speedcms = getSpeedcms(edgeIterator, avgSpeedEnc);
 
                     // Convert GH's distance in meters to millimeters to match R5's implementation
                     long distanceMillimeters = distanceMeters * 1000;
@@ -169,6 +210,13 @@ public class StreetEdgeExporter {
             logger.error("Output file can't be found! Export may not have completed successfully");
         }
     }
+
+    private static int getSpeedcms(AllEdgesIterator edgeIterator, DecimalEncodedValue avgSpeedEnc) {
+        // Convert GH's km/h speed to cm/s to match R5's implementation
+        // Note that this is dependent on edgesIterator state
+        return (int) (edgeIterator.get(avgSpeedEnc) / 3.6 * 100);
+    }
+
 
     // Taken from R5's lane parsing logic. See EdgeServiceServer.java in R5 repo
     private static int parseLanesTag(long osmId, Map<Long, Map<String, String>> osmIdToLaneTags, String laneTag) {
