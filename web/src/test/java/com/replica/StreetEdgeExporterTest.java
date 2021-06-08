@@ -71,7 +71,7 @@ public class StreetEdgeExporterTest {
     }
 
     @Test
-    public void testSomething() throws IOException {
+    public void testExportEndToEnd() throws IOException {
         // Setup necessary mock
         final JarLocation location = mock(JarLocation.class);
         when(location.getVersion()).thenReturn(Optional.of("1.0.0"));
