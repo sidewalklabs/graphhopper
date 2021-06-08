@@ -1,12 +1,18 @@
 package com.replica;
 
 import com.google.common.base.Preconditions;
+import com.graphhopper.GraphHopper;
+import com.graphhopper.config.Profile;
 import com.graphhopper.http.GraphHopperApplication;
 import com.graphhopper.http.GraphHopperBundle;
+import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.http.GraphHopperServerConfiguration;
 import com.graphhopper.http.cli.ExportCommand;
 import com.graphhopper.http.cli.ImportCommand;
+import com.graphhopper.replica.StreetEdgeExportRecord;
 import com.graphhopper.replica.StreetEdgeExporter;
+import com.graphhopper.routing.util.AllEdgesIterator;
+import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.util.Helper;
 import io.dropwizard.cli.Cli;
 import io.dropwizard.setup.Bootstrap;
@@ -19,11 +25,15 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -79,5 +89,45 @@ public class StreetEdgeExporterTest {
         CSVParser parser = CSVParser.parse(expectedOutputLocation, StandardCharsets.UTF_8, format);
         List<CSVRecord> records = parser.getRecords();
         assertEquals(769, records.size());
+    }
+
+    @Test
+    public void testExportSingleRecord() {
+        GraphHopperServerConfiguration config = new GraphHopperServerConfiguration();
+        config.getGraphHopperConfiguration().
+                putObject("graph.flag_encoders", "car,foot").
+                putObject("datareader.file", "test-data/beatty.osm").
+                putObject("gtfs.file", "test-data/sample-feed.zip").
+                putObject("graph.location", TARGET_DIR).
+                setProfiles(Collections.singletonList(new Profile("foot").setVehicle("foot").setWeighting("fastest")));
+
+        // TODO copied from setUp
+        // Add commands you want to test
+        final Bootstrap<GraphHopperServerConfiguration> bootstrap = new Bootstrap<>(new GraphHopperApplication());
+        bootstrap.addBundle(new GraphHopperBundle());
+
+        // TODO copied from ExportCommand
+        // Read in pre-built GH graph files from /transit_data/graphhopper
+        final GraphHopperManaged graphHopper =
+                new GraphHopperManaged(config.getGraphHopperConfiguration(), bootstrap.getObjectMapper());
+        GraphHopper configuredGraphHopper = graphHopper.getGraphHopper();
+        configuredGraphHopper.load(configuredGraphHopper.getGraphHopperLocation());
+
+        // Load OSM info needed for export from MapDB database file
+        DB db = DBMaker.newFileDB(new File("transit_data/osm_info.db")).readOnly().make();
+        Map<Long, Map<String, String>> osmIdToLaneTags = db.getHashMap("osmIdToLaneTags");
+        Map<Integer, Long> ghIdToOsmId = db.getHashMap("ghIdToOsmId");
+        Map<Long, List<String>> osmIdToAccessFlags = db.getHashMap("osmIdToAccessFlags");
+        Map<Long, String> osmIdToStreetName = db.getHashMap("osmIdToStreetName");
+        Map<Long, String> osmIdToHighway = db.getHashMap("osmIdToHighway");
+
+        // Copied from writeStreetEdgesCsv
+        StreetEdgeExporter exporter = new StreetEdgeExporter(configuredGraphHopper, osmIdToLaneTags, ghIdToOsmId, osmIdToAccessFlags, osmIdToStreetName, osmIdToHighway);
+        GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
+        AllEdgesIterator edgeIterator = graphHopperStorage.getAllEdges();
+
+        edgeIterator.next();
+        List<StreetEdgeExportRecord> records = exporter.generateRecords(edgeIterator);
+        assertEquals(2, records.size());
     }
 }
