@@ -56,6 +56,7 @@ public class StreetEdgeExporter {
         this.osmIdToStreetName = osmIdToStreetName;
         this.osmIdToHighway = osmIdToHighway;
 
+        // Grab edge/node iterators for graph loaded from pre-built GH files
         GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
         nodes = graphHopperStorage.getNodeAccess();
 
@@ -170,20 +171,9 @@ public class StreetEdgeExporter {
                                             Map<Long, String> osmIdToStreetName,
                                             Map<Long, String> osmIdToHighway) {
 
-        // Grab edge/node iterators for graph loaded from pre-built GH files
+        StreetEdgeExporter exporter = new StreetEdgeExporter(configuredGraphHopper, osmIdToLaneTags, ghIdToOsmId, osmIdToAccessFlags, osmIdToStreetName, osmIdToHighway);
         GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
         AllEdgesIterator edgeIterator = graphHopperStorage.getAllEdges();
-        NodeAccess nodes = graphHopperStorage.getNodeAccess();
-
-        // Setup encoders for determining speed and road type info for each edge
-        EncodingManager encodingManager = configuredGraphHopper.getEncodingManager();
-        StableIdEncodedValues stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(encodingManager);
-        final EnumEncodedValue<RoadClass> roadClassEnc =
-                encodingManager.getEnumEncodedValue(RoadClass.KEY, RoadClass.class);
-        CarFlagEncoder carFlagEncoder = (CarFlagEncoder)encodingManager.getEncoder("car");
-        DecimalEncodedValue avgSpeedEnc = carFlagEncoder.getAverageSpeedEnc();
-
-        logger.info("Writing street edges...");
         File outputFile = new File(configuredGraphHopper.getGraphHopperLocation() + "/street_edges.csv");
 
         // For each bidirectional edge in pre-built graph, calculate value of each CSV column
@@ -195,94 +185,13 @@ public class StreetEdgeExporter {
             try (CSVPrinter printer = new CSVPrinter(out, CSV_FORMAT)) {
                 while (edgeIterator.next()) {
                     totalEdgeCount++;
-                    // Fetch starting and ending vertices
-                    int ghEdgeId = edgeIterator.getEdge();
-                    int startVertex = edgeIterator.getBaseNode();
-                    int endVertex = edgeIterator.getAdjNode();
-                    double startLat = nodes.getLat(startVertex);
-                    double startLon = nodes.getLon(startVertex);
-                    double endLat = nodes.getLat(endVertex);
-                    double endLon = nodes.getLon(endVertex);
-
-                    // Get edge geometry for both edge directions, and distance
-                    PointList wayGeometry = edgeIterator.fetchWayGeometry(FetchMode.ALL);
-                    String geometryString = wayGeometry.toLineString(false).toString();
-                    wayGeometry.reverse();
-                    String reverseGeometryString = wayGeometry.toLineString(false).toString();
-
-                    long distanceMeters = Math.round(DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon));
-
-                    int speedcms = getSpeedcms(edgeIterator, avgSpeedEnc);
-
-                    // Convert GH's distance in meters to millimeters to match R5's implementation
-                    long distanceMillimeters = distanceMeters * 1000;
-
-                    // Fetch OSM ID, skipping edges from PT meta-graph that have no IDs set (getOsmIdForGhEdge returns -1)
-                    long osmId = OsmHelper.getOsmIdForGhEdge(edgeIterator.getEdge(), ghIdToOsmId);
-                    if (osmId == -1L) {
+                    List<StreetEdgeExportRecord> records = exporter.generateRecords(edgeIterator);
+                    if(records.isEmpty()){
                         skippedEdgeCount++;
-                        continue;
                     }
-
-                    // Use street name parsed from Ways/Relations, if it exists; otherwise, use default GH edge name
-                    String streetName = osmIdToStreetName.getOrDefault(osmId, edgeIterator.getName());
-
-                    // Grab OSM highway type and encoded stable IDs for both edge directions
-                    String highwayTag = osmIdToHighway.getOrDefault(osmId, edgeIterator.get(roadClassEnc).toString());
-                    String forwardStableEdgeId = stableIdEncodedValues.getStableId(false, edgeIterator);
-                    String backwardStableEdgeId = stableIdEncodedValues.getStableId(true, edgeIterator);
-
-                    // Set accessibility flags for each edge direction
-                    // Returned flags are from the set {ALLOWS_CAR, ALLOWS_BIKE, ALLOWS_PEDESTRIAN}
-                    String forwardFlags = OsmHelper.getFlagsForGhEdge(ghEdgeId, false, osmIdToAccessFlags, ghIdToOsmId);
-                    String backwardFlags = OsmHelper.getFlagsForGhEdge(ghEdgeId, true, osmIdToAccessFlags, ghIdToOsmId);
-
-                    // Calculate number of lanes for edge, as done in R5, based on OSM tags + edge direction
-                    int overallLanes = parseLanesTag(osmId, osmIdToLaneTags, "lanes");
-                    int forwardLanes = parseLanesTag(osmId, osmIdToLaneTags, "lanes:forward");
-                    int backwardLanes = parseLanesTag(osmId, osmIdToLaneTags, "lanes:backward");
-
-                    if (!backwardFlags.contains("ALLOWS_CAR")) {
-                        backwardLanes = 0;
-                    }
-                    if (backwardLanes == -1) {
-                        if (overallLanes != -1) {
-                            if (forwardLanes != -1) {
-                                backwardLanes = overallLanes - forwardLanes;
-                            }
-                        }
-                    }
-
-                    if (!forwardFlags.contains("ALLOWS_CAR")) {
-                        forwardLanes = 0;
-                    }
-                    if (forwardLanes == -1) {
-                        if (overallLanes != -1) {
-                            if (backwardLanes != -1) {
-                                forwardLanes = overallLanes - backwardLanes;
-                            } else if (forwardFlags.contains("ALLOWS_CAR")) {
-                                forwardLanes = overallLanes / 2;
-                            }
-                        }
-                    }
-
-                    // Copy R5's logic; filter out edges with unwanted highway tags and negative OSM IDs
-                    // todo: do negative OSM ids happen in GH? This might have been R5-specific
-                    if (!HIGHWAY_FILTER_TAGS.contains(highwayTag) && osmId >= 0) {
-                        // Print line for each edge direction, if edge is accessible.
-                        // Inaccessible edges have no flags set; flags are stored as stringified lists,
-                        // so innaccessible edges will have a flag equal to "[]", the empty list's toString().
-                        // Only remove inaccessible edges with highway tags of motorway or motorway_link
-                        if (!(forwardFlags.equals("[]") && INACCESSIBLE_MOTORWAY_TAGS.contains(highwayTag))) {
-                            printer.printRecord(forwardStableEdgeId, startVertex, endVertex,
-                                    startLat, startLon, endLat, endLon, geometryString, streetName,
-                                    distanceMillimeters, osmId, speedcms, forwardFlags, forwardLanes, highwayTag);
-                        }
-                        if (!(backwardFlags.equals("[]") && INACCESSIBLE_MOTORWAY_TAGS.contains(highwayTag))) {
-                            printer.printRecord(backwardStableEdgeId, endVertex, startVertex,
-                                    endLat, endLon, startLat, startLon, reverseGeometryString, streetName,
-                                    distanceMillimeters, osmId, speedcms, backwardFlags, backwardLanes, highwayTag);
-                        }
+                    for(StreetEdgeExportRecord r : records) {
+                        printer.printRecord(r.edgeId, r.startVertexId, r.endVertexId, r.startLat, r.startLon, r.endLat, r.endLon,
+                                r.geometryString, r.streetName, r.distanceMillimeters, r.osmId, r.speedCms, r.flags, r.lanes, r.highwayTag);
                     }
                 }
             }
