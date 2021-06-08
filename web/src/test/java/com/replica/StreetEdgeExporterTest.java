@@ -36,7 +36,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
-public class StreetEdgeExporterIntegrationTest {
+public class StreetEdgeExporterTest {
 
     private static final String TARGET_DIR = "./target/gtfs-app-gh/";
     private static final String TRANSIT_DATA_DIR = "transit_data/";
