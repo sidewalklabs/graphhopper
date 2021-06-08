@@ -1,7 +1,6 @@
 package com.replica;
 
 import com.google.common.base.Preconditions;
-import com.graphhopper.config.Profile;
 import com.graphhopper.http.GraphHopperApplication;
 import com.graphhopper.http.GraphHopperBundle;
 import com.graphhopper.http.GraphHopperServerConfiguration;
@@ -11,8 +10,6 @@ import com.graphhopper.replica.StreetEdgeExporter;
 import com.graphhopper.util.Helper;
 import io.dropwizard.cli.Cli;
 import io.dropwizard.setup.Bootstrap;
-import io.dropwizard.testing.junit5.DropwizardAppExtension;
-import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.util.JarLocation;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -21,12 +18,10 @@ import org.apache.commons.csv.CSVRecord;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,22 +30,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(DropwizardExtensionsSupport.class)
 public class StreetEdgeExporterTest {
 
     private static final String TARGET_DIR = "./target/gtfs-app-gh/";
     private static final String TRANSIT_DATA_DIR = "transit_data/";
-    public static final DropwizardAppExtension<GraphHopperServerConfiguration> app = new DropwizardAppExtension<>(GraphHopperApplication.class, createConfig());
-    private static GraphHopperServerConfiguration createConfig() {
-        GraphHopperServerConfiguration config = new GraphHopperServerConfiguration();
-        config.getGraphHopperConfiguration().
-                putObject("graph.flag_encoders", "car,foot").
-                putObject("datareader.file", "test-data/beatty.osm").
-                putObject("gtfs.file", "test-data/sample-feed.zip").
-                putObject("graph.location", TARGET_DIR).
-                setProfiles(Collections.singletonList(new Profile("car").setVehicle("car").setWeighting("fastest")));
-        return config;
-    }
 
     @BeforeAll
     public static void setUp() {
