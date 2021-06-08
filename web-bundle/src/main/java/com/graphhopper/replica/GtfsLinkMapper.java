@@ -123,7 +123,7 @@ public class GtfsLinkMapper {
                             routeIdToStopPairs.put(feed.trips.get(tripId).route_id, stopPair);
                         });
                 });
-            Set<Pair<Stop, Stop>> uniqueStopPairs = routeIdToStopPairs.values().stream().collect(Collectors.toSet());
+            Set<Pair<Stop, Stop>> uniqueStopPairs = Sets.newHashSet(routeIdToStopPairs.values());
 
             logger.info("There are " + streetBasedRouteIdsForFeed.size() + " GTFS routes containing "
                     + tripsForStreetBasedRoutes.size() + " total trips to process for this feed. Routes to be computed for "
@@ -179,6 +179,7 @@ public class GtfsLinkMapper {
 
             return getGtfsLinkCsvRowsForFeed(routeIdToStopPairs, gtfsLinkMappings).stream();
         }).sorted().collect(Collectors.toList());
+
         db.commit();
         db.close();
         logger.info("Done creating GTFS link mappings for " + gtfsFeedMap.size() + " GTFS feeds");
