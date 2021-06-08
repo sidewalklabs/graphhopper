@@ -18,6 +18,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,13 +31,16 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class StreetEdgeExporterTest {
 
     private static final String TARGET_DIR = "./target/gtfs-app-gh/";
     private static final String TRANSIT_DATA_DIR = "transit_data/";
 
+    private Cli cli;
+
     @BeforeAll
-    public static void setUp() {
+    public void setUp() {
         // Fresh target directory
         Helper.removeDir(new File(TARGET_DIR));
         // Create new empty directory for GTFS/OSM resources
@@ -45,16 +49,7 @@ public class StreetEdgeExporterTest {
             throw new IllegalStateException(TRANSIT_DATA_DIR + " directory should not already exist.");
         }
         Preconditions.checkState(transitDataDir.mkdir(), "could not create directory " + TRANSIT_DATA_DIR);
-    }
 
-    @AfterAll
-    public static void cleanUp() {
-        Helper.removeDir(new File(TARGET_DIR));
-        Helper.removeDir(new File(TRANSIT_DATA_DIR));
-    }
-
-    @Test
-    public void testExportEndToEnd() throws IOException {
         // Setup necessary mock
         final JarLocation location = mock(JarLocation.class);
         when(location.getVersion()).thenReturn(Optional.of("1.0.0"));
@@ -66,8 +61,18 @@ public class StreetEdgeExporterTest {
         bootstrap.addCommand(new ExportCommand());
 
         // Build what'll run the command and interpret arguments
-        Cli cli = new Cli(location, bootstrap, System.out, System.err);
+        cli = new Cli(location, bootstrap, System.out, System.err);
         cli.run("import", "test-data/beatty-sample-feed-config-car.yml");
+    }
+
+    @AfterAll
+    public static void cleanUp() {
+        Helper.removeDir(new File(TARGET_DIR));
+        Helper.removeDir(new File(TRANSIT_DATA_DIR));
+    }
+
+    @Test
+    public void testExportEndToEnd() throws IOException {
         cli.run("export", "test-data/beatty-sample-feed-config-car.yml");
         CSVFormat format = StreetEdgeExporter.CSV_FORMAT;
         File expectedOutputLocation = new File(TARGET_DIR + "street_edges.csv");
