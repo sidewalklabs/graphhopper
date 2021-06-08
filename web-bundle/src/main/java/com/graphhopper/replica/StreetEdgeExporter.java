@@ -46,8 +46,26 @@ public class StreetEdgeExporter {
     //
     private NodeAccess nodes;
     private DecimalEncodedValue avgSpeedEnc;
-    StableIdEncodedValues stableIdEncodedValues;
-    EnumEncodedValue<RoadClass> roadClassEnc;
+    private StableIdEncodedValues stableIdEncodedValues;
+    private EnumEncodedValue<RoadClass> roadClassEnc;
+
+    public StreetEdgeExporter(GraphHopper configuredGraphHopper, Map<Long, Map<String, String>> osmIdToLaneTags, Map<Integer, Long> ghIdToOsmId, Map<Long, List<String>> osmIdToAccessFlags, Map<Long, String> osmIdToStreetName, Map<Long, String> osmIdToHighway) {
+        this.osmIdToLaneTags = osmIdToLaneTags;
+        this.ghIdToOsmId = ghIdToOsmId;
+        this.osmIdToAccessFlags = osmIdToAccessFlags;
+        this.osmIdToStreetName = osmIdToStreetName;
+        this.osmIdToHighway = osmIdToHighway;
+
+        GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
+        nodes = graphHopperStorage.getNodeAccess();
+
+        // Setup encoders for determining speed and road type info for each edge
+        EncodingManager encodingManager = configuredGraphHopper.getEncodingManager();
+        stableIdEncodedValues = StableIdEncodedValues.fromEncodingManager(encodingManager);
+        roadClassEnc = encodingManager.getEnumEncodedValue(RoadClass.KEY, RoadClass.class);
+        CarFlagEncoder carFlagEncoder = (CarFlagEncoder)encodingManager.getEncoder("car");
+        avgSpeedEnc = carFlagEncoder.getAverageSpeedEnc();
+    }
 
     public List<StreetEdgeExportRecord> generateRecords(EdgeIteratorState iteratorState) {
         List<StreetEdgeExportRecord> output = new ArrayList<>();
