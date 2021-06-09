@@ -29,6 +29,7 @@ import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.exceptions.PointNotFoundException;
 import com.graphhopper.util.shapes.GHPoint;
+import com.timgroup.statsd.StatsDClient;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
@@ -54,24 +55,29 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     private Map<String, String> gtfsLinkMappings;
     private Map<String, List<String>> gtfsRouteInfo;
     private Map<String, String> gtfsFeedIdMapping;
-    // private final StatsDClient statsDClient;
+    private final StatsDClient statsDClient;
+    private String regionName;
 
     public RouterImpl(GraphHopper graphHopper, PtRouter ptRouter, MatrixAPI matrixAPI,
                       Map<String, String> gtfsLinkMappings,
                       Map<String, List<String>> gtfsRouteInfo,
-                      Map<String, String> gtfsFeedIdMapping
-                      /*StatsDClient statsDClient*/) {
+                      Map<String, String> gtfsFeedIdMapping,
+                      StatsDClient statsDClient,
+                      String regionName) {
         this.graphHopper = graphHopper;
         this.ptRouter = ptRouter;
         this.matrixAPI = matrixAPI;
         this.gtfsLinkMappings = gtfsLinkMappings;
         this.gtfsRouteInfo = gtfsRouteInfo;
         this.gtfsFeedIdMapping = gtfsFeedIdMapping;
-        // this.statsDClient = statsDClient;
+        this.statsDClient = statsDClient;
+        this.regionName = regionName;
     }
 
     @Override
     public void routeStreetMode(StreetRouteRequest request, StreamObserver<StreetRouteReply> responseObserver) {
+        long startTime = System.currentTimeMillis();
+
         GHRequest ghRequest = new GHRequest(
                 request.getPointsList().stream().map(p -> new GHPoint(p.getLat(), p.getLon())).collect(Collectors.toList())
         );
@@ -96,6 +102,12 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                         + ghRequest.getPoints().get(0).lat + "," + ghRequest.getPoints().get(0).lon + " to "
                         + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon;
                 // logger.warn(message);
+
+                double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
+                String[] tags = {"mode:" + request.getProfile(), "api:grpc", "routes_found:false"};
+                tags = applyRegionName(tags, regionName);
+                sendDatadogStats(statsDClient, tags, durationSeconds);
+
                 Status status = Status.newBuilder()
                         .setCode(Code.NOT_FOUND.getNumber())
                         .setMessage(message)
@@ -120,10 +132,10 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     );
                 }
 
-                /*
-                String[] datadogTags = {"mode:" + request.getProfile(), "api:grpc"};
-                statsDClient.incrementCounter("routers.num_requests", datadogTags);
-                */
+                double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
+                String[] tags = {"mode:" + request.getProfile(), "api:grpc", "routes_found:true"};
+                tags = applyRegionName(tags, regionName);
+                sendDatadogStats(statsDClient, tags, durationSeconds);
 
                 responseObserver.onNext(replyBuilder.build());
                 responseObserver.onCompleted();
@@ -133,6 +145,12 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     + ghRequest.getPoints().get(0).lat + "," + ghRequest.getPoints().get(0).lon + " to "
                     + ghRequest.getPoints().get(1).lat + "," + ghRequest.getPoints().get(1).lon;
             logger.error(message, e);
+
+            double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
+            String[] tags = {"mode:" + request.getProfile(), "api:grpc", "routes_found:error"};
+            tags = applyRegionName(tags, regionName);
+            sendDatadogStats(statsDClient, tags, durationSeconds);
+
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
                     .setMessage(message)
@@ -144,6 +162,8 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
     // TODO: Clean up code based on fix-it comments in PR #26
     @Override
     public void routeMatrix(MatrixRouteRequest request, StreamObserver<MatrixRouteReply> responseObserver) {
+        long startTime = System.currentTimeMillis();
+
         List<GHPoint> fromPoints = request.getFromPointsList().stream()
                 .map(p -> new GHPoint(p.getLat(), p.getLon())).collect(toList());
         List<GHPoint> toPoints = request.getToPointsList().stream()
@@ -158,10 +178,6 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
         try {
             GHMResponse ghMatrixResponse = matrixAPI.calc(ghMatrixRequest);
-            /*
-            String[] datadogTags = {"mode:" + request.getMode() + "_matrix", "api:grpc"};
-            statsDClient.incrementCounter("routers.num_requests", datadogTags);
-            */
 
             if (ghMatrixRequest.getFailFast() && ghMatrixResponse.hasInvalidPoints()) {
                 MatrixErrors matrixErrors = new MatrixErrors();
@@ -215,11 +231,22 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             List<MatrixRow> distanceRows = distanceList.stream()
                     .map(row -> MatrixRow.newBuilder().addAllValues(row).build()).collect(toList());
 
+            double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
+            String[] tags = {"mode:" + request.getMode() + "_matrix", "api:grpc", "routes_found:true"};
+            tags = applyRegionName(tags, regionName);
+            sendDatadogStats(statsDClient, tags, durationSeconds);
+
             MatrixRouteReply result = MatrixRouteReply.newBuilder().addAllTimes(timeRows).addAllDistances(distanceRows).build();
             responseObserver.onNext(result);
             responseObserver.onCompleted();
         } catch (Exception e) {
             logger.error("Error while completing GraphHopper matrix request! ", e);
+
+            double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
+            String[] tags = {"mode:" + request.getMode() + "_matrix", "api:grpc", "routes_found:false"};
+            tags = applyRegionName(tags, regionName);
+            sendDatadogStats(statsDClient, tags, durationSeconds);
+
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
                     .setMessage("GH internal error! Matrix request could not be completed.")
@@ -237,13 +264,15 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
     @Override
     public void routePt(PtRouteRequest request, StreamObserver<PtRouteReply> responseObserver) {
+        long startTime = System.currentTimeMillis();
+
         Point fromPoint = request.getPoints(0);
         Point toPoint = request.getPoints(1);
 
         Request ghPtRequest = new Request(fromPoint.getLat(), fromPoint.getLon(), toPoint.getLat(), toPoint.getLon());
         ghPtRequest.setEarliestDepartureTime(Instant.ofEpochSecond(
-                request.getEarliestDepartureTime().getSeconds(), request.getEarliestDepartureTime().getNanos())
-        );
+                request.getEarliestDepartureTime().getSeconds(), request.getEarliestDepartureTime().getNanos()
+        ));
         ghPtRequest.setLimitSolutions(request.getLimitSolutions());
         ghPtRequest.setLocale(Locale.US);
         ghPtRequest.setArriveBy(false);
@@ -251,6 +280,9 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         ghPtRequest.setProfileQuery(true);
         ghPtRequest.setMaxProfileDuration(Duration.ofMinutes(request.getMaxProfileDuration()));
         ghPtRequest.setBetaWalkTime(request.getBetaWalkTime());
+        ghPtRequest.setLimitStreetTime(Duration.ofSeconds(request.getLimitStreetTimeSeconds()));
+        ghPtRequest.setIgnoreTransfers(!request.getUsePareto()); // ignoreTransfers=true means pareto queries are off
+        ghPtRequest.setBetaTransfers(request.getBetaTransfers());
 
         try {
             GHResponse ghResponse = ptRouter.route(ghPtRequest);
@@ -301,6 +333,12 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                 String message = "Transit path could not be found between " + fromPoint.getLat() + "," +
                         fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon();
                 // logger.warn(message);
+
+                double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
+                String[] tags = {"mode:pt", "api:grpc", "routes_found:false"};
+                tags = applyRegionName(tags, regionName);
+                sendDatadogStats(statsDClient, tags, durationSeconds);
+
                 Status status = Status.newBuilder()
                         .setCode(Code.NOT_FOUND.getNumber())
                         .setMessage(message)
@@ -365,10 +403,10 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     );
                 }
 
-                /*
-                String[] datadogTags = {"mode:pt", "api:grpc"};
-                statsDClient.incrementCounter("routers.num_requests", datadogTags);
-                */
+                double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
+                String[] tags = {"mode:pt", "api:grpc", "routes_found:true"};
+                tags = applyRegionName(tags, regionName);
+                sendDatadogStats(statsDClient, tags, durationSeconds);
 
                 responseObserver.onNext(replyBuilder.build());
                 responseObserver.onCompleted();
@@ -378,6 +416,12 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                     fromPoint.getLon() + " to " + toPoint.getLat() + "," + toPoint.getLon() +
                     "; one or both endpoints could not be snapped to a road segment";
             // logger.warn(message);
+
+            double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
+            String[] tags = {"mode:pt", "api:grpc", "routes_found:false"};
+            tags = applyRegionName(tags, regionName);
+            sendDatadogStats(statsDClient, tags, durationSeconds);
+
             Status status = Status.newBuilder()
                     .setCode(Code.NOT_FOUND.getNumber())
                     .setMessage(message)
@@ -385,6 +429,12 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
             responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         } catch (Exception e) {
             logger.error("GraphHopper internal error! ", e);
+
+            double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
+            String[] tags = {"mode:pt", "api:grpc", "routes_found:error"};
+            tags = applyRegionName(tags, regionName);
+            sendDatadogStats(statsDClient, tags, durationSeconds);
+
             Status status = Status.newBuilder()
                     .setCode(Code.INTERNAL.getNumber())
                     .setMessage("GH internal error! Path could not be found between " + fromPoint.getLat() + "," +
@@ -481,5 +531,23 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
 
     private static String gtfsRouteInfoKey(Trip.PtLeg leg) {
         return leg.feed_id + ":" + leg.route_id;
+    }
+
+    private static void sendDatadogStats(StatsDClient statsDClient, String[] tags, double durationSeconds) {
+        if (statsDClient != null) {
+            statsDClient.incrementCounter("routers.num_requests", tags);
+            statsDClient.distribution("routers.request_seconds", durationSeconds, tags);
+        }
+    }
+
+    // If a region name has been set, add it to tag list
+    private static String[] applyRegionName(String[] tags, String regionName) {
+        if (regionName == null) {
+            return tags;
+        } else {
+            List<String> newTags = Lists.newArrayList(tags);
+            newTags.add("replica_region:" + regionName);
+            return newTags.toArray(new String[newTags.size()]);
+        }
     }
 }
