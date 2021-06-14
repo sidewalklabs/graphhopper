@@ -178,7 +178,7 @@ public class PtRouteResource {
         // Retrieve stable edge IDs for each stop->stop segment of leg
         List<String> stableEdgeIdSegments = Lists.newArrayList();
         for (int i = 0; i < stops.size() - 1; i++) {
-            String stopPair = stops.get(i).stop_id + "," + stops.get(i + 1).stop_id;
+            String stopPair = leg.feed_id + ":" + stops.get(i).stop_id + "," + stops.get(i + 1).stop_id;
             if (gtfsLinkMappings.containsKey(stopPair)) {
                 if (!gtfsLinkMappings.get(stopPair).isEmpty()) {
                     stableEdgeIdSegments.add(gtfsLinkMappings.get(stopPair));
