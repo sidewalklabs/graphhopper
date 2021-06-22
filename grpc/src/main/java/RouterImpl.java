@@ -436,7 +436,7 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
         String routeType = routeInfo.get(3);
 
         List<String> stableEdgeIdsList = Lists.newArrayList();
-        if (STREET_BASED_ROUTE_TYPES.contains(routeType)) {
+        if (STREET_BASED_ROUTE_TYPES.contains(Integer.parseInt(routeType))) {
             // Retrieve stable edge IDs for each stop->stop segment of leg
             List<Trip.Stop> stops = leg.stops;
             List<String> stableEdgeIdSegments = Lists.newArrayList();
