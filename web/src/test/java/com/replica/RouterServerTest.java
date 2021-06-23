@@ -18,15 +18,28 @@
 package com.replica;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Preconditions;
+import com.google.protobuf.Timestamp;
 import com.graphhopper.GHResponse;
-import com.graphhopper.config.Profile;
+import com.graphhopper.GraphHopper;
+import com.graphhopper.GraphHopperConfig;
+import com.graphhopper.gtfs.GraphHopperGtfs;
+import com.graphhopper.gtfs.PtRouter;
+import com.graphhopper.gtfs.PtRouterImpl;
+import com.graphhopper.gtfs.RealtimeFeed;
 import com.graphhopper.http.GraphHopperApplication;
 import com.graphhopper.http.GraphHopperBundle;
+import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.http.GraphHopperServerConfiguration;
 import com.graphhopper.http.cli.GtfsLinkMapperCommand;
 import com.graphhopper.http.cli.ImportCommand;
+import com.graphhopper.jackson.GraphHopperConfigModule;
+import com.graphhopper.jackson.Jackson;
 import com.graphhopper.resources.InfoResource;
+import com.graphhopper.routing.GHMatrixAPI;
+import com.graphhopper.routing.MatrixAPI;
 import com.graphhopper.util.Helper;
 import io.dropwizard.Configuration;
 import io.dropwizard.cli.Cli;
@@ -34,15 +47,26 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.testing.junit5.DropwizardAppExtension;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.util.JarLocation;
+import io.grpc.ManagedChannel;
+import io.grpc.Server;
+import io.grpc.inprocess.InProcessChannelBuilder;
+import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.protobuf.services.ProtoReflectionService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import java.io.File;
-import java.util.Collections;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -54,24 +78,80 @@ import static org.mockito.Mockito.when;
  * of stuff (which is different for PT than for the rest) is under test, too.
  */
 @ExtendWith(DropwizardExtensionsSupport.class)
-public class ReplicaRouteResourceTest {
+public class RouterServerTest {
+    private static final Logger logger = LoggerFactory.getLogger(RouterServerTest.class);
     private static final String TARGET_DIR = "./target/gtfs-app-gh/";
     private static final String TRANSIT_DATA_DIR = "transit_data/";
-    public static final DropwizardAppExtension<GraphHopperServerConfiguration> app = new DropwizardAppExtension<>(GraphHopperApplication.class, createConfig());
+    private static final String TEST_GRAPHHOPPER_CONFIG_PATH = "../test_gh_config.yaml";
+    private static final String TEST_REGION_NAME = "mini_nor_cal";
+    private static GraphHopperConfig graphHopperConfiguration = null;
+    private static router.RouterGrpc.RouterBlockingStub routerStub = null;
 
-    private static GraphHopperServerConfiguration createConfig() {
-        GraphHopperServerConfiguration config = new GraphHopperServerConfiguration();
-        config.getGraphHopperConfiguration().
-                putObject("graph.flag_encoders", "foot").
-                putObject("datareader.file", "test-data/beatty.osm").
-                putObject("gtfs.file", "test-data/sample-feed.zip").
-                putObject("graph.location", TARGET_DIR).
-                setProfiles(Collections.singletonList(new Profile("foot").setVehicle("foot").setWeighting("fastest")));
-        return config;
+    private static GraphHopperManaged loadGraphhopper() throws Exception {
+        ObjectMapper yaml = Jackson.initObjectMapper(new ObjectMapper(new YAMLFactory()));
+        yaml.registerModule(new GraphHopperConfigModule());
+        JsonNode yamlNode = yaml.readTree(new File(TEST_GRAPHHOPPER_CONFIG_PATH));
+        graphHopperConfiguration = yaml.convertValue(yamlNode.get("graphhopper"), GraphHopperConfig.class);
+        ObjectMapper json = Jackson.newObjectMapper();
+        GraphHopperManaged graphHopperManaged = new GraphHopperManaged(graphHopperConfiguration, json);
+        graphHopperManaged.start();
+        return graphHopperManaged;
+    }
+
+    private static void startTestServer() throws Exception {
+        GraphHopperManaged graphHopperManaged = loadGraphhopper();
+
+        // Grab instances of auto/bike/ped router and PT router (if applicable)
+        GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
+        PtRouter ptRouter = null;
+        if (graphHopper instanceof GraphHopperGtfs) {
+            ptRouter = new PtRouterImpl(graphHopper.getTranslationMap(), graphHopper.getGraphHopperStorage(),
+                    graphHopper.getLocationIndex(), ((GraphHopperGtfs) graphHopper).getGtfsStorage(),
+                    RealtimeFeed.empty(((GraphHopperGtfs) graphHopper).getGtfsStorage()),
+                    graphHopper.getPathDetailsBuilderFactory());
+        }
+
+        // Create matrix API instance
+        MatrixAPI matrixAPI = new GHMatrixAPI(graphHopper, graphHopperConfiguration);
+
+        // Load GTFS link mapping and GTFS info maps for use in building responses
+        Map<String, String> gtfsLinkMappings = null;
+        Map<String, List<String>> gtfsRouteInfo = null;
+        Map<String, String> gtfsFeedIdMapping = null;
+
+        File linkMappingsDbFile = new File("transit_data/gtfs_link_mappings.db");
+        if (linkMappingsDbFile.exists()) {
+            DB db = DBMaker.newFileDB(linkMappingsDbFile).readOnly().make();
+            gtfsLinkMappings = db.getHashMap("gtfsLinkMappings");
+            gtfsRouteInfo = db.getHashMap("gtfsRouteInfo");
+            gtfsFeedIdMapping = db.getHashMap("gtfsFeedIdMap");
+        }
+
+        String uniqueName = InProcessServerBuilder.generateName();
+        Server server = InProcessServerBuilder.forName(uniqueName)
+                .directExecutor() // directExecutor is fine for unit tests
+                .addService(new com.replica.RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings,
+                        gtfsRouteInfo, gtfsFeedIdMapping, null, TEST_REGION_NAME))
+                .addService(ProtoReflectionService.newInstance())
+                .build().start();
+        ManagedChannel channel = InProcessChannelBuilder.forName(uniqueName)
+                .directExecutor()
+                .build();
+
+        routerStub = router.RouterGrpc.newBlockingStub(channel);
+    }
+
+    private static String getGtfsTestFileList() {
+        StringBuilder list = new StringBuilder();
+        File dir = new File("test-data/mini_nor_cal_gtfs");
+        for (File file : dir.listFiles()) {
+            list.append("test-data/mini_nor_cal_gtfs/").append(file.getName()).append(",");
+        }
+        return list.substring(0, list.length() - 1); // remove final comma
     }
 
     @BeforeAll
-    public static void setUp() {
+    public static void setUp() throws Exception {
         // Fresh target directory
         Helper.removeDir(new File(TARGET_DIR));
         // Create new empty directory for GTFS/OSM resources
@@ -91,10 +171,12 @@ public class ReplicaRouteResourceTest {
         bootstrap.addCommand(new ImportCommand());
         bootstrap.addCommand(new GtfsLinkMapperCommand());
 
-        // Build what'll run the command and interpret arguments
+        // Run commands to build graph and GTFS link mappings for test region
         Cli cli = new Cli(location, bootstrap, System.out, System.err);
-        cli.run("import", "test-data/beatty-sample-feed-config.yml");
-        cli.run("gtfs_links", "test-data/beatty-sample-feed-config.yml");
+        cli.run("import", TEST_GRAPHHOPPER_CONFIG_PATH);
+        cli.run("gtfs_links", TEST_GRAPHHOPPER_CONFIG_PATH);
+
+        startTestServer();
     }
 
     @AfterAll
@@ -103,32 +185,57 @@ public class ReplicaRouteResourceTest {
         Helper.removeDir(new File(TRANSIT_DATA_DIR));
     }
 
-    @Test
-    public void testStationStationQuery() {
-        final Response response = clientTarget(app, "/route")
-                .queryParam("point", "Stop(NADAV)")
-                .queryParam("point", "Stop(NANAA)")
-                .queryParam("vehicle", "pt")
-                .queryParam("pt.earliest_departure_time", "2007-01-01T08:00:00Z")
-                .request().buildGet().invoke();
-        assertEquals(200, response.getStatus());
-        GHResponse ghResponse = response.readEntity(GHResponse.class);
-        assertFalse(ghResponse.hasErrors());
+    private static router.RouterOuterClass.StreetRouteRequest createStreetRequest(double startLat, double startLon,
+                                                                                  double endLat, double endLon, String mode) {
+        return router.RouterOuterClass.StreetRouteRequest.newBuilder()
+                .addPoints(0, router.RouterOuterClass.Point.newBuilder()
+                        .setLat(startLat)
+                        .setLon(startLon)
+                        .build())
+                .addPoints(1, router.RouterOuterClass.Point.newBuilder()
+                        .setLat(endLat)
+                        .setLon(endLon)
+                        .build())
+                .setAlternateRouteMaxPaths(5)
+                .setAlternateRouteMaxWeightFactor(2.0)
+                .setAlternateRouteMaxShareFactor(0.4)
+                .setProfile(mode)
+                .build();
+    }
+
+    private static router.RouterOuterClass.PtRouteRequest createPtRequest(double startLat, double startLon,
+                                                                          double endLat, double endLon, Timestamp earliestDepartureTime) {
+        return router.RouterOuterClass.PtRouteRequest.newBuilder()
+                .addPoints(0, router.RouterOuterClass.Point.newBuilder()
+                        .setLat(startLat)
+                        .setLon(startLon)
+                        .build())
+                .addPoints(1, router.RouterOuterClass.Point.newBuilder()
+                        .setLat(endLat)
+                        .setLon(endLon)
+                        .build())
+                .setEarliestDepartureTime(earliestDepartureTime)
+                .setLimitSolutions(4)
+                .setMaxProfileDuration(10)
+                .setBetaWalkTime(1.5)
+                .setLimitStreetTimeSeconds(1440)
+                .setUsePareto(false)
+                .setBetaTransfers(1440000)
+                .build();
     }
 
     @Test
     public void testPointPointQuery() {
-        final Response response = clientTarget(app, "/route-pt")
-                .queryParam("point", "36.914893,-116.76821") // NADAV stop
-                .queryParam("point", "36.914944,-116.761472") //NANAA stop
-                .queryParam("vehicle", "pt")
-                .queryParam("pt.earliest_departure_time", "2007-01-01T08:00:00Z")
-                .request().buildGet().invoke();
-        assertEquals(200, response.getStatus());
-        GHResponse ghResponse = response.readEntity(GHResponse.class);
-        assertFalse(ghResponse.hasErrors());
+        Timestamp earliestDepartureTime = Timestamp.newBuilder()
+                .setSeconds(Instant.parse("2019-10-13T08:00:00Z").toEpochMilli() / 1000)
+                .build();
+        final router.RouterOuterClass.PtRouteRequest request =
+                createPtRequest(38.61167530811, -121.4281356102, 38.56887346790, -121.5057265560, earliestDepartureTime);
+
+        final router.RouterOuterClass.PtRouteReply response = routerStub.routePt(request);
     }
 
+    /*
     @Test
     public void testWalkQuery() {
         final Response response = clientTarget(app, "/route")
@@ -224,5 +331,5 @@ public class ReplicaRouteResourceTest {
         }
         return path;
     }
-
+    */
 }

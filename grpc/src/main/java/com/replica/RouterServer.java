@@ -16,6 +16,8 @@
  *  limitations under the License.
  */
 
+package com.replica;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
