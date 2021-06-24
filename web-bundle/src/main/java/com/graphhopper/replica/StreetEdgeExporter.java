@@ -87,7 +87,8 @@ public class StreetEdgeExporter {
         String reverseGeometryString = wayGeometry.toLineString(false).toString();
 
         long distanceMeters = Math.round(DistanceCalcEarth.DIST_EARTH.calcDist(startLat, startLon, endLat, endLon));
-        int speedcms = getSpeedcms(iteratorState, avgSpeedEnc);
+        // Convert GH's km/h speed to cm/s to match R5's implementation
+        int speedcms = (int) (iteratorState.get(avgSpeedEnc) / 3.6 * 100);
 
         // Convert GH's distance in meters to millimeters to match R5's implementation
         long distanceMillimeters = distanceMeters * 1000;
@@ -162,8 +163,6 @@ public class StreetEdgeExporter {
         return output;
     }
 
-
-
     public static void writeStreetEdgesCsv(GraphHopper configuredGraphHopper,
                                             Map<Long, Map<String, String>> osmIdToLaneTags,
                                             Map<Integer, Long> ghIdToOsmId,
@@ -175,6 +174,8 @@ public class StreetEdgeExporter {
         GraphHopperStorage graphHopperStorage = configuredGraphHopper.getGraphHopperStorage();
         AllEdgesIterator edgeIterator = graphHopperStorage.getAllEdges();
         File outputFile = new File(configuredGraphHopper.getGraphHopperLocation() + "/street_edges.csv");
+
+        logger.info("Writing street edges...");
 
         // For each bidirectional edge in pre-built graph, calculate value of each CSV column
         // and export new line for each edge direction
@@ -205,13 +206,6 @@ public class StreetEdgeExporter {
             logger.error("Output file can't be found! Export may not have completed successfully");
         }
     }
-
-    private static int getSpeedcms(EdgeIteratorState edgeIterator, DecimalEncodedValue avgSpeedEnc) {
-        // Convert GH's km/h speed to cm/s to match R5's implementation
-        // Note that this is dependent on edgesIterator state
-        return (int) (edgeIterator.get(avgSpeedEnc) / 3.6 * 100);
-    }
-
 
     // Taken from R5's lane parsing logic. See EdgeServiceServer.java in R5 repo
     private static int parseLanesTag(long osmId, Map<Long, Map<String, String>> osmIdToLaneTags, String laneTag) {
