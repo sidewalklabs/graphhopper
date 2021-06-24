@@ -21,8 +21,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Timestamp;
-import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.GraphHopperConfig;
 import com.graphhopper.gtfs.GraphHopperGtfs;
@@ -37,14 +37,11 @@ import com.graphhopper.http.cli.GtfsLinkMapperCommand;
 import com.graphhopper.http.cli.ImportCommand;
 import com.graphhopper.jackson.GraphHopperConfigModule;
 import com.graphhopper.jackson.Jackson;
-import com.graphhopper.resources.InfoResource;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
 import com.graphhopper.util.Helper;
-import io.dropwizard.Configuration;
 import io.dropwizard.cli.Cli;
 import io.dropwizard.setup.Bootstrap;
-import io.dropwizard.testing.junit5.DropwizardAppExtension;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.util.JarLocation;
 import io.grpc.ManagedChannel;
@@ -60,9 +57,8 @@ import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import router.RouterOuterClass;
 
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.Response;
 import java.io.File;
 import java.time.Instant;
 import java.util.List;
@@ -83,7 +79,15 @@ public class RouterServerTest {
     private static final String TARGET_DIR = "./target/gtfs-app-gh/";
     private static final String TRANSIT_DATA_DIR = "transit_data/";
     private static final String TEST_GRAPHHOPPER_CONFIG_PATH = "../test_gh_config.yaml";
-    private static final String TEST_REGION_NAME = "mini_nor_cal";
+    private static final String TEST_REGION_NAME = "mini_kc";
+    private static final String TEST_GTFS_FILE_NAME = "mini_kc_gtfs.tar";
+
+    private static final Timestamp EARLIEST_DEPARTURE_TIME =
+            Timestamp.newBuilder().setSeconds(Instant.parse("2017-07-21T08:25:00Z").toEpochMilli() / 1000).build();
+    final router.RouterOuterClass.PtRouteRequest PT_REQUEST =
+            createPtRequest(38.96637569955874, -94.70833304570988,
+                    38.959204519370815, -94.69174071738964, EARLIEST_DEPARTURE_TIME);
+
     private static GraphHopperConfig graphHopperConfiguration = null;
     private static router.RouterGrpc.RouterBlockingStub routerStub = null;
 
@@ -141,19 +145,11 @@ public class RouterServerTest {
         routerStub = router.RouterGrpc.newBlockingStub(channel);
     }
 
-    private static String getGtfsTestFileList() {
-        StringBuilder list = new StringBuilder();
-        File dir = new File("test-data/mini_nor_cal_gtfs");
-        for (File file : dir.listFiles()) {
-            list.append("test-data/mini_nor_cal_gtfs/").append(file.getName()).append(",");
-        }
-        return list.substring(0, list.length() - 1); // remove final comma
-    }
-
     @BeforeAll
     public static void setUp() throws Exception {
-        // Fresh target directory
+        // Fresh target + transit_dir directories
         Helper.removeDir(new File(TARGET_DIR));
+        Helper.removeDir(new File(TRANSIT_DATA_DIR));
         // Create new empty directory for GTFS/OSM resources
         File transitDataDir = new File(TRANSIT_DATA_DIR);
         if (transitDataDir.exists()) {
@@ -225,14 +221,54 @@ public class RouterServerTest {
     }
 
     @Test
-    public void testPointPointQuery() {
-        Timestamp earliestDepartureTime = Timestamp.newBuilder()
-                .setSeconds(Instant.parse("2019-10-13T08:00:00Z").toEpochMilli() / 1000)
-                .build();
-        final router.RouterOuterClass.PtRouteRequest request =
-                createPtRequest(38.61167530811, -121.4281356102, 38.56887346790, -121.5057265560, earliestDepartureTime);
+    public void testPublicTransitQuery() {
+        final router.RouterOuterClass.PtRouteReply response = routerStub.routePt(PT_REQUEST);
 
-        final router.RouterOuterClass.PtRouteReply response = routerStub.routePt(request);
+        // Check details of Path are set correctly
+        assertEquals(1, response.getPathsList().size());
+        RouterOuterClass.PtPath path = response.getPaths(0);
+        assertEquals(1, path.getPtLegsList().size());
+        assertEquals(2, path.getFootLegsList().size());
+        assertTrue(path.getDistanceMeters() > 0);
+        assertTrue(path.getDurationMillis() > 0);
+
+        // Check that foot legs contain proper info
+        List<String> observedTravelSegmentTypes = Lists.newArrayList();
+        List<String> expectedTravelSegmentTypes = Lists.newArrayList("ACCESS", "EGRESS");
+        double observedDistanceMeters = 0;
+        for (RouterOuterClass.FootLeg footLeg : path.getFootLegsList()) {
+            assertTrue(footLeg.getStableEdgeIdsCount() > 0);
+            assertTrue(footLeg.getArrivalTime().getSeconds() > footLeg.getDepartureTime().getSeconds());
+            assertTrue(footLeg.getDistanceMeters() > 0);
+            assertFalse(footLeg.getTravelSegmentType().isEmpty());
+            observedTravelSegmentTypes.add(footLeg.getTravelSegmentType());
+            observedDistanceMeters += footLeg.getDistanceMeters();
+        }
+        assertEquals(expectedTravelSegmentTypes, observedTravelSegmentTypes);
+        // todo: once PT legs have distances, incorporate those in this check
+        assertEquals(path.getDistanceMeters(), observedDistanceMeters);
+
+        // Check that PT leg contains proper info
+        RouterOuterClass.PtLeg ptLeg = path.getPtLegs(0);
+        assertTrue(ptLeg.getArrivalTime().getSeconds() > ptLeg.getDepartureTime().getSeconds());
+        assertTrue(ptLeg.getStableEdgeIdsCount() > 0); // check that the GTFS link mapper worked
+
+        assertFalse(ptLeg.getTripId().isEmpty());
+        assertFalse(ptLeg.getRouteId().isEmpty());
+        assertFalse(ptLeg.getAgencyName().isEmpty());
+        assertFalse(ptLeg.getRouteShortName().isEmpty());
+        assertFalse(ptLeg.getRouteLongName().isEmpty());
+        assertFalse(ptLeg.getRouteType().isEmpty());
+        assertFalse(ptLeg.getDirection().isEmpty());
+
+        // Check stops in PT leg
+        assertTrue(ptLeg.getStopsList().size() > 0);
+        for (RouterOuterClass.Stop stop : ptLeg.getStopsList()) {
+            assertFalse(stop.getStopId().isEmpty());
+            assertTrue(stop.getStopId().startsWith(TEST_GTFS_FILE_NAME));
+            assertFalse(stop.getStopName().isEmpty());
+            assertTrue(stop.hasPoint());
+        }
     }
 
     /*
