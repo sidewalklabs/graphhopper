@@ -45,7 +45,6 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.util.JarLocation;
 import io.grpc.ManagedChannel;
-import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
@@ -70,7 +69,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Tests the entire app, not the resource, so that the plugging-together
+ * Tests the entire server, not the server implementation itself, so that the plugging-together
  * of stuff (which is different for PT than for the rest) is under test, too.
  */
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -84,9 +83,18 @@ public class RouterServerTest {
 
     private static final Timestamp EARLIEST_DEPARTURE_TIME =
             Timestamp.newBuilder().setSeconds(Instant.parse("2017-07-21T08:25:00Z").toEpochMilli() / 1000).build();
-    final router.RouterOuterClass.PtRouteRequest PT_REQUEST =
+    private static final RouterOuterClass.PtRouteRequest PT_REQUEST =
             createPtRequest(38.96637569955874, -94.70833304570988,
                     38.959204519370815, -94.69174071738964, EARLIEST_DEPARTURE_TIME);
+    private static final RouterOuterClass.StreetRouteRequest AUTO_REQUEST =
+            createStreetRequest(38.96637569955874, -94.70833304570988,
+                    38.959204519370815, -94.69174071738964, "car", false);
+    private static final RouterOuterClass.StreetRouteRequest AUTO_REQUEST_WITH_ALTERNATIVES =
+            createStreetRequest(38.96637569955874, -94.70833304570988,
+                    38.959204519370815, -94.69174071738964, "car", true);
+    private static final RouterOuterClass.StreetRouteRequest WALK_REQUEST =
+            createStreetRequest(38.96637569955874, -94.70833304570988,
+                    38.959204519370815, -94.69174071738964, "foot", false);
 
     private static GraphHopperConfig graphHopperConfiguration = null;
     private static router.RouterGrpc.RouterBlockingStub routerStub = null;
@@ -103,6 +111,7 @@ public class RouterServerTest {
     }
 
     private static void startTestServer() throws Exception {
+        // Load Graphhopper using already-built graph files
         GraphHopperManaged graphHopperManaged = loadGraphhopper();
 
         // Grab instances of auto/bike/ped router and PT router (if applicable)
@@ -131,8 +140,9 @@ public class RouterServerTest {
             gtfsFeedIdMapping = db.getHashMap("gtfsFeedIdMap");
         }
 
+        // Start in-process test server + instantiate stub
         String uniqueName = InProcessServerBuilder.generateName();
-        Server server = InProcessServerBuilder.forName(uniqueName)
+        InProcessServerBuilder.forName(uniqueName)
                 .directExecutor() // directExecutor is fine for unit tests
                 .addService(new com.replica.RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings,
                         gtfsRouteInfo, gtfsFeedIdMapping, null, TEST_REGION_NAME))
@@ -181,32 +191,34 @@ public class RouterServerTest {
         Helper.removeDir(new File(TRANSIT_DATA_DIR));
     }
 
-    private static router.RouterOuterClass.StreetRouteRequest createStreetRequest(double startLat, double startLon,
-                                                                                  double endLat, double endLon, String mode) {
-        return router.RouterOuterClass.StreetRouteRequest.newBuilder()
-                .addPoints(0, router.RouterOuterClass.Point.newBuilder()
+    private static RouterOuterClass.StreetRouteRequest createStreetRequest(double startLat, double startLon,
+                                                                           double endLat, double endLon,
+                                                                           String mode, boolean alternatives) {
+        return RouterOuterClass.StreetRouteRequest.newBuilder()
+                .addPoints(0, RouterOuterClass.Point.newBuilder()
                         .setLat(startLat)
                         .setLon(startLon)
                         .build())
-                .addPoints(1, router.RouterOuterClass.Point.newBuilder()
+                .addPoints(1, RouterOuterClass.Point.newBuilder()
                         .setLat(endLat)
                         .setLon(endLon)
                         .build())
-                .setAlternateRouteMaxPaths(5)
+                .setProfile(mode)
+                .setAlternateRouteMaxPaths(alternatives ? 5 : 0)
                 .setAlternateRouteMaxWeightFactor(2.0)
                 .setAlternateRouteMaxShareFactor(0.4)
-                .setProfile(mode)
                 .build();
     }
 
-    private static router.RouterOuterClass.PtRouteRequest createPtRequest(double startLat, double startLon,
-                                                                          double endLat, double endLon, Timestamp earliestDepartureTime) {
-        return router.RouterOuterClass.PtRouteRequest.newBuilder()
-                .addPoints(0, router.RouterOuterClass.Point.newBuilder()
+    private static RouterOuterClass.PtRouteRequest createPtRequest(double startLat, double startLon,
+                                                                   double endLat, double endLon,
+                                                                   Timestamp earliestDepartureTime) {
+        return RouterOuterClass.PtRouteRequest.newBuilder()
+                .addPoints(0, RouterOuterClass.Point.newBuilder()
                         .setLat(startLat)
                         .setLon(startLon)
                         .build())
-                .addPoints(1, router.RouterOuterClass.Point.newBuilder()
+                .addPoints(1, RouterOuterClass.Point.newBuilder()
                         .setLat(endLat)
                         .setLon(endLon)
                         .build())
@@ -222,7 +234,7 @@ public class RouterServerTest {
 
     @Test
     public void testPublicTransitQuery() {
-        final router.RouterOuterClass.PtRouteReply response = routerStub.routePt(PT_REQUEST);
+        final RouterOuterClass.PtRouteReply response = routerStub.routePt(PT_REQUEST);
 
         // Check details of Path are set correctly
         assertEquals(1, response.getPathsList().size());
@@ -271,19 +283,45 @@ public class RouterServerTest {
         }
     }
 
-    /*
     @Test
-    public void testWalkQuery() {
-        final Response response = clientTarget(app, "/route")
-                .queryParam("point", "36.914893,-116.76821")
-                .queryParam("point", "36.914944,-116.761472")
-                .queryParam("profile", "foot")
-                .request().buildGet().invoke();
-        assertEquals(200, response.getStatus());
-        GHResponse ghResponse = response.readEntity(GHResponse.class);
-        assertFalse(ghResponse.hasErrors());
+    public void testAutoQuery() {
+        final RouterOuterClass.StreetRouteReply response = routerStub.routeStreetMode(AUTO_REQUEST);
+        checkStreetBasedResponse(response, false);
     }
 
+    @Test
+    public void testWalkQuery() {
+        final RouterOuterClass.StreetRouteReply response = routerStub.routeStreetMode(WALK_REQUEST);
+        checkStreetBasedResponse(response, false);
+    }
+
+    @Test
+    public void testAutoQueryWithAlternatives() {
+        final RouterOuterClass.StreetRouteReply response = routerStub.routeStreetMode(AUTO_REQUEST_WITH_ALTERNATIVES);
+        checkStreetBasedResponse(response, true);
+    }
+
+    private static void checkStreetBasedResponse(RouterOuterClass.StreetRouteReply response, boolean alternatives) {
+        assertTrue(alternatives ? response.getPathsList().size() > 1 : response.getPathsList().size() == 1);
+        RouterOuterClass.StreetPath path = response.getPaths(0);
+        assertTrue(path.getDurationMillis() > 0);
+        assertTrue(path.getDistanceMeters() > 0);
+        assertTrue(path.getStableEdgeIdsCount() > 0);
+        assertEquals(path.getStableEdgeIdsCount(), path.getEdgeDurationsMillisCount());
+        int totalDurationMillis = path.getEdgeDurationsMillisList().stream().mapToInt(Long::intValue).sum();
+        assertEquals(path.getDurationMillis(), totalDurationMillis);
+    }
+
+    @Test
+    public void testAutoFasterThanWalk() {
+        final RouterOuterClass.StreetRouteReply autoResponse = routerStub.routeStreetMode(AUTO_REQUEST);
+        final RouterOuterClass.StreetRouteReply walkResponse = routerStub.routeStreetMode(WALK_REQUEST);
+        assertTrue(autoResponse.getPaths(0).getDurationMillis() <
+                walkResponse.getPaths(0).getDurationMillis());
+    }
+
+
+    /*
     @Test
     public void testNoPoints() {
         final Response response = clientTarget(app, "/route")
@@ -349,23 +387,6 @@ public class RouterServerTest {
         InfoResource.Info info = response.readEntity(InfoResource.Info.class);
         assertTrue(info.supported_vehicles.contains("pt"));
         assertTrue(info.profiles.stream().anyMatch(p -> p.name.equals("pt")));
-    }
-
-    public static WebTarget clientTarget(DropwizardAppExtension<? extends Configuration> app, String path) {
-        path = prefixPathWithSlash(path);
-        return app.client().target(clientUrl(app, path));
-    }
-
-    public static String clientUrl(DropwizardAppExtension<? extends Configuration> app, String path) {
-        path = prefixPathWithSlash(path);
-        return "http://localhost:" + app.getLocalPort() + path;
-    }
-
-    private static String prefixPathWithSlash(String path) {
-        if (!path.startsWith("/")) {
-            path = "/" + path;
-        }
-        return path;
     }
     */
 }
