@@ -142,7 +142,7 @@ public class RouterServerTest {
         String uniqueName = InProcessServerBuilder.generateName();
         InProcessServerBuilder.forName(uniqueName)
                 .directExecutor() // directExecutor is fine for unit tests
-                .addService(new com.replica.RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings,
+                .addService(new RouterImpl(graphHopper, ptRouter, matrixAPI, gtfsLinkMappings,
                         gtfsRouteInfo, gtfsFeedIdMapping, null, TEST_REGION_NAME))
                 .addService(ProtoReflectionService.newInstance())
                 .build().start();

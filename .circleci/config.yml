@@ -3,6 +3,10 @@
 # Check https://circleci.com/docs/2.0/language-java/ for more details
 #
 version: 2
+
+orbs:
+  maven: circleci/maven@0.0.12
+
 jobs:
   publish-docker:
     docker:
@@ -35,3 +39,6 @@ workflows:
   build-and-publish:
     jobs:
       - publish-docker
+  maven_test:
+    jobs:
+      - maven/test
