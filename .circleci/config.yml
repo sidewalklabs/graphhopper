@@ -42,6 +42,5 @@ workflows:
   maven_test:
     jobs:
       - maven/test:
-          app_src_directory: ~/repo
           settings_file: maven_settings.xml
           command: -DGRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN -DGIT_USER_ID=$GIT_USER_ID -DGIT_PERSONAL_ACCESS=$GIT_PERSONAL_ACCESS test
