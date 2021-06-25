@@ -7,7 +7,7 @@ version: 2.1
 jobs:
   test:
     docker:
-      - image: maven/3.6.3-adoptopenjdk-14
+      - image: circleci/openjdk:14-jdk
     environment:
       MAVEN_OPTS: -Xmx1000m
     steps:
