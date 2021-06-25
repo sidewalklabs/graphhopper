@@ -4,10 +4,15 @@
 #
 version: 2.1
 
-orbs:
-  maven: circleci/maven@1.2.0
-
 jobs:
+  test:
+    docker:
+      - image: circleci/openjdk:8-jdk
+    environment:
+      MAVEN_OPTS: -Xmx1000m
+    steps:
+      - checkout
+      - run: mvn -s maven_settings.xml test
   publish-docker:
     docker:
       - image: google/cloud-sdk
@@ -39,8 +44,6 @@ workflows:
   build-and-publish:
     jobs:
       - publish-docker
-  maven_test:
+  test:
     jobs:
-      - maven/test:
-          settings_file: maven_settings.xml
-          verify_dependencies: false
+      - test
