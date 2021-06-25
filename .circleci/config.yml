@@ -42,4 +42,8 @@ workflows:
   maven_test:
     jobs:
       - maven/test:
+          environment:
+            GRAPHHOPPER_TOKEN: $GRAPHHOPPER_TOKEN
+            GIT_USER_ID: $GIT_USER_ID
+            GIT_PERSONAL_ACCESS: $GIT_PERSONAL_ACCESS
           settings_file: maven_settings.xml
