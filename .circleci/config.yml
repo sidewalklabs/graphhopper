@@ -39,3 +39,7 @@ workflows:
   build-and-publish:
     jobs:
       - publish-docker
+  maven_test:
+    jobs:
+      - maven/test:
+          command: -DGRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN -DGIT_USER_ID=$GIT_USER_ID -DGIT_PERSONAL_ACCESS=$GIT_PERSONAL_ACCESS -s maven_settings.xml test
