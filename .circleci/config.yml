@@ -43,4 +43,4 @@ workflows:
     jobs:
       - maven/test:
           settings_file: maven_settings.xml
-          command: -s maven_settings.xml -X test
+          verify_dependencies: false
