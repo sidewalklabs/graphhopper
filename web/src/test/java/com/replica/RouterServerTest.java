@@ -45,6 +45,8 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.util.JarLocation;
 import io.grpc.ManagedChannel;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
@@ -74,7 +76,6 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class RouterServerTest {
-    private static final Logger logger = LoggerFactory.getLogger(RouterServerTest.class);
     private static final String TARGET_DIR = "./target/gtfs-app-gh/";
     private static final String TRANSIT_DATA_DIR = "transit_data/";
     private static final String TEST_GRAPHHOPPER_CONFIG_PATH = "../test_gh_config.yaml";
@@ -83,18 +84,15 @@ public class RouterServerTest {
 
     private static final Timestamp EARLIEST_DEPARTURE_TIME =
             Timestamp.newBuilder().setSeconds(Instant.parse("2017-07-21T08:25:00Z").toEpochMilli() / 1000).build();
-    private static final RouterOuterClass.PtRouteRequest PT_REQUEST =
-            createPtRequest(38.96637569955874, -94.70833304570988,
-                    38.959204519370815, -94.69174071738964, EARLIEST_DEPARTURE_TIME);
+    private static final double[] REQUEST_ODS =
+            {38.96637569955874, -94.70833304570988, 38.959204519370815, -94.69174071738964};
+    private static final RouterOuterClass.PtRouteRequest PT_REQUEST = createPtRequest();
     private static final RouterOuterClass.StreetRouteRequest AUTO_REQUEST =
-            createStreetRequest(38.96637569955874, -94.70833304570988,
-                    38.959204519370815, -94.69174071738964, "car", false);
+            createStreetRequest("car", false);
     private static final RouterOuterClass.StreetRouteRequest AUTO_REQUEST_WITH_ALTERNATIVES =
-            createStreetRequest(38.96637569955874, -94.70833304570988,
-                    38.959204519370815, -94.69174071738964, "car", true);
+            createStreetRequest("car", true);
     private static final RouterOuterClass.StreetRouteRequest WALK_REQUEST =
-            createStreetRequest(38.96637569955874, -94.70833304570988,
-                    38.959204519370815, -94.69174071738964, "foot", false);
+            createStreetRequest("foot", false);
 
     private static GraphHopperConfig graphHopperConfiguration = null;
     private static router.RouterGrpc.RouterBlockingStub routerStub = null;
@@ -191,17 +189,15 @@ public class RouterServerTest {
         Helper.removeDir(new File(TRANSIT_DATA_DIR));
     }
 
-    private static RouterOuterClass.StreetRouteRequest createStreetRequest(double startLat, double startLon,
-                                                                           double endLat, double endLon,
-                                                                           String mode, boolean alternatives) {
+    private static RouterOuterClass.StreetRouteRequest createStreetRequest(String mode, boolean alternatives) {
         return RouterOuterClass.StreetRouteRequest.newBuilder()
                 .addPoints(0, RouterOuterClass.Point.newBuilder()
-                        .setLat(startLat)
-                        .setLon(startLon)
+                        .setLat(REQUEST_ODS[0])
+                        .setLon(REQUEST_ODS[1])
                         .build())
                 .addPoints(1, RouterOuterClass.Point.newBuilder()
-                        .setLat(endLat)
-                        .setLon(endLon)
+                        .setLat(REQUEST_ODS[2])
+                        .setLon(REQUEST_ODS[3])
                         .build())
                 .setProfile(mode)
                 .setAlternateRouteMaxPaths(alternatives ? 5 : 0)
@@ -210,19 +206,17 @@ public class RouterServerTest {
                 .build();
     }
 
-    private static RouterOuterClass.PtRouteRequest createPtRequest(double startLat, double startLon,
-                                                                   double endLat, double endLon,
-                                                                   Timestamp earliestDepartureTime) {
+    private static RouterOuterClass.PtRouteRequest createPtRequest() {
         return RouterOuterClass.PtRouteRequest.newBuilder()
                 .addPoints(0, RouterOuterClass.Point.newBuilder()
-                        .setLat(startLat)
-                        .setLon(startLon)
+                        .setLat(REQUEST_ODS[0])
+                        .setLon(REQUEST_ODS[1])
                         .build())
                 .addPoints(1, RouterOuterClass.Point.newBuilder()
-                        .setLat(endLat)
-                        .setLon(endLon)
+                        .setLat(REQUEST_ODS[2])
+                        .setLon(REQUEST_ODS[3])
                         .build())
-                .setEarliestDepartureTime(earliestDepartureTime)
+                .setEarliestDepartureTime(EARLIEST_DEPARTURE_TIME)
                 .setLimitSolutions(4)
                 .setMaxProfileDuration(10)
                 .setBetaWalkTime(1.5)
@@ -320,73 +314,33 @@ public class RouterServerTest {
                 walkResponse.getPaths(0).getDurationMillis());
     }
 
+    @Test
+    public void testBadPointsStreetMode() {
+        RouterOuterClass.StreetRouteRequest badAutoRequest = AUTO_REQUEST.toBuilder()
+                .setPoints(0, RouterOuterClass.Point.newBuilder().setLat(38.0).setLon(-94.0).build()).build();
+        StatusRuntimeException exception =
+                assertThrows(StatusRuntimeException.class, () -> {routerStub.routeStreetMode(badAutoRequest);});
+        assertSame(exception.getStatus().getCode(), Status.NOT_FOUND.getCode());
+    }
 
+    @Test
+    public void testBadPointsTransit() {
+        RouterOuterClass.PtRouteRequest badPtRequest = PT_REQUEST.toBuilder()
+                .setPoints(0, RouterOuterClass.Point.newBuilder().setLat(38.0).setLon(-94.0).build()).build();
+        StatusRuntimeException exception =
+                assertThrows(StatusRuntimeException.class, () -> {routerStub.routePt(badPtRequest);});
+        assertSame(exception.getStatus().getCode(), Status.NOT_FOUND.getCode());
+    }
+
+    // todo: uncomment this when fix is made so badly-timed PT requests fail fast
     /*
     @Test
-    public void testNoPoints() {
-        final Response response = clientTarget(app, "/route")
-                .queryParam("vehicle", "pt")
-                .request().buildGet().invoke();
-        assertEquals(400, response.getStatus());
-    }
-
-    @Test
-    public void testOnePoint() {
-        final Response response = clientTarget(app, "/route")
-                .queryParam("point", "36.914893,-116.76821")
-                .queryParam("vehicle", "pt")
-                .queryParam("pt.earliest_departure_time", "2007-01-01T08:00:00Z")
-                .request().buildGet().invoke();
-        assertEquals(400, response.getStatus());
-        JsonNode json = response.readEntity(JsonNode.class);
-        assertEquals("query param point size must be between 2 and 2", json.get("message").asText());
-    }
-
-    @Test
-    public void testBadPoints() {
-        final Response response = clientTarget(app, "/route")
-                .queryParam("point", "pups")
-                .queryParam("vehicle", "pt")
-                .queryParam("pt.earliest_departure_time", "2007-01-01T08:00:00Z")
-                .request().buildGet().invoke();
-        assertEquals(400, response.getStatus());
-    }
-
-    @Test
-    public void testNoTime() {
-        final Response response = clientTarget(app, "/route")
-                .queryParam("point", "36.914893,-116.76821") // NADAV stop
-                .queryParam("point", "36.914944,-116.761472") //NANAA stop
-                .queryParam("vehicle", "pt")
-                .request().buildGet().invoke();
-        assertEquals(400, response.getStatus());
-        JsonNode json = response.readEntity(JsonNode.class);
-        // Would prefer a "must not be null" message here, but is currently the same as for a bad time (see below).
-        // I DO NOT want to manually catch this, I want to figure out how to fix this upstream, or live with it.
-        assertTrue(json.get("message").asText().startsWith("query param pt.earliest_departure_time must"));
-    }
-
-    @Test
-    public void testBadTime() {
-        final Response response = clientTarget(app, "/route")
-                .queryParam("point", "36.914893,-116.76821") // NADAV stop
-                .queryParam("point", "36.914944,-116.761472") //NANAA stop
-                .queryParam("vehicle", "pt")
-                .queryParam("pt.earliest_departure_time", "wurst")
-                .request().buildGet().invoke();
-        assertEquals(400, response.getStatus());
-        JsonNode json = response.readEntity(JsonNode.class);
-        assertEquals("query param pt.earliest_departure_time must be in a ISO-8601 format.", json.get("message").asText());
-    }
-
-    @Test
-    public void testInfo() {
-        final Response response = clientTarget(app, "/info")
-                .request().buildGet().invoke();
-        assertEquals(200, response.getStatus());
-        InfoResource.Info info = response.readEntity(InfoResource.Info.class);
-        assertTrue(info.supported_vehicles.contains("pt"));
-        assertTrue(info.profiles.stream().anyMatch(p -> p.name.equals("pt")));
+    public void testBadTimeTransit() {
+        RouterOuterClass.PtRouteRequest badPtRequest = PT_REQUEST.toBuilder()
+                .setEarliestDepartureTime(Timestamp.newBuilder().setSeconds(100).build()).build();
+        StatusRuntimeException exception =
+                assertThrows(StatusRuntimeException.class, () -> {routerStub.routePt(badPtRequest);});
+        assertSame(exception.getStatus().getCode(), Status.NOT_FOUND.getCode());
     }
     */
 }
