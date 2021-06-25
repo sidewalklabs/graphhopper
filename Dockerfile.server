@@ -1,14 +1,14 @@
 ARG BASE_IMAGE
-FROM $BASE_IMAGE
+FROM $BASE_IMAGE as base
 
 # copy over JARs + web assets + config YAMLs for running server
 FROM openjdk:14.0.2-jdk-slim-buster
 
 RUN mkdir -p /data
 WORKDIR /graphhopper
-COPY --from=BASE_IMAGE /graphhopper/grpc/target/*.jar ./grpc/target/
-COPY --from=BASE_IMAGE /graphhopper/web/target/*.jar ./web/target/
-COPY --from=BASE_IMAGE /graphhopper/grpc/src/main/resources ./grpc/src/main/resources
+COPY --from=base /graphhopper/grpc/target/*.jar ./grpc/target/
+COPY --from=base /graphhopper/web/target/*.jar ./web/target/
+COPY --from=base /graphhopper/grpc/src/main/resources ./grpc/src/main/resources
 # pom.xml is used to get the jar file version. see https://github.com/graphhopper/graphhopper/pull/1990#discussion_r409438806
 COPY ./pom.xml ./default_gh_config.yaml ./nationwide_gh_config.yaml ./config-proxy.yaml ./
 
