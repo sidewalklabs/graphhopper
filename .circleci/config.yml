@@ -5,14 +5,6 @@
 version: 2.1
 
 jobs:
-  test:
-    docker:
-      - image: cimg/openjdk:14.0.0
-    environment:
-      MAVEN_OPTS: -Xmx1000m
-    steps:
-      - checkout
-      - run: mvn -s maven_settings.xml test
   publish-docker:
     docker:
       - image: google/cloud-sdk
@@ -36,6 +28,9 @@ jobs:
           name: Build image
           command: docker build --build-arg GRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN --build-arg GIT_USER_ID=$GIT_USER_ID --build-arg GIT_PERSONAL_ACCESS=$GIT_PERSONAL_ACCESS . -f Dockerfile.model -t us.gcr.io/model-159019/gh:$(cat /tmp/tag)
       - run:
+          name: Run Tests
+          command: docker run us.gcr.io/model-159019/gh:$(cat /tmp/tag) mvn test
+      - run:
           name: Push image
           command: gcloud docker -- push us.gcr.io/model-159019/gh:$(cat /tmp/tag)
 
@@ -44,6 +39,3 @@ workflows:
   build-and-publish:
     jobs:
       - publish-docker
-  test:
-    jobs:
-      - test
