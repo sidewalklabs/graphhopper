@@ -49,4 +49,5 @@ RUN rm -r grpc
 COPY --from=node-build ./graphhopper/grpc ./grpc
 
 RUN mvn -s maven_settings.xml --projects grpc -am -DskipTests=true package && \
-    mvn -s maven_settings.xml --projects web -am -DskipTests=true package
+    mvn -s maven_settings.xml --projects web -am -DskipTests=true package && \
+    mvn test
