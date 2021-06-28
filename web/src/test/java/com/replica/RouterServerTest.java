@@ -17,10 +17,6 @@
  */
 package com.replica;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Timestamp;
 import com.graphhopper.GraphHopper;
@@ -29,59 +25,36 @@ import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.gtfs.PtRouter;
 import com.graphhopper.gtfs.PtRouterImpl;
 import com.graphhopper.gtfs.RealtimeFeed;
-import com.graphhopper.http.GraphHopperApplication;
-import com.graphhopper.http.GraphHopperBundle;
 import com.graphhopper.http.GraphHopperManaged;
-import com.graphhopper.http.GraphHopperServerConfiguration;
-import com.graphhopper.http.cli.GtfsLinkMapperCommand;
-import com.graphhopper.http.cli.ImportCommand;
-import com.graphhopper.jackson.GraphHopperConfigModule;
-import com.graphhopper.jackson.Jackson;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
-import com.graphhopper.util.Helper;
-import io.dropwizard.cli.Cli;
-import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
-import io.dropwizard.util.JarLocation;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.protobuf.services.ProtoReflectionService;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import router.RouterOuterClass;
 
 import java.io.File;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Tests the entire server, not the server implementation itself, so that the plugging-together
  * of stuff (which is different for PT than for the rest) is under test, too.
  */
 @ExtendWith(DropwizardExtensionsSupport.class)
-public class RouterServerTest {
-    private static final String TARGET_DIR = "./target/gtfs-app-gh/";
-    private static final String TRANSIT_DATA_DIR = "transit_data/";
-    private static final String TEST_GRAPHHOPPER_CONFIG_PATH = "../test_gh_config.yaml";
-    private static final String TEST_REGION_NAME = "mini_kc";
-    private static final String TEST_GTFS_FILE_NAME = "mini_kc_gtfs.tar";
-
+public class RouterServerTest extends ReplicaGraphHopperTest {
     private static final Timestamp EARLIEST_DEPARTURE_TIME =
             Timestamp.newBuilder().setSeconds(Instant.parse("2017-07-21T08:25:00Z").toEpochMilli() / 1000).build();
     private static final double[] REQUEST_ODS =
@@ -97,18 +70,8 @@ public class RouterServerTest {
     private static GraphHopperConfig graphHopperConfiguration = null;
     private static router.RouterGrpc.RouterBlockingStub routerStub = null;
 
-    private static GraphHopperManaged loadGraphhopper() throws Exception {
-        ObjectMapper yaml = Jackson.initObjectMapper(new ObjectMapper(new YAMLFactory()));
-        yaml.registerModule(new GraphHopperConfigModule());
-        JsonNode yamlNode = yaml.readTree(new File(TEST_GRAPHHOPPER_CONFIG_PATH));
-        graphHopperConfiguration = yaml.convertValue(yamlNode.get("graphhopper"), GraphHopperConfig.class);
-        ObjectMapper json = Jackson.newObjectMapper();
-        GraphHopperManaged graphHopperManaged = new GraphHopperManaged(graphHopperConfiguration, json);
-        graphHopperManaged.start();
-        return graphHopperManaged;
-    }
-
-    private static void startTestServer() throws Exception {
+    @BeforeAll
+    public static void startTestServer() throws Exception {
         // Load Graphhopper using already-built graph files
         GraphHopperManaged graphHopperManaged = loadGraphhopper();
 
@@ -151,42 +114,6 @@ public class RouterServerTest {
                 .build();
 
         routerStub = router.RouterGrpc.newBlockingStub(channel);
-    }
-
-    @BeforeAll
-    public static void setUp() throws Exception {
-        // Fresh target + transit_dir directories
-        Helper.removeDir(new File(TARGET_DIR));
-        Helper.removeDir(new File(TRANSIT_DATA_DIR));
-        // Create new empty directory for GTFS/OSM resources
-        File transitDataDir = new File(TRANSIT_DATA_DIR);
-        if (transitDataDir.exists()) {
-            throw new IllegalStateException(TRANSIT_DATA_DIR + " directory should not already exist.");
-        }
-        Preconditions.checkState(transitDataDir.mkdir(), "could not create directory " + TRANSIT_DATA_DIR);
-
-        // Setup necessary mock
-        final JarLocation location = mock(JarLocation.class);
-        when(location.getVersion()).thenReturn(Optional.of("1.0.0"));
-
-        // Add commands you want to test
-        final Bootstrap<GraphHopperServerConfiguration> bootstrap = new Bootstrap<>(new GraphHopperApplication());
-        bootstrap.addBundle(new GraphHopperBundle());
-        bootstrap.addCommand(new ImportCommand());
-        bootstrap.addCommand(new GtfsLinkMapperCommand());
-
-        // Run commands to build graph and GTFS link mappings for test region
-        Cli cli = new Cli(location, bootstrap, System.out, System.err);
-        cli.run("import", TEST_GRAPHHOPPER_CONFIG_PATH);
-        cli.run("gtfs_links", TEST_GRAPHHOPPER_CONFIG_PATH);
-
-        startTestServer();
-    }
-
-    @AfterAll
-    public static void cleanUp() {
-        Helper.removeDir(new File(TARGET_DIR));
-        Helper.removeDir(new File(TRANSIT_DATA_DIR));
     }
 
     private static RouterOuterClass.StreetRouteRequest createStreetRequest(String mode, boolean alternatives) {
