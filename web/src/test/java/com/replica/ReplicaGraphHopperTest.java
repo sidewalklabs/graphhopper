@@ -37,6 +37,7 @@ public class ReplicaGraphHopperTest {
     protected static Bootstrap<GraphHopperServerConfiguration> bootstrap;
     protected static Cli cli;
     protected static GraphHopperConfig graphHopperConfiguration = null;
+    protected static GraphHopperManaged graphHopperManaged = null;
 
     @BeforeAll
     public static void setUp() {
@@ -71,6 +72,7 @@ public class ReplicaGraphHopperTest {
     public static void cleanUp() {
         Helper.removeDir(new File(TARGET_DIR));
         Helper.removeDir(new File(TRANSIT_DATA_DIR));
+        graphHopperManaged.getGraphHopper().close();
     }
 
     protected static GraphHopperManaged loadGraphhopper() throws Exception {
@@ -79,7 +81,7 @@ public class ReplicaGraphHopperTest {
         JsonNode yamlNode = yaml.readTree(new File(TEST_GRAPHHOPPER_CONFIG_PATH));
         graphHopperConfiguration = yaml.convertValue(yamlNode.get("graphhopper"), GraphHopperConfig.class);
         ObjectMapper json = Jackson.newObjectMapper();
-        GraphHopperManaged graphHopperManaged = new GraphHopperManaged(graphHopperConfiguration, json);
+        graphHopperManaged = new GraphHopperManaged(graphHopperConfiguration, json);
         graphHopperManaged.start();
         return graphHopperManaged;
     }

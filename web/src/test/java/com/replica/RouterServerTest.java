@@ -25,7 +25,6 @@ import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.gtfs.PtRouter;
 import com.graphhopper.gtfs.PtRouterImpl;
 import com.graphhopper.gtfs.RealtimeFeed;
-import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.routing.GHMatrixAPI;
 import com.graphhopper.routing.MatrixAPI;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -73,7 +72,7 @@ public class RouterServerTest extends ReplicaGraphHopperTest {
     @BeforeAll
     public static void startTestServer() throws Exception {
         // Load Graphhopper using already-built graph files
-        GraphHopperManaged graphHopperManaged = loadGraphhopper();
+        graphHopperManaged = loadGraphhopper();
 
         // Grab instances of auto/bike/ped router and PT router (if applicable)
         GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
