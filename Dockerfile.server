@@ -28,4 +28,4 @@ CMD java -server -Xms${HEAP_XMS_GB:-6}g -Xmx${HEAP_XMX_GB:-13}g \
   -Djava.rmi.server.hostname=127.0.0.1 \
   -XX:+UseG1GC -XX:MetaspaceSize=100M \
   -classpath grpc/target/graphhopper-grpc-1.0-SNAPSHOT.jar \
-  RouterServer default_gh_config.yaml
+  com.replica.RouterServer default_gh_config.yaml
