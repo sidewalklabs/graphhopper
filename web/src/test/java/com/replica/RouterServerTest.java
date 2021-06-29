@@ -20,7 +20,6 @@ package com.replica;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Timestamp;
 import com.graphhopper.GraphHopper;
-import com.graphhopper.GraphHopperConfig;
 import com.graphhopper.gtfs.GraphHopperGtfs;
 import com.graphhopper.gtfs.PtRouter;
 import com.graphhopper.gtfs.PtRouterImpl;
@@ -66,14 +65,10 @@ public class RouterServerTest extends ReplicaGraphHopperTest {
     private static final RouterOuterClass.StreetRouteRequest WALK_REQUEST =
             createStreetRequest("foot", false);
 
-    private static GraphHopperConfig graphHopperConfiguration = null;
     private static router.RouterGrpc.RouterBlockingStub routerStub = null;
 
     @BeforeAll
     public static void startTestServer() throws Exception {
-        // Load Graphhopper using already-built graph files
-        graphHopperManaged = loadGraphhopper();
-
         // Grab instances of auto/bike/ped router and PT router (if applicable)
         GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
         PtRouter ptRouter = null;

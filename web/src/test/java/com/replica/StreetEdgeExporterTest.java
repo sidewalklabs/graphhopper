@@ -1,7 +1,6 @@
 package com.replica;
 
 import com.graphhopper.GraphHopper;
-import com.graphhopper.http.GraphHopperManaged;
 import com.graphhopper.replica.StreetEdgeExportRecord;
 import com.graphhopper.replica.StreetEdgeExporter;
 import com.graphhopper.routing.util.AllEdgesIterator;
@@ -29,19 +28,16 @@ public class StreetEdgeExporterTest extends ReplicaGraphHopperTest {
     public void testExportEndToEnd() throws IOException {
         cli.run("export", TEST_GRAPHHOPPER_CONFIG_PATH);
         CSVFormat format = StreetEdgeExporter.CSV_FORMAT;
-        File expectedOutputLocation = new File(TARGET_DIR + "street_edges.csv");
+        File expectedOutputLocation = new File(GRAPH_FILES_DIR + "street_edges.csv");
         CSVParser parser = CSVParser.parse(expectedOutputLocation, StandardCharsets.UTF_8, format);
         List<CSVRecord> records = parser.getRecords();
-        assertEquals(769, records.size());
+        assertEquals(1869, records.size());
     }
 
     @Test
     public void testExportSingleRecord() throws Exception {
         // TODO copied from ExportCommand
-        // Read in pre-built GH graph files from /transit_data/graphhopper
-        final GraphHopperManaged graphHopper = loadGraphhopper();
-        GraphHopper configuredGraphHopper = graphHopper.getGraphHopper();
-        configuredGraphHopper.load(configuredGraphHopper.getGraphHopperLocation());
+        GraphHopper configuredGraphHopper = graphHopperManaged.getGraphHopper();
 
         // Load OSM info needed for export from MapDB database file
         DB db = DBMaker.newFileDB(new File("transit_data/osm_info.db")).readOnly().make();
