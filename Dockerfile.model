@@ -69,6 +69,8 @@ EXPOSE 50051
 EXPOSE 8998
 EXPOSE 9010
 
+ENV GRPC_VERBOSITY=DEBUG
+
 CMD java -server -Xms${HEAP_XMS_GB:-6}g -Xmx${HEAP_XMX_GB:-13}g \
   -Dcom.sun.management.jmxremote \
   -Dcom.sun.management.jmxremote.authenticate=false \
