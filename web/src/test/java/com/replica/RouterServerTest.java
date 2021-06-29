@@ -53,8 +53,10 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class RouterServerTest extends ReplicaGraphHopperTest {
+    // Departure time + ODs are chosen for mini_kc test area, with a validity start date of
+    // 2018-02-04, and a bbox of -94.83546491344568,-94.57853983145668,38.88341685123928,39.102208929558294
     private static final Timestamp EARLIEST_DEPARTURE_TIME =
-            Timestamp.newBuilder().setSeconds(Instant.parse("2017-07-21T08:25:00Z").toEpochMilli() / 1000).build();
+            Timestamp.newBuilder().setSeconds(Instant.parse("2018-02-04T08:25:00Z").toEpochMilli() / 1000).build();
     private static final double[] REQUEST_ODS =
             {38.96637569955874, -94.70833304570988, 38.959204519370815, -94.69174071738964};
     private static final RouterOuterClass.PtRouteRequest PT_REQUEST = createPtRequest();
@@ -69,7 +71,7 @@ public class RouterServerTest extends ReplicaGraphHopperTest {
 
     @BeforeAll
     public static void startTestServer() throws Exception {
-        // Grab instances of auto/bike/ped router and PT router (if applicable)
+        // Grab instances of auto/bike/ped router and PT router
         GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
         PtRouter ptRouter = null;
         if (graphHopper instanceof GraphHopperGtfs) {
