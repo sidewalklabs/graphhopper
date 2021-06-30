@@ -145,7 +145,7 @@ public class RouterServer {
                 .maxConnectionAge(userDefinedProperties.getOrDefault("CONN_TIME_MAX_AGE_SECS", defaultProperties.get("CONN_TIME_MAX_AGE_SECS")), TimeUnit.SECONDS)
                 .maxConnectionAgeGrace(userDefinedProperties.getOrDefault("CONN_TIME_GRACE_PERIOD_SECS", defaultProperties.get("CONN_TIME_GRACE_PERIOD_SECS")), TimeUnit.SECONDS)
                 .maxConcurrentCallsPerConnection(userDefinedProperties.getOrDefault("MAX_CONC_CALLS_PER_CONN", defaultProperties.get("MAX_CONC_CALLS_PER_CONN")))
-                .executor(Executors.newFixedThreadPool(userDefinedProperties.getOrDefault("SERVER_THREADS", defaultProperties.get("SERVER_THREADS"))))
+                .executor(Executors.newWorkStealingPool(userDefinedProperties.getOrDefault("SERVER_THREADS", defaultProperties.get("SERVER_THREADS"))))
                 .workerEventLoopGroup(new NioEventLoopGroup(userDefinedProperties.getOrDefault("WORKER_EVENT_LOOP_THREADS", defaultProperties.get("WORKER_EVENT_LOOP_THREADS"))))
                 .bossEventLoopGroup(new NioEventLoopGroup(userDefinedProperties.getOrDefault("BOSS_EVENT_LOOP_THREADS", defaultProperties.get("BOSS_EVENT_LOOP_THREADS"))))
                 .channelType(NioServerSocketChannel.class)
