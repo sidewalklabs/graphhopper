@@ -304,6 +304,10 @@ public class RouterImpl extends router.RouterGrpc.RouterImplBase {
                         .filter(leg -> leg.type.equals("walk"))
                         .collect(toList());
 
+                if (walkLegs.size() != 2) {
+                    continue;
+                }
+                
                 Trip.WalkLeg firstLeg = (Trip.WalkLeg) walkLegs.get(0);
                 Trip.WalkLeg lastLeg = (Trip.WalkLeg) walkLegs.get(1);
 
