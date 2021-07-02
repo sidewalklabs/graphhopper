@@ -151,6 +151,8 @@ public class RouterServer {
                 .channelType(NioServerSocketChannel.class)
                 .keepAliveTime(userDefinedProperties.getOrDefault("KEEP_ALIVE_TIME_SECS", defaultProperties.get("KEEP_ALIVE_TIME_SECS")), TimeUnit.SECONDS)
                 .keepAliveTimeout(userDefinedProperties.getOrDefault("KEEP_ALIVE_TIMEOUT_SECS", defaultProperties.get("KEEP_ALIVE_TIMEOUT_SECS")), TimeUnit.SECONDS)
+                .permitKeepAliveWithoutCalls(true)
+                .permitKeepAliveTime(10, TimeUnit.SECONDS)
                 .flowControlWindow(userDefinedProperties.getOrDefault("FLOW_CONTROL_WINDOW_BYTES", defaultProperties.get("FLOW_CONTROL_WINDOW_BYTES")))
                 .maxConnectionIdle(5, TimeUnit.MINUTES)
                 .build()
