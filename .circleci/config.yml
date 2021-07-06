@@ -36,9 +36,33 @@ jobs:
       - run:
           name: Push image
           command: gcloud docker -- push us.gcr.io/model-159019/gh:$(cat /tmp/tag)
-
+  functional-test:
+    docker:
+      - image: google/cloud-sdk
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - run: git submodule sync
+      - run: git submodule update --init
+      - run: &setup_gcloud
+          name: Setup gcloud
+          command: |
+            echo ${GCLOUD_SERVICE_KEY} | base64 -d > ${HOME}/gcp-key.json
+            gcloud auth activate-service-account --key-file ${HOME}/gcp-key.json
+            gcloud --quiet config set project model-159019
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+        name: Install deps
+        command: apt-get install grpcurl jq
+      - run:
+        name: Run functional test
+        command: ./functional_test.sh $(git rev-parse --short=8 HEAD)
 workflows:
   version: 2
   build-and-publish:
     jobs:
       - publish-docker
+      - functional-test:
+        requires:
+          - publish-docker
