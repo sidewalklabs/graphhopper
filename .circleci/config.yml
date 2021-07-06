@@ -53,16 +53,16 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
-        name: Install deps
-        command: apt-get install grpcurl jq
+          name: Install deps
+          command: apt-get install grpcurl jq
       - run:
-        name: Run functional test
-        command: ./functional_test.sh $(git rev-parse --short=8 HEAD)
+          name: Run functional test
+          command: ./functional_test.sh $(git rev-parse --short=8 HEAD)
 workflows:
   version: 2
   build-and-publish:
     jobs:
       - publish-docker
       - functional-test:
-        requires:
-          - publish-docker
+          requires:
+            - publish-docker
