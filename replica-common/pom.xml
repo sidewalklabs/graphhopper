@@ -19,7 +19,7 @@
         <dependency>
             <groupId>com.graphhopper</groupId>
             <artifactId>graphhopper-matrix</artifactId>
-            <version>3.0-replica3</version>
+            <version>3.0-replica4</version>
         </dependency>
     </dependencies>
 
