@@ -53,7 +53,10 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
-          name: Install deps
+          name: Install apt packages
+          command: apt-get install wget jq
+      - run:
+          name: Install grpcurl
           command: wget https://github.com/fullstorydev/grpcurl/releases/download/v1.1.0/grpcurl_1.1.0_linux_x86_64.tar.gz && tar -xvzf grpcurl_1.1.0_linux_x86_64.tar.gz && chmod +x grpcurl && mv grpcurl /usr/local/bin/grpcurl
       - run:
           name: Run functional test
