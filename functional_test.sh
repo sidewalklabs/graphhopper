@@ -49,4 +49,18 @@ grpcurl -d @ -plaintext localhost:50051 router.Router/RouteStreetMode <<EOM
 }
 EOM
 
+# Make a PT request too
+grpcurl -d @ -plaintext localhost:50051 router.Router/RoutePt <<EOM
+{
+"points":[{"lat":38.96637569955874,"lon":-94.70833304570988},{"lat":38.959204519370815,"lon":-94.69174071738964}],
+"earliest_departure_time":"2018-02-04T08:25:00Z",
+"limit_solutions":4,
+"max_profile_duration":10,
+"beta_walk_time":1.5,
+"limit_street_time_seconds":1440,
+"use_pareto":false,
+"betaTransfers":1440000
+}
+EOM
+
 docker kill functional_test_server
