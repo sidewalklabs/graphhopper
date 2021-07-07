@@ -42,15 +42,21 @@ echo "Waiting for graphhopper server to start up"
 sleep 30
 
 # Make a request for a couple of points in the minikc region
-grpcurl -d @ -plaintext localhost:50051 router.Router/RouteStreetMode <<EOM
+grpcurl -d @ -plaintext localhost:50051 router.Router/RouteStreetMode > "$TMPDIR"/street_response.json <<EOM
 {
 "points":[{"lat":38.96637569955874,"lon":-94.70833304570988},{"lat":38.959204519370815,"lon":-94.69174071738964}],
 "profile": "car"
 }
 EOM
 
+if ! [ -s "$TMPDIR"/street_response.json ] || ! jq -e .paths < "$TMPDIR"/street_response.json; then
+    echo "Street response empty or not valid json:"
+    cat "$TMPDIR"/street_response.json
+    exit 1
+fi
+
 # Make a PT request too
-grpcurl -d @ -plaintext localhost:50051 router.Router/RoutePt <<EOM
+grpcurl -d @ -plaintext localhost:50051 router.Router/RoutePt  > "$TMPDIR"/pt_response.json <<EOM
 {
 "points":[{"lat":38.96637569955874,"lon":-94.70833304570988},{"lat":38.959204519370815,"lon":-94.69174071738964}],
 "earliest_departure_time":"2018-02-04T08:25:00Z",
@@ -62,5 +68,11 @@ grpcurl -d @ -plaintext localhost:50051 router.Router/RoutePt <<EOM
 "betaTransfers":1440000
 }
 EOM
+
+if ! [ -s "$TMPDIR"/pt_response.json ] || ! jq -e .paths < "$TMPDIR"/pt_response.json; then
+    echo "PT response empty or not valid json:"
+    cat "$TMPDIR"/pt_response.json
+    exit 1
+fi
 
 docker kill functional_test_server
