@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set +ex
+
 if [ "$#" -lt 1 ]; then
     echo "Usage: functional_test.sh TAG"
     exit 1
@@ -13,7 +15,7 @@ TMPDIR=$(mktemp -d)
 # where your credentials will be populated.
 DOCKER_IMAGE_TAG="us.gcr.io/model-159019/gh:$TAG"
 
-# Import cmd
+# Import data into graphhopper's internal format
 docker run \
     -v "$(pwd)/web/test-data/:/graphhopper/test-data/" \
     -v "$TMPDIR:/graphhopper/transit_data/"\
@@ -23,6 +25,14 @@ docker run \
      -Ddw.graphhopper.datareader.file=test-data/kansas-city-extract-mini.osm.pbf \
      -Ddw.graphhopper.gtfs.file=test-data/mini_kc_gtfs.tar \
      -classpath web/target/graphhopper-web-1.0-SNAPSHOT.jar -server com.graphhopper.http.GraphHopperApplication import default_gh_config.yaml
+
+# Run link-mapping step
+docker run \
+    -v "$TMPDIR:/graphhopper/transit_data/"\
+    --rm \
+    "$DOCKER_IMAGE_TAG" \
+    java -Xmx2g -Xms1g -XX:+UseG1GC -XX:MetaspaceSize=100M \
+    -classpath web/target/graphhopper-web-1.0-SNAPSHOT.jar com.graphhopper.http.GraphHopperApplication gtfs_links default_gh_config.yaml
 
 # Run server in background
 docker run --rm  --name functional_test_server -p 50051:50051 -p 8998:8998 -v "$TMPDIR:/graphhopper/transit_data/" \
