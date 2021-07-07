@@ -53,6 +53,9 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
+          name: Pull image
+          command: gcloud docker -- pull us.gcr.io/model-159019/gh:$(git rev-parse --short=8 HEAD)
+      - run:
           name: Install apt packages
           command: apt-get install -y wget jq
       - run:
