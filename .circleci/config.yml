@@ -36,7 +36,6 @@ jobs:
       - run:
           name: Push image
           command: gcloud docker -- push us.gcr.io/model-159019/gh:$(cat /tmp/tag)
-
 workflows:
   version: 2
   build-and-publish:
