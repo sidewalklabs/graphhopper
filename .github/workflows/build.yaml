@@ -48,7 +48,7 @@ jobs:
         with:
           context: .
           push: true
-          file: Dockerfile
+          file: Dockerfile.build
           tags: "us.gcr.io/model-159019/graphhopper:${{ github.sha }}"
           build-args: GIT_SHA=${{ github.sha }}
           # cache-from: type=local,src=/tmp/.buildx-cache
