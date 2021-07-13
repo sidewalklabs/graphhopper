@@ -50,8 +50,11 @@ jobs:
           push: true
           file: Dockerfile.build
           tags: "us.gcr.io/model-159019/graphhopper:${{ github.sha }}"
-          build-args: GRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN          # cache-from: type=local,src=/tmp/.buildx-cache
+          build-args: GRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN, GIT_PERSONAL_ACCESS=$GIT_PERSONAL_ACCESS , GIT_USER_ID=$GIT_USER_ID
+             # cache-from: type=local,src=/tmp/.buildx-cache
           # cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+
       # - name: Caching workaround
       #   # Temp fix
       #   # https://github.com/docker/build-push-action/issues/252
