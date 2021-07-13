@@ -14,7 +14,7 @@ jobs:
           SSH_KEY_FOR_SUBMODULE: ${{secrets.SUBMODULE_GITHUB_KEY}}
         #the step below set the ssh key for the run
         run: |
-          mkdir -p /home/runner/.ssh && touch /home/runner/.ssh/id_rsa && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa && chmod 600 $HOME/.ssh/id_rsa &&  git submodule sync && git submodule --quiet update --init
+          mkdir -p /home/runner/.ssh && touch /home/runner/.ssh/id_rsa && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa && chmod 600 $HOME/.ssh/id_rsa &&  git submodule sync && git submodule --quiet update --init &&  echo `git rev-parse --short=8 HEAD ` > TAG.txt
       - name: Login to GCP
         # Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v0.2.0
@@ -46,12 +46,10 @@ jobs:
       - name: Build and push to GCR
         uses: docker/build-push-action@v2
         with:
-          env:
-          TAG: `git rev-parse --short=8 HEAD`
           context: .
           push: true
           file: Dockerfile.build
-          tags: "us.gcr.io/model-159019/graphhopper:${{TAG}}"
+          tags: "us.gcr.io/model-159019/graphhopper:${{cat TAG.txt}}"
           build-args: GRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN          # cache-from: type=local,src=/tmp/.buildx-cache
           # cache-to: type=local,dest=/tmp/.buildx-cache-new
       # - name: Caching workaround
