@@ -49,7 +49,7 @@ jobs:
           context: .
           push: true
           file: Dockerfile.build
-          tags: "us.gcr.io/model-159019/graphhopper:${{ cat TAG.txt }}"
+          tags: "us.gcr.io/model-159019/graphhopper:${{ github.sha }}"
           build-args: GRAPHHOPPER_TOKEN=$GRAPHHOPPER_TOKEN          # cache-from: type=local,src=/tmp/.buildx-cache
           # cache-to: type=local,dest=/tmp/.buildx-cache-new
       # - name: Caching workaround
